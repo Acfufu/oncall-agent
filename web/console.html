@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>oncall-agent v0.2 控制台</title>
+<style>body{font-family:system-ui,sans-serif;max-width:900px;margin:24px auto;padding:0 16px}nav button{margin:4px 4px 4px 0}section{border:1px solid #ddd;padding:12px;margin:12px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #ccc;padding:6px;text-align:left}input,textarea{width:100%;margin:4px 0;box-sizing:border-box}textarea{min-height:80px}button{margin:4px 4px 4px 0}pre{background:#f4f4f4;padding:8px;white-space:pre-wrap;word-break:break-word}.err{color:#c00}.muted{color:#666;font-size:13px}</style>
+</head>
+<body>
+<h1>oncall-agent v0.2 控制台</h1>
+<nav>
+<button id="tKb">知识库</button>
+<button id="tSearch">检索预览</button>
+<button id="tEval">评测占位</button>
+</nav>
+<p id="err" class="err"></p>
+
+<section id="kb">
+<h2>知识库</h2>
+<div>
+<button id="bList">刷新列表</button>
+<button id="bReindex">重载 demo</button>
+</div>
+<pre id="kbList">(列表区：/list 回包原样展示)</pre>
+<h3>上传</h3>
+<input id="upTitle" placeholder="标题（即故障名）">
+<textarea id="upContent" placeholder="markdown 正文"></textarea>
+<div><button id="bUp">上传 /upload {title,content}</button></div>
+<h3>删除</h3>
+<input id="delTitle" placeholder="标题">
+<div><button id="bDel">删除 /delete?title=</button></div>
+<p class="muted">仅清注册表、向量残留，真删 v0.3</p>
+<p id="kbMsg" class="err"></p>
+</section>
+
+<section id="search" style="display:none">
+<h2>检索预览</h2>
+<input id="q" placeholder="输入问题，如：CPU 使用率过高怎么排查？">
+<div>
+<button id="bChat">问答 /chat</button>
+<button id="bPlan">诊断 /plan</button>
+</div>
+<h3>回答</h3>
+<pre id="ans">(回答区)</pre>
+<h3>引用</h3>
+<pre id="refs">(引用区：回包 citations 原样展示，无匹配明示不编造)</pre>
+</section>
+
+<section id="eval" style="display:none">
+<h2>评测占位</h2>
+<table>
+<tr><th>配置</th><th>recall@3</th><th>说明</th></tr>
+<tr><td>单路稠密 + 标题加权（v0.1 基线）</td><td>--</td><td>跑脚本后填数</td></tr>
+<tr><td>混合检索（v0.2+）</td><td>--</td><td>未接入，后端无此接口</td></tr>
+<tr><td>重排（v0.2+）</td><td>--</td><td>未接入，后端无此接口</td></tr>
+</table>
+<p class="muted">占位：后端暂无评测接口，不虚构数据。</p>
+</section>
+
+<script>
+var err = document.getElementById('err');
+var kbMsg = document.getElementById('kbMsg');
+var ans = document.getElementById('ans');
+var refs = document.getElementById('refs');
+function showErr(m) { err.textContent = m || ''; }
+function showKbMsg(m) { kbMsg.textContent = m || ''; }
+function show(id) {
+  ['kb','search','eval'].forEach(function (x) { document.getElementById(x).style.display = x === id ? '' : 'none'; });
+  showErr('');
+}
+document.getElementById('tKb').onclick = function () { show('kb'); };
+document.getElementById('tSearch').onclick = function () { show('search'); };
+document.getElementById('tEval').onclick = function () { show('eval'); };
+function pickAnswer(d) {
+  if (typeof d === 'string') return d;
+  return d.diagnosis || d.answer || d.reply || d.text || d.result || JSON.stringify(d);
+}
+function pickCites(d) {
+  var c = d.citations || d.refs || d.references || [];
+  if (!Array.isArray(c)) return [String(c)];
+  return c.map(function (x) { return typeof x === 'string' ? x : JSON.stringify(x); });
+}
+function doList() {
+  showKbMsg('');
+  fetch('/list').then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { showKbMsg(d.error || ('请求失败: ' + r.status)); return; }
+      if (d.error) { showKbMsg(d.error); return; }
+      document.getElementById('kbList').textContent = JSON.stringify(d, null, 2);
+    });
+  }).catch(function (e) { showKbMsg('请求失败: ' + e); });
+}
+document.getElementById('bList').onclick = doList;
+document.getElementById('bReindex').onclick = function () {
+  showKbMsg('');
+  fetch('/reindex', {method: 'POST'}).then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { showKbMsg(d.error || ('请求失败: ' + r.status)); return; }
+      if (d.error) { showKbMsg(d.error); return; }
+      showKbMsg(JSON.stringify(d));
+      doList();
+    });
+  }).catch(function (e) { showKbMsg('请求失败: ' + e); });
+};
+document.getElementById('bUp').onclick = function () {
+  showKbMsg('');
+  fetch('/upload', {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({title: document.getElementById('upTitle').value, content: document.getElementById('upContent').value})
+  }).then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { showKbMsg(d.error || ('请求失败: ' + r.status)); return; }
+      if (d.error) { showKbMsg(d.error); return; }
+      showKbMsg(JSON.stringify(d));
+      doList();
+    });
+  }).catch(function (e) { showKbMsg('请求失败: ' + e); });
+};
+document.getElementById('bDel').onclick = function () {
+  showKbMsg('');
+  fetch('/delete?title=' + encodeURIComponent(document.getElementById('delTitle').value), {method: 'DELETE'}).then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { showKbMsg(d.error || ('请求失败: ' + r.status)); return; }
+      if (d.error) { showKbMsg(d.error); return; }
+      showKbMsg(JSON.stringify(d));
+      doList();
+    });
+  }).catch(function (e) { showKbMsg('请求失败: ' + e); });
+};
+document.getElementById('bChat').onclick = function () {
+  showErr('');
+  ans.textContent = '请求中…';
+  refs.textContent = '';
+  fetch('/chat', {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({message: document.getElementById('q').value})
+  }).then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { showErr(d.error || ('请求失败: ' + r.status)); ans.textContent = ''; return; }
+      if (d.error) { showErr(d.error); ans.textContent = ''; return; }
+      ans.textContent = pickAnswer(d);
+      refs.textContent = pickCites(d).join('\n---\n') || '(无引用：知识库无匹配，不编造)';
+    });
+  }).catch(function (e) { showErr('请求失败: ' + e); ans.textContent = ''; });
+};
+document.getElementById('bPlan').onclick = function () {
+  showErr('');
+  ans.textContent = '诊断中…';
+  refs.textContent = '';
+  fetch('/plan').then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { showErr(d.error || ('请求失败: ' + r.status)); ans.textContent = ''; return; }
+      if (d.error) { showErr(d.error); ans.textContent = ''; return; }
+      ans.textContent = pickAnswer(d);
+      refs.textContent = pickCites(d).join('\n---\n') || '(无引用：知识库无匹配，不编造)';
+    });
+  }).catch(function (e) { showErr('请求失败: ' + e); ans.textContent = ''; });
+};
+doList();
+</script>
+</body>
+</html>
