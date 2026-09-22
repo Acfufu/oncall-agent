@@ -28,11 +28,16 @@ type Result struct {
 	Score   float32 `json:"score"`
 }
 
+// DefaultFloor 为稠密余弦下限默认（0=关闭；校准值由服务显式设置）。
+const DefaultFloor float32 = 0
+
 // RAG 组合 vector store + embedder + 内存 BM25 镜像，对外提供 AddDoc / Search。
 type RAG struct {
 	store *store.VectorStore
 	embed Embedder
 	bm    *bm25Index
+	// Floor 为融合后 Score 下限；低于者丢弃（真拒答）。0 关闭。
+	Floor float32
 }
 
 // New 构造 RAG，embed 为 nil 时用离线 HashEmbedder。
@@ -191,6 +196,11 @@ func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 	hits, err := r.store.Search(qv, fetchK)
 	if err != nil {
 		return nil, err
+	}
+	// 稠密门控：最佳余弦低于 Floor 整查返回空（真拒答）。BM25 只做召回增强，
+	// 不单独撑起命中（融合分不可切，7 库实测重叠）。
+	if r.Floor > 0 && (len(hits) == 0 || hits[0].Score < r.Floor) {
+		return nil, nil
 	}
 	bhits := r.bm.search(query, fetchK)
 	if len(hits) == 0 && len(bhits) == 0 {

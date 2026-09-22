@@ -43,6 +43,7 @@ func main() {
 		log.Printf("warn: ensure collection failed: %v", err)
 	}
 	r := rag.New(s, emb)
+	r.Floor = rag.DefaultFloor
 
 	h := handler.New(s, r, "aiops-docs-demo")
 	handler.SetChatAgent(agent.NewReAct(cfg.OpenAI.APIBase, cfg.OpenAI.APIKey, cfg.OpenAI.Model, tool.NewDeps(r, cfg.Prometheus.URL)))
