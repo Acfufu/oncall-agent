@@ -99,6 +99,18 @@ func main() {
 			limit = n
 		}
 	}
+	noRerank := strings.TrimSpace(os.Getenv("EVAL_NORERANK")) == "1"
+	if v := strings.TrimSpace(os.Getenv("EVAL_FLOOR")); v != "" {
+		if f, err := strconv.ParseFloat(v, 32); err == nil && f > 0 {
+			r.Floor = float32(f)
+		}
+	}
+	topScore := func(rs []rag.Result) float32 {
+		if len(rs) == 0 {
+			return 0
+		}
+		return rs[0].Score
+	}
 
 	hit, n, refuseOK, refuseN := 0, 0, 0, 0
 	rhit, rn, rerr := 0, 0, 0
@@ -127,7 +139,7 @@ func main() {
 			if len(hits) == 0 {
 				refuseOK++
 			}
-			fmt.Printf("REFUSE q=%.30s hits=%d\n", q.Question, len(hits))
+			fmt.Printf("REFUSE q=%.30s hits=%d top=%.4f\n", q.Question, len(hits), topScore(hits))
 			continue
 		}
 		n++
@@ -142,15 +154,17 @@ func main() {
 		if ok {
 			hit++
 		}
-		// 第三列：候选池→rerank→top3→命中判定。失败记 rerr，原序不炸。
+		// 第三列：候选池→rerank→与 hybrid 序 RRF 护栏融合→top3→命中判定。失败记 rerr，原序不炸。
 		rok := false
 		rnote := ""
 		pool, err := r.SearchPool(q.Question, poolN)
 		if err != nil {
 			rerr++
 			rnote = "pool_err"
+		} else if noRerank {
+			rnote = "skipped"
 		} else {
-			rr, rrkErr := ranker.Rerank(q.Question, pool, 3)
+			rr, rrkErr := ranker.Rerank(q.Question, pool, 0)
 			if rrkErr != nil {
 				rerr++
 				msg := rrkErr.Error()
@@ -159,11 +173,9 @@ func main() {
 				}
 				rnote = "rerank_fallback:" + msg
 			}
-			if len(rr) > 3 {
-				rr = rr[:3]
-			}
+			fused := rag.RerankFused(pool, rr, 3)
 			rn++
-			for _, h := range rr {
+			for _, h := range fused {
 				if h.Doc == want {
 					rok = true
 					rhit++
@@ -172,7 +184,7 @@ func main() {
 			}
 		}
 		_ = rnote
-		fmt.Printf("HIT=%v want=%.16s q=%.30s | RERANK_HIT=%v pool=%d %s\n", ok, want, q.Question, rok, len(pool), rnote)
+		fmt.Printf("HIT=%v want=%.16s q=%.30s top=%.4f | RERANK_HIT=%v pool=%d %s\n", ok, want, q.Question, topScore(hits), rok, len(pool), rnote)
 	}
 	if err := sc.Err(); err != nil {
 		log.Fatalf("scan dataset: %v", err)
