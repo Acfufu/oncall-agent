@@ -28,13 +28,20 @@ func main() {
 		httpPort = 6333
 	}
 	s := store.NewVectorFromHostPort(cfg.Qdrant.Host, httpPort, cfg.Qdrant.Collection)
-	if err := s.EnsureCollection(rag.Dim); err != nil {
+	var emb rag.Embedder = rag.SelectEmbedder(cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model)
+	// 探测真实向量维度；Hash 回退恒为 rag.Dim(64)，此时跳过重建避免误判。
+	dim := rag.Dim
+	if v, err := emb.Embed("dim-probe"); err == nil && len(v) != rag.Dim {
+		dim = len(v)
+	}
+	if cur, err := s.VectorSize(); err == nil && cur > 0 && cur != dim && dim != rag.Dim {
+		log.Printf("vector size mismatch (collection=%d, embedder=%d); recreating collection", cur, dim)
+		if err := s.RecreateCollection(dim); err != nil {
+			log.Printf("warn: recreate collection failed: %v", err)
+		}
+	} else if err := s.EnsureCollection(dim); err != nil {
 		log.Printf("warn: ensure collection failed: %v", err)
 	}
-	emb := rag.NewOllamaEmbedder(
-		fmt.Sprintf("http://%s:%d", cfg.Embedder.Host, cfg.Embedder.Port),
-		cfg.Embedder.Model,
-	)
 	r := rag.New(s, emb)
 
 	h := handler.New(s, r, "aiops-docs-demo")

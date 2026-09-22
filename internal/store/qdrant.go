@@ -135,6 +135,41 @@ func (s *VectorStore) EnsureCollection(vectorSize int) error {
 	return nil
 }
 
+// VectorSize 查 collection 当前向量维度；不存在或内存模式返回 0。
+func (s *VectorStore) VectorSize() (int, error) {
+	if s.IsMemOnly() {
+		return 0, fmt.Errorf("mem only")
+	}
+	var out struct {
+		Result struct {
+			Config struct {
+				Params struct {
+					Vectors struct {
+						Size int `json:"size"`
+					} `json:"vectors"`
+				} `json:"params"`
+			} `json:"config"`
+		} `json:"result"`
+	}
+	if err := s.doJSON(http.MethodGet, "/collections/"+s.collection, nil, &out); err != nil {
+		return 0, err
+	}
+	return out.Result.Config.Params.Vectors.Size, nil
+}
+
+// RecreateCollection 删后重建（embedder 维度变更时用，已获批清空重建）。
+func (s *VectorStore) RecreateCollection(vectorSize int) error {
+	if vectorSize <= 0 {
+		vectorSize = 64
+	}
+	var out map[string]any
+	_ = s.doJSON(http.MethodDelete, "/collections/"+s.collection, nil, &out)
+	s.mu.Lock()
+	s.mem = make(map[string]Point)
+	s.mu.Unlock()
+	return s.EnsureCollection(vectorSize)
+}
+
 // Upsert 写 point，同时镜像一份到内存供 fallback 用。
 func (s *VectorStore) Upsert(p Point) error {
 	s.mu.Lock()

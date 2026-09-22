@@ -5,9 +5,11 @@ package rag
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"hash/fnv"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -65,6 +67,64 @@ func (o *OllamaEmbedder) embedRemote(text string) ([]float32, error) {
 		return nil, err
 	}
 	return out.Embedding, nil
+}
+
+// OpenAIEmbedder 调 OpenAI 兼容 /v1/embeddings（LM Studio 等），body 为 {model, input}。
+type OpenAIEmbedder struct {
+	BaseURL string // 如 http://127.0.0.1:1234/v1
+	Model   string // 如 text-embedding-nomic-embed-text-v1.5
+	Client  *http.Client
+}
+
+// NewOpenAIEmbedder 构造 OpenAI 兼容 embedder。
+func NewOpenAIEmbedder(baseURL, model string) *OpenAIEmbedder {
+	if model == "" {
+		model = "text-embedding-nomic-embed-text-v1.5"
+	}
+	return &OpenAIEmbedder{BaseURL: strings.TrimRight(baseURL, "/"), Model: model, Client: &http.Client{Timeout: 15 * time.Second}}
+}
+
+// Embed 优先调远端，失败回退 HashEmbed（保证离线可跑）。
+func (o *OpenAIEmbedder) Embed(text string) ([]float32, error) {
+	vec, err := o.embedRemote(text)
+	if err == nil && len(vec) > 0 {
+		return vec, nil
+	}
+	return HashEmbed(text), nil
+}
+
+func (o *OpenAIEmbedder) embedRemote(text string) ([]float32, error) {
+	body, _ := json.Marshal(map[string]any{"model": o.Model, "input": text})
+	client := o.Client
+	if client == nil {
+		client = &http.Client{Timeout: 15 * time.Second}
+	}
+	resp, err := client.Post(o.BaseURL+"/embeddings", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Data []struct {
+			Embedding []float32 `json:"embedding"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if len(out.Data) == 0 {
+		return nil, errors.New("empty embedding data")
+	}
+	return out.Data[0].Embedding, nil
+}
+
+// SelectEmbedder 按端口选协议：1234 走 OpenAI 兼容（LM Studio），其余走 Ollama。
+func SelectEmbedder(host string, port int, model string) Embedder {
+	base := "http://" + host + ":" + strconv.Itoa(port)
+	if port == 1234 {
+		return NewOpenAIEmbedder(base+"/v1", model)
+	}
+	return NewOllamaEmbedder(base, model)
 }
 
 // HashEmbedder 纯离线确定性 embedder（测试 / 无 Ollama 环境）。
