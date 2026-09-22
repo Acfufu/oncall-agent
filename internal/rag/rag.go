@@ -1,4 +1,4 @@
-// Package rag 单路稠密召回 + 标题加权（v0.1）。无 Hybrid/BM25/Rerank。
+// Package rag 稠密召回 + 内存 BM25 经 RRF 融合的 Hybrid 检索（v0.2）+ 标题加权。
 package rag
 
 import (
@@ -28,10 +28,11 @@ type Result struct {
 	Score   float32 `json:"score"`
 }
 
-// RAG 组合 vector store + embedder，对外提供 AddDoc / Search。
+// RAG 组合 vector store + embedder + 内存 BM25 镜像，对外提供 AddDoc / Search。
 type RAG struct {
 	store *store.VectorStore
 	embed Embedder
+	bm    *bm25Index
 }
 
 // New 构造 RAG，embed 为 nil 时用离线 HashEmbedder。
@@ -39,7 +40,7 @@ func New(s *store.VectorStore, e Embedder) *RAG {
 	if e == nil {
 		e = HashEmbedder{}
 	}
-	return &RAG{store: s, embed: e}
+	return &RAG{store: s, embed: e, bm: newBM25Index()}
 }
 
 // ChunkMarkdown 按 md 标题切分：一级标题为文档标题（故障名），
@@ -135,7 +136,9 @@ func TitleBoost(score float32, query, title string) float32 {
 	return score
 }
 
-// AddDoc 切分 md 并写入 store，point id 为 doc+序号 hash。
+// AddDoc 切分 md 并写入 store，point id 为 doc+序号 hash；
+// 同步镜像 chunk 到内存 BM25（同 ID 键覆盖。注：删档残留不清理，
+// 语料删除需重启进程重建镜像）。
 func (r *RAG) AddDoc(doc, md string) error {
 	chunks := ChunkMarkdown(doc, md)
 	for i, c := range chunks {
@@ -144,8 +147,10 @@ func (r *RAG) AddDoc(doc, md string) error {
 			return err
 		}
 		sum := md5.Sum([]byte(fmt.Sprintf("%s#%d#%s", doc, i, c.Snippet)))
+		id := fmt.Sprintf("%x", sum)
+		r.bm.upsert(id, doc, c.Title, c.Snippet)
 		if err := r.store.Upsert(store.Point{
-			ID:        fmt.Sprintf("%x", sum),
+			ID:        id,
 			Title:     c.Title,
 			Content:   "【" + doc + "】" + c.Snippet,
 			Embedding: vec,
@@ -156,11 +161,26 @@ func (r *RAG) AddDoc(doc, md string) error {
 	return nil
 }
 
-// Search 单路稠密召回 + 标题加权；无匹配返回空，不编造。
+// Search 稠密 + BM25 经 RRF(k=60) 融合再标题加权；无匹配返回空，不编造。
+// 稠密与 BM25 各取 topK*2，融合后按 RRF 分排序、TitleBoost 加权，截 topK。
 func (r *RAG) Search(query string, topK int) ([]Result, error) {
 	if topK <= 0 {
 		topK = 5
 	}
+	return r.searchFused(query, topK*2, topK)
+}
+
+// SearchPool 候选池版 Search：与 Search 同一套稠密+BM25 RRF 融合逻辑，
+// 仅截断数换成 poolN（供 LLM rerank 二排，评测链路用，不碰线上）。
+func (r *RAG) SearchPool(query string, poolN int) ([]Result, error) {
+	if poolN <= 0 {
+		poolN = 8
+	}
+	return r.searchFused(query, poolN*2, poolN)
+}
+
+// searchFused 融合检索内核：各路取 fetchK，融合加权后截 outK。
+func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 	if strings.TrimSpace(query) == "" {
 		return nil, nil
 	}
@@ -168,25 +188,60 @@ func (r *RAG) Search(query string, topK int) ([]Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	hits, err := r.store.Search(qv, topK*2)
+	hits, err := r.store.Search(qv, fetchK)
 	if err != nil {
 		return nil, err
 	}
-	if len(hits) == 0 {
+	bhits := r.bm.search(query, fetchK)
+	if len(hits) == 0 && len(bhits) == 0 {
 		return nil, nil
 	}
-	out := make([]Result, 0, len(hits))
+	type cand struct {
+		doc     string
+		title   string
+		snippet string
+	}
+	cands := make(map[string]cand, len(hits)+len(bhits))
+	denseIDs := make([]string, 0, len(hits))
 	for _, h := range hits {
-		doc := docOf(h.Point.Content)
+		denseIDs = append(denseIDs, h.Point.ID)
+		cands[h.Point.ID] = cand{
+			doc:     docOf(h.Point.Content),
+			title:   h.Point.Title,
+			snippet: h.Point.Content,
+		}
+	}
+	bmIDs := make([]string, 0, len(bhits))
+	r.bm.mu.RLock()
+	for _, b := range bhits {
+		bmIDs = append(bmIDs, b.ID)
+		if _, ok := cands[b.ID]; !ok {
+			if d, ok := r.bm.docs[b.ID]; ok {
+				cands[b.ID] = cand{
+					doc:     d.Doc,
+					title:   d.Title,
+					snippet: "【" + d.Doc + "】" + d.Snippet,
+				}
+			}
+		}
+	}
+	r.bm.mu.RUnlock()
+	fused := rrfFuse(denseIDs, bmIDs, RRFK)
+	out := make([]Result, 0, len(fused))
+	for id, fs := range fused {
+		c, ok := cands[id]
+		if !ok {
+			continue
+		}
 		out = append(out, Result{
-			Doc:     doc,
-			Snippet: h.Point.Content,
-			Score:   TitleBoost(h.Score, query, h.Point.Title),
+			Doc:     c.doc,
+			Snippet: c.snippet,
+			Score:   TitleBoost(float32(fs), query, c.title),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
-	if len(out) > topK {
-		out = out[:topK]
+	if len(out) > outK {
+		out = out[:outK]
 	}
 	return out, nil
 }
