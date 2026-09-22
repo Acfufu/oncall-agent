@@ -7,14 +7,26 @@
 {"expect_doc":"service_unavailable.md","question":"端口和进程不在了，怎么确认服务是否存活？","severity":"warning"}
 {"expect_doc":"service_unavailable.md","question":"刚发布后服务不可用，是否回滚上一版本？","severity":"critical"}
 {"expect_doc":"","question":"接口大量504超时但CPU和探活都正常，知识库有匹配吗？","severity":"warning"}
-{"expect_doc":"","question":"容器频繁OOMKilled重启，现有知识能覆盖吗？","severity":"critical"}
-{"expect_doc":"","question":"磁盘使用率超85%怎么清理？","severity":"warning"}
-{"expect_doc":"","question":"P99延迟突增但CPU正常，有对应处置手册吗？","severity":"warning"}
+{"expect_doc":"container_oom.md","question":"容器频繁OOMKilled重启，现有知识能覆盖吗？","severity":"critical"}
+{"expect_doc":"disk_full.md","question":"磁盘使用率超85%怎么清理？","severity":"warning"}
+{"expect_doc":"p99_latency.md","question":"P99延迟突增但CPU正常，有对应处置手册吗？","severity":"warning"}
 {"expect_doc":"service_unavailable.md","question":"发布后错误率飙升，如何按发布记录回滚？","severity":"critical"}
 {"expect_doc":"service_unavailable.md","question":"panic日志尾部200行看到空指针，怎么结合手册处理？","severity":"warning"}
 {"expect_doc":"cpu_high_usage.md","question":"GC频繁导致CPU毛刺，是限流扩容还是profile优化热点函数？","severity":"warning"}
 {"expect_doc":"service_unavailable.md","question":"服务恢复后拿到core dump，下一步查什么？","severity":"info"}
-{"expect_doc":"","question":"消息队列消费堆积持续增长，有手册吗？","severity":"warning"}
-{"expect_doc":"","question":"证书过期导致TLS握手失败，知识库有吗？","severity":"critical"}
+{"expect_doc":"mq_backlog.md","question":"消息队列消费堆积持续增长，有手册吗？","severity":"warning"}
+{"expect_doc":"tls_cert_expired.md","question":"证书过期导致TLS握手失败，知识库有吗？","severity":"critical"}
 {"expect_doc":"service_unavailable.md","question":"K8s Pod CrashLoopBackOff，先查进程存活还是先看日志尾部？","severity":"warning"}
 {"expect_doc":"","question":"机房网络分区导致跨区调用失败，有匹配吗？","severity":"critical"}
+{"expect_doc":"container_oom.md","question":"Pod显示OOMKilled且describe看到Last State异常，怎么止血？","severity":"critical"}
+{"expect_doc":"container_oom.md","question":"Java容器-Xmx设多大合适，堆外内存要留多少？","severity":"warning"}
+{"expect_doc":"container_oom.md","question":"dmesg看到Out of memory Killed process，怎么确认是容器limit太小？","severity":"warning"}
+{"expect_doc":"disk_full.md","question":"df -h看到根分区100%，du怎么快速定位大户？","severity":"warning"}
+{"expect_doc":"disk_full.md","question":"docker system df占用几十G，能否直接prune清理？","severity":"warning"}
+{"expect_doc":"tls_cert_expired.md","question":"openssl查到证书下周过期，续期流程怎么走？","severity":"critical"}
+{"expect_doc":"tls_cert_expired.md","question":"客户端报certificate verify failed，是叶子过期还是链缺失？","severity":"warning"}
+{"expect_doc":"mq_backlog.md","question":"kafka_consumergroup_lag持续上涨，先扩消费者还是限生产端？","severity":"warning"}
+{"expect_doc":"mq_backlog.md","question":"消费端CPU正常但lag不降，怎么区分消费慢还是生产暴涨？","severity":"warning"}
+{"expect_doc":"mq_backlog.md","question":"毒消息卡住分区消费，怎么摘出来不阻塞？","severity":"warning"}
+{"expect_doc":"p99_latency.md","question":"histogram_quantile看P99翻倍但CPU正常，先查哪层？","severity":"warning"}
+{"expect_doc":"p99_latency.md","question":"慢SQL导致P99上涨，先加索引还是先降级？","severity":"warning"}
