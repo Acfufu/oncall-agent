@@ -180,6 +180,56 @@ func parseRerankScores(content string, n int) (map[int]float32, error) {
 	return m, nil
 }
 
+// RerankFused RRF 融合 hybrid 序与 LLM 序（护栏：单边误排不直接丢档，缺席边记 0）。
+func RerankFused(hybrid, llm []Result, topK int) []Result {
+	key := func(r Result) string { return r.Doc + "\x00" + r.Snippet }
+	rankOf := func(rs []Result) map[string]int {
+		m := make(map[string]int, len(rs))
+		for i, r := range rs {
+			if _, ok := m[key(r)]; !ok {
+				m[key(r)] = i + 1
+			}
+		}
+		return m
+	}
+	rH, rL := rankOf(hybrid), rankOf(llm)
+	union := make([]Result, 0, len(hybrid)+len(llm))
+	seen := make(map[string]bool)
+	for _, rs := range [][]Result{hybrid, llm} {
+		for _, r := range rs {
+			if k := key(r); !seen[k] {
+				seen[k] = true
+				union = append(union, r)
+			}
+		}
+	}
+	type fs struct {
+		r Result
+		s float64
+	}
+	scored := make([]fs, 0, len(union))
+	for _, r := range union {
+		s := 0.0
+		if rh, ok := rH[key(r)]; ok {
+			s += 1 / (RRFK + float64(rh))
+		}
+		if rl, ok := rL[key(r)]; ok {
+			s += 1 / (RRFK + float64(rl))
+		}
+		r.Score = float32(s)
+		scored = append(scored, fs{r, s})
+	}
+	sort.SliceStable(scored, func(i, j int) bool { return scored[i].s > scored[j].s })
+	out := make([]Result, 0, len(scored))
+	for _, x := range scored {
+		out = append(out, x.r)
+	}
+	if topK > 0 && len(out) > topK {
+		out = out[:topK]
+	}
+	return out
+}
+
 func truncateRunes(s string, n int) string {
 	if utf8.RuneCountInString(s) <= n {
 		return s
