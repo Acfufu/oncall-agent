@@ -1,2 +1,20 @@
-{"question": "CPU 使用率过高怎么排查？", "expect_doc": "cpu_high_usage.md", "severity": "critical"}
-{"question": "服务下线告警如何处理？", "expect_doc": "service_unavailable.md", "severity": "critical"}
+{"expect_doc":"cpu_high_usage.md","question":"CPU 使用率过高怎么排查？","severity":"critical"}
+{"expect_doc":"service_unavailable.md","question":"服务下线告警如何处理？","severity":"critical"}
+{"expect_doc":"cpu_high_usage.md","question":"CPU 持续大于90%且告警CPUHighUsage firing怎么办？","severity":"critical"}
+{"expect_doc":"cpu_high_usage.md","question":"top看到某个进程CPU打满，如何定位热点pid？","severity":"warning"}
+{"expect_doc":"cpu_high_usage.md","question":"Prometheus查rate(process_cpu_seconds_total[5m])发现单副本倾斜怎么处理？","severity":"warning"}
+{"expect_doc":"service_unavailable.md","question":"探活失败且告警ServiceDown firing如何恢复？","severity":"critical"}
+{"expect_doc":"service_unavailable.md","question":"端口和进程不在了，怎么确认服务是否存活？","severity":"warning"}
+{"expect_doc":"service_unavailable.md","question":"刚发布后服务不可用，是否回滚上一版本？","severity":"critical"}
+{"expect_doc":"","question":"接口大量504超时但CPU和探活都正常，知识库有匹配吗？","severity":"warning"}
+{"expect_doc":"","question":"容器频繁OOMKilled重启，现有知识能覆盖吗？","severity":"critical"}
+{"expect_doc":"","question":"磁盘使用率超85%怎么清理？","severity":"warning"}
+{"expect_doc":"","question":"P99延迟突增但CPU正常，有对应处置手册吗？","severity":"warning"}
+{"expect_doc":"service_unavailable.md","question":"发布后错误率飙升，如何按发布记录回滚？","severity":"critical"}
+{"expect_doc":"service_unavailable.md","question":"panic日志尾部200行看到空指针，怎么结合手册处理？","severity":"warning"}
+{"expect_doc":"cpu_high_usage.md","question":"GC频繁导致CPU毛刺，是限流扩容还是profile优化热点函数？","severity":"warning"}
+{"expect_doc":"service_unavailable.md","question":"服务恢复后拿到core dump，下一步查什么？","severity":"info"}
+{"expect_doc":"","question":"消息队列消费堆积持续增长，有手册吗？","severity":"warning"}
+{"expect_doc":"","question":"证书过期导致TLS握手失败，知识库有吗？","severity":"critical"}
+{"expect_doc":"service_unavailable.md","question":"K8s Pod CrashLoopBackOff，先查进程存活还是先看日志尾部？","severity":"warning"}
+{"expect_doc":"","question":"机房网络分区导致跨区调用失败，有匹配吗？","severity":"critical"}

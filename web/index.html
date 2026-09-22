@@ -4,15 +4,65 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>oncall-agent v0.1</title>
-<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:32px auto;padding:0 16px}textarea,input{width:100%;margin:4px 0}pre{background:#f4f4f4;padding:8px;white-space:pre-wrap}</style>
+<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:32px auto;padding:0 16px}input{width:100%;margin:4px 0;box-sizing:border-box}button{margin:4px 4px 4px 0}pre{background:#f4f4f4;padding:8px;white-space:pre-wrap;word-break:break-word}.err{color:#c00}</style>
 </head>
 <body>
 <h1>oncall-agent v0.1</h1>
-<input id="q" placeholder="问题占位 (/chat 下片实现)">
-<button id="ask" disabled>聊天 (v0.2)</button>
-<button id="diag" disabled>诊断 (GET /plan 下片)</button>
+<input id="q" placeholder="输入问题，如：CPU 使用率过高怎么排查？">
+<div>
+<button id="ask">发送</button>
+<button id="diag">诊断</button>
+</div>
+<p id="err" class="err"></p>
+<h2>回答</h2>
+<pre id="ans">(回答区)</pre>
 <h2>引用</h2>
-<pre id="refs">(引用展示区, /chat 回包后填充)</pre>
-<script>document.getElementById('refs').textContent='ping: GET /ping -> {"status":"ok"}';</script>
+<pre id="refs">(引用区：/chat 回包 citations 原样展示)</pre>
+<script>
+var q = document.getElementById('q');
+var err = document.getElementById('err');
+var ans = document.getElementById('ans');
+var refs = document.getElementById('refs');
+function showErr(m) { err.textContent = m || ''; }
+function pickAnswer(d) {
+  if (typeof d === 'string') return d;
+  return d.diagnosis || d.answer || d.reply || d.text || d.result || JSON.stringify(d);
+}
+function pickCites(d) {
+  var c = d.citations || d.refs || d.references || [];
+  if (!Array.isArray(c)) return [String(c)];
+  return c.map(function (x) { return typeof x === 'string' ? x : JSON.stringify(x); });
+}
+document.getElementById('ask').onclick = function () {
+  showErr('');
+  ans.textContent = '请求中…';
+  refs.textContent = '';
+  fetch('/chat', {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({message: q.value})
+  }).then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { showErr(d.error || ('请求失败: ' + r.status)); ans.textContent = ''; return; }
+      if (d.error) { showErr(d.error); ans.textContent = ''; return; }
+      ans.textContent = pickAnswer(d);
+      refs.textContent = pickCites(d).join('\n---\n') || '(无引用：知识库无匹配，不编造)';
+    });
+  }).catch(function (e) { showErr('请求失败: ' + e); ans.textContent = ''; });
+};
+document.getElementById('diag').onclick = function () {
+  showErr('');
+  ans.textContent = '诊断中…';
+  refs.textContent = '';
+  fetch('/plan').then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { showErr(d.error || ('请求失败: ' + r.status)); ans.textContent = ''; return; }
+      if (d.error) { showErr(d.error); ans.textContent = ''; return; }
+      ans.textContent = pickAnswer(d);
+      refs.textContent = pickCites(d).join('\n---\n') || '(无引用：知识库无匹配，不编造)';
+    });
+  }).catch(function (e) { showErr('请求失败: ' + e); ans.textContent = ''; });
+};
+</script>
 </body>
 </html>
