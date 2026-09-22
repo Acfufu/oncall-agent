@@ -48,7 +48,7 @@ func NewReAct(apiBase, apiKey, model string, deps *tool.Deps) *ReAct {
 		APIKey:   apiKey,
 		Model:    model,
 		Tools:    deps,
-		Client:   &http.Client{Timeout: 60 * time.Second},
+		Client:   &http.Client{Timeout: 300 * time.Second},
 		sessions: make(map[string][]apiMsg),
 	}
 }
@@ -163,17 +163,19 @@ type chatRespMsg struct {
 
 func (r *ReAct) chat(ctx context.Context, msgs []apiMsg) (*chatRespMsg, error) {
 	body, _ := json.Marshal(map[string]any{
-		"model":    r.Model,
-		"messages": msgs,
-		"tools":    tool.Definitions(),
+		"model":      r.Model,
+		"messages":   msgs,
+		"tools":      tool.Definitions(),
+		"max_tokens": 512,
 	})
 	return r.post(ctx, body)
 }
 
 func (r *ReAct) chatFinal(ctx context.Context, msgs []apiMsg) (string, error) {
 	body, _ := json.Marshal(map[string]any{
-		"model":    r.Model,
-		"messages": msgs,
+		"model":      r.Model,
+		"messages":   msgs,
+		"max_tokens": 512,
 	})
 	out, err := r.post(ctx, body)
 	if err != nil {
