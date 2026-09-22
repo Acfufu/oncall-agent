@@ -4,6 +4,6 @@ bin/
 logs/
 volumes/
 qdrant_data/
-.codegraph/
+.codegraph
 artifacts/tmp/
 .DS_Store
