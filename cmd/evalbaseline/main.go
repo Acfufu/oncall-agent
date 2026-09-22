@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"oncall-agent/internal/config"
@@ -51,20 +52,68 @@ func main() {
 	s := store.NewVectorFromHostPort(cfg.Qdrant.Host, httpPort, cfg.Qdrant.Collection)
 	r := rag.New(s, rag.SelectEmbedder(cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model))
 
+	// 预热：同进程 AddDoc 填满 BM25 内存镜像（Qdrant upsert 按 ID 幂等）。
+	entries, err := os.ReadDir("aiops-docs-demo")
+	if err != nil {
+		log.Fatalf("read demo dir: %v", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join("aiops-docs-demo", e.Name()))
+		if err != nil {
+			log.Fatalf("read demo: %v", err)
+		}
+		title := strings.TrimSuffix(e.Name(), ".md")
+		for _, ln := range strings.Split(string(b), "\n") {
+			t := strings.TrimSpace(ln)
+			if strings.HasPrefix(t, "# ") && strings.TrimSpace(strings.TrimPrefix(t, "# ")) != "" {
+				title = strings.TrimSpace(strings.TrimPrefix(t, "# "))
+				break
+			}
+		}
+		if err := r.AddDoc(title, string(b)); err != nil {
+			log.Fatalf("warmup: %v", err)
+		}
+	}
+
 	f, err := os.Open("eval-data/datasets/sample.jsonl")
 	if err != nil {
 		log.Fatalf("open dataset: %v", err)
 	}
 	defer f.Close()
 
+	// rerank 列（v0.2 试水，仅评测链路）：候选池→LLM rerank→top3→命中判定。
+	// 环境覆盖：RERANK_BASE_URL / RERANK_MODEL / RERANK_POOL(默认8) / EVAL_LIMIT(>0 截断前N问，smoke用)。
+	ranker := rag.NewRanker(os.Getenv("RERANK_BASE_URL"), os.Getenv("RERANK_MODEL"), "lm-studio")
+	poolN := 8
+	if v := strings.TrimSpace(os.Getenv("RERANK_POOL")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			poolN = n
+		}
+	}
+	limit := 0
+	if v := strings.TrimSpace(os.Getenv("EVAL_LIMIT")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
 	hit, n, refuseOK, refuseN := 0, 0, 0, 0
+	rhit, rn, rerr := 0, 0, 0
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	count := 0
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
 		if line == "" {
 			continue
 		}
+		if limit > 0 && count >= limit {
+			break
+		}
+		count++
 		var q sample
 		if err := json.Unmarshal([]byte(line), &q); err != nil {
 			log.Fatalf("parse dataset: %v", err)
@@ -93,18 +142,59 @@ func main() {
 		if ok {
 			hit++
 		}
-		fmt.Printf("HIT=%v want=%.16s q=%.30s\n", ok, want, q.Question)
+		// 第三列：候选池→rerank→top3→命中判定。失败记 rerr，原序不炸。
+		rok := false
+		rnote := ""
+		pool, err := r.SearchPool(q.Question, poolN)
+		if err != nil {
+			rerr++
+			rnote = "pool_err"
+		} else {
+			rr, rrkErr := ranker.Rerank(q.Question, pool, 3)
+			if rrkErr != nil {
+				rerr++
+				msg := rrkErr.Error()
+				if len(msg) > 80 {
+					msg = msg[:80] + "…"
+				}
+				rnote = "rerank_fallback:" + msg
+			}
+			if len(rr) > 3 {
+				rr = rr[:3]
+			}
+			rn++
+			for _, h := range rr {
+				if h.Doc == want {
+					rok = true
+					rhit++
+					break
+				}
+			}
+		}
+		_ = rnote
+		fmt.Printf("HIT=%v want=%.16s q=%.30s | RERANK_HIT=%v pool=%d %s\n", ok, want, q.Question, rok, len(pool), rnote)
 	}
 	if err := sc.Err(); err != nil {
 		log.Fatalf("scan dataset: %v", err)
 	}
+	safeDiv := func(a, b int) float64 {
+		if b == 0 {
+			return 0
+		}
+		return float64(a) / float64(b)
+	}
 	out, _ := json.Marshal(map[string]any{
-		"recall_at_3":  float64(hit) / float64(n),
-		"hit":          hit,
-		"total":        n,
-		"refusal_rate": float64(refuseOK) / float64(refuseN),
-		"refused":      refuseOK,
-		"refuse_total": refuseN,
+		"recall_at_3":         safeDiv(hit, n),
+		"hit":                 hit,
+		"total":               n,
+		"refusal_rate":        safeDiv(refuseOK, refuseN),
+		"refused":             refuseOK,
+		"refuse_total":        refuseN,
+		"rerank_recall_at_3":  safeDiv(rhit, rn),
+		"rerank_hit":          rhit,
+		"rerank_total":        rn,
+		"rerank_fallback_err": rerr,
+		"rerank_pool":         poolN,
 	})
 	fmt.Println(string(out))
 }
