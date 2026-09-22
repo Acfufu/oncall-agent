@@ -7,3 +7,4 @@ qdrant_data/
 .codegraph
 artifacts/tmp/
 .DS_Store
+.omo/
