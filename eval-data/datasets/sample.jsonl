@@ -1,0 +1,2 @@
+{"question": "CPU 使用率过高怎么排查？", "expect_doc": "cpu_high_usage.md", "severity": "critical"}
+{"question": "服务下线告警如何处理？", "expect_doc": "service_unavailable.md", "severity": "critical"}
