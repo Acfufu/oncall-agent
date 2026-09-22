@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>oncall-agent v0.1</title>
+<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:32px auto;padding:0 16px}textarea,input{width:100%;margin:4px 0}pre{background:#f4f4f4;padding:8px;white-space:pre-wrap}</style>
+</head>
+<body>
+<h1>oncall-agent v0.1</h1>
+<input id="q" placeholder="问题占位 (/chat 下片实现)">
+<button id="ask" disabled>聊天 (v0.2)</button>
+<button id="diag" disabled>诊断 (GET /plan 下片)</button>
+<h2>引用</h2>
+<pre id="refs">(引用展示区, /chat 回包后填充)</pre>
+<script>document.getElementById('refs').textContent='ping: GET /ping -> {"status":"ok"}';</script>
+</body>
+</html>
