@@ -1,0 +1,19 @@
+# CONTEXT — oncall-agent (self)
+
+## Glossary
+
+- **告警 (Alert)**: Prometheus firing 实例。含 name/severity/description/labels/startsAt。v0.1 只读，不确认不静默。
+- **知识 (Runbook)**: Markdown 运维手册。一篇一故障，标题即故障名，权重高于正文。
+- **诊断 (Diagnosis)**: 引用知识生成的处置报告。必须带引用片段，无匹配则明示无匹配，不编造。
+- **工具 (Tool)**: Agent 可调的只读查询。时间/文档检索/告警查询/日志查询。写操作不在 v0.1。
+- **会话 (Session)**: 一串多轮对话的 ID。服务端保历史，客户端传 Id 复用，可清空。
+- **开箱即用 (Out-of-box)**: `compose up` 后即玩。仅 LLM Key 必填，Qdrant/Prometheus/demo 知识全预置。
+- **评测 (Eval)**: 证明检索/生成可信的 sample 集 + 脚本。v0.1 占位，v0.2 对比报告。
+
+## Vision (deferred)
+
+完整控制台 + 企业级知识库 (版本/权限/去重) + 完整评测 + Hybrid+Rerank 全量，属 v0.2+，不在 v0.1。
+
+---
+Migrated from `/Users/acfufu/Codehub/opencode/CONTEXT.md` on 2026-09-22.
+Source decisions: `docs/adr/0001-0003`.

@@ -1,0 +1,9 @@
+config/config.json
+.env
+bin/
+logs/
+volumes/
+qdrant_data/
+.codegraph/
+artifacts/tmp/
+.DS_Store
