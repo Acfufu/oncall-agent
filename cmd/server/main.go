@@ -6,10 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"oncall-agent/internal/agent"
 	"oncall-agent/internal/config"
 	"oncall-agent/internal/handler"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/store"
+	"oncall-agent/internal/tool"
 )
 
 func main() {
@@ -36,6 +38,8 @@ func main() {
 	r := rag.New(s, emb)
 
 	h := handler.New(s, r, "aiops-docs-demo")
+	handler.SetChatAgent(agent.NewReAct(cfg.OpenAI.APIBase, cfg.OpenAI.APIKey, cfg.OpenAI.Model, tool.NewDeps(r, cfg.Prometheus.URL)))
+	h.Planner(tool.NewPromClient(cfg.Prometheus.URL), r)
 	if _, err := h.ReindexLoad(); err != nil {
 		log.Printf("warn: demo preload failed: %v", err)
 	}
@@ -45,7 +49,9 @@ func main() {
 	e.Use(gin.Recovery())
 
 	e.GET("/ping", h.Ping)
+	e.GET("/plan", h.Plan)
 	e.POST("/upload", h.Upload)
+	e.POST("/chat", h.Chat)
 	e.GET("/list", h.List)
 	e.DELETE("/delete", h.Delete)
 	e.POST("/reindex", h.Reindex)

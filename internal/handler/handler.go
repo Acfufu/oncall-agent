@@ -4,6 +4,7 @@ import (
 	"sort"
 	"sync"
 
+	"oncall-agent/internal/agent"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/store"
 )
@@ -16,6 +17,9 @@ type Handler struct {
 	Store   *store.VectorStore
 	RAG     *rag.RAG
 	DemoDir string
+
+	// PlannerAgent 供 GET /plan 只读诊断用；nil 时 Plan() 按需兜底构造。
+	PlannerAgent *agent.Planner
 
 	mu     sync.RWMutex
 	titles map[string]string
