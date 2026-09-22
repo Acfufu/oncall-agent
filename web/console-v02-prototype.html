@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>oncall-agent v0.2 控制台原型（评审用，不接新后端）</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:900px;margin:24px auto;padding:0 16px}
+nav button{margin:4px 4px 4px 0}
+section{border:1px solid #ddd;padding:12px;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid #ccc;padding:6px;text-align:left}
+pre{background:#f4f4f4;padding:8px;white-space:pre-wrap;word-break:break-word}
+.err{color:#c00}.muted{color:#666;font-size:13px}
+input,textarea{width:100%;margin:4px 0;box-sizing:border-box}
+textarea{min-height:80px}
+</style>
+</head>
+<body>
+<h1>v0.2 控制台原型 <span class="muted">最小可用：现有接口直连，Hybrid/Rerank/评测为占位</span></h1>
+<nav>
+<button onclick="show('kb')">知识库</button>
+<button onclick="show('search')">检索预览</button>
+<button onclick="show('eval')">评测对比（占位）</button>
+</nav>
+
+<section id="kb">
+<h2>知识库管理（调现有接口）</h2>
+<div>
+<button onclick="kbList()">/list 刷新</button>
+<button onclick="kbReindex()">/reindex 重载demo</button>
+</div>
+<pre id="kbList">(列表区)</pre>
+<h3>上传 /upload {title,content}</h3>
+<input id="upTitle" placeholder="标题（即故障名）">
+<textarea id="upContent" placeholder="markdown正文"></textarea>
+<button onclick="kbUpload()">上传</button>
+<h3>删除 /delete?title=xxx</h3>
+<input id="delTitle" placeholder="标题">
+<button onclick="kbDel()">删除</button>
+<p id="kbMsg" class="err"></p>
+<p class="muted">v0.1现状：delete只清注册表，向量仍在store（无delete接口）。v0.2拍板：是否补真删？版本/权限/去重不做（v0.3）。</p>
+</section>
+
+<section id="search" style="display:none">
+<h2>检索预览（调现有 /chat /plan）</h2>
+<input id="q" placeholder="输入问题，如：CPU 使用率过高怎么排查？">
+<div><button onclick="doChat()">/chat 问</button><button onclick="doPlan()">/plan 诊断</button></div>
+<h3>回答</h3><pre id="ans">(回答区)</pre>
+<h3>引用</h3><pre id="refs">(引用区)</pre>
+<p class="muted">v0.2预留：单路 vs Hybrid(BM25+RRF k=60) vs +Rerank三列对照，待后端接好后替换mock。</p>
+</section>
+
+<section id="eval" style="display:none">
+<h2>评测对比（占位，sample 20问）</h2>
+<table>
+<tr><th>配置</th><th>recall@3</th><th>hit率</th><th>说明</th></tr>
+<tr><td>单路稠密+标题加权（v0.1）</td><td>--</td><td>--</td><td>基线，跑脚本后填数</td></tr>
+<tr><td>Hybrid BM25+RRF（v0.2）</td><td>--</td><td>--</td><td>Go内存BM25，已拍板</td></tr>
+<tr><td>+ LLM-as-Rerank qwen3.8-27b（v0.2试）</td><td>--</td><td>--</td><td>LM Studio本地，无原生rerank端点，用prompt排序</td></tr>
+</table>
+<p class="muted">10条无匹配（expect_doc空）测拒答率，不编造。</p>
+</section>
+
+<script>
+function show(id){
+ ['kb','search','eval'].forEach(function(x){document.getElementById(x).style.display=x===id?'':'none';});
+}
+function kbList(){
+ fetch('/list').then(function(r){return r.json();}).then(function(d){
+  document.getElementById('kbList').textContent=JSON.stringify(d,null,2);
+ }).catch(function(e){document.getElementById('kbMsg').textContent='list失败:'+e;});
+}
+function kbReindex(){
+ fetch('/reindex',{method:'POST'}).then(function(r){return r.json();}).then(function(d){
+  document.getElementById('kbMsg').textContent='reindex:'+JSON.stringify(d);kbList();
+ }).catch(function(e){document.getElementById('kbMsg').textContent='reindex失败:'+e;});
+}
+function kbUpload(){
+ var t=document.getElementById('upTitle').value,v=document.getElementById('upContent').value;
+ fetch('/upload',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({title:t,content:v})})
+ .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});}).then(function(x){
+  document.getElementById('kbMsg').textContent=(x.ok?'ok:':'fail:')+JSON.stringify(x.d);kbList();
+ }).catch(function(e){document.getElementById('kbMsg').textContent='upload失败:'+e;});
+}
+function kbDel(){
+ var t=document.getElementById('delTitle').value;
+ fetch('/delete?title='+encodeURIComponent(t),{method:'DELETE'})
+ .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d};});}).then(function(x){
+  document.getElementById('kbMsg').textContent=(x.ok?'ok:':'fail:')+JSON.stringify(x.d);kbList();
+ }).catch(function(e){document.getElementById('kbMsg').textContent='delete失败:'+e;});
+}
+function pickAnswer(d){
+ if(typeof d==='string')return d;
+ return d.diagnosis||d.answer||d.reply||d.text||d.result||JSON.stringify(d);
+}
+function doChat(){
+ var q=document.getElementById('q').value;
+ document.getElementById('ans').textContent='请求中…';
+ fetch('/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({message:q})})
+ .then(function(r){return r.json();}).then(function(d){
+  document.getElementById('ans').textContent=pickAnswer(d);
+  document.getElementById('refs').textContent=JSON.stringify(d.citations||d.refs||d.references||'(无引用)',null,2);
+ }).catch(function(e){document.getElementById('ans').textContent='失败:'+e;});
+}
+function doPlan(){
+ document.getElementById('ans').textContent='诊断中…';
+ fetch('/plan').then(function(r){return r.json();}).then(function(d){
+  document.getElementById('ans').textContent=pickAnswer(d);
+  document.getElementById('refs').textContent=JSON.stringify(d.citations||d.refs||d.references||'(无引用)',null,2);
+ }).catch(function(e){document.getElementById('ans').textContent='失败:'+e;});
+}
+kbList();
+</script>
+</body>
+</html>
