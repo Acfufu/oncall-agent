@@ -1,12 +1,15 @@
 package tool
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"oncall-agent/internal/trace"
 )
 
 // PromDeps 为 prometheus_query 依赖（只读 GET /api/v1/query）。
@@ -16,7 +19,13 @@ type PromDeps struct {
 }
 
 // PromQuery 只读查 Prometheus 即时向量，返回截断原文（最多 4KB）。
+// 无 ctx 版走 Background。
 func (d *PromDeps) PromQuery(argsJSON string) (string, error) {
+	return d.PromQueryWithContext(context.Background(), argsJSON)
+}
+
+// PromQueryWithContext 为 PromQuery 的 ctx 版：Prom.query 子 span 包 HTTP。
+func (d *PromDeps) PromQueryWithContext(ctx context.Context, argsJSON string) (out string, err error) {
 	var args struct {
 		Query string `json:"query"`
 	}
@@ -35,8 +44,30 @@ func (d *PromDeps) PromQuery(argsJSON string) (string, error) {
 	if d != nil && d.Client != nil {
 		client = d.Client
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	_, s := trace.Start(ctx, "Prom.query", map[string]string{
+		"component":  "Prom",
+		"span.type":  "query",
+		"prom.query": args.Query,
+	})
+	defer func() {
+		if err != nil {
+			s.RecordError(err)
+			s.SetStatus(trace.StatusError, err.Error())
+		} else {
+			s.SetStatus(trace.StatusOK, "")
+			s.SetAttribute("prom.bytes", itoa(len(out)))
+		}
+		s.End()
+	}()
 	u := base + "/api/v1/query?" + url.Values{"query": {args.Query}}.Encode()
-	resp, err := client.Get(u)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}

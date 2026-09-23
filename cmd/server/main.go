@@ -1,14 +1,22 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"oncall-agent/internal/agent"
 	"oncall-agent/internal/config"
 	"oncall-agent/internal/handler"
+	"oncall-agent/internal/observability"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/store"
 	"oncall-agent/internal/tool"
@@ -52,10 +60,43 @@ func main() {
 		log.Printf("warn: demo preload failed: %v", err)
 	}
 
+	// OTel providers: trace via OTLP gRPC -> collector -> Jaeger;
+	// metrics via /metrics scraped directly by Prometheus (ADR 0004).
+	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if shutdownTracer, err := observability.InitTracer(sigCtx); err != nil {
+		log.Printf("warn: init tracer failed: %v", err)
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := shutdownTracer(ctx); err != nil {
+				log.Printf("warn: tracer shutdown failed: %v", err)
+			}
+		}()
+	}
+	if shutdownMeter, err := observability.InitMetrics(sigCtx); err != nil {
+		log.Printf("warn: init metrics failed: %v", err)
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := shutdownMeter(ctx); err != nil {
+				log.Printf("warn: meter shutdown failed: %v", err)
+			}
+		}()
+	}
+
 	gin.SetMode(gin.ReleaseMode)
 	e := gin.New()
+	// otelgin chain head: server span per request, context flows to downstream
+	// via c.Request.Context(). /ping and /metrics filtered out.
+	e.Use(otelgin.Middleware(observability.ServiceName, otelgin.WithFilter(func(req *http.Request) bool {
+		return req.URL.Path != "/ping" && req.URL.Path != "/metrics"
+	})))
 	e.Use(gin.Recovery())
 
+	e.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	e.GET("/ping", h.Ping)
 	e.GET("/plan", h.Plan)
 	e.POST("/upload", h.Upload)
@@ -63,11 +104,22 @@ func main() {
 	e.GET("/list", h.List)
 	e.DELETE("/delete", h.Delete)
 	e.POST("/reindex", h.Reindex)
-	e.StaticFile("/", "web/index.html")
+	e.StaticFile("/", "web/console.html")
+	e.StaticFile("/v01", "web/index.html")
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	log.Printf("oncall-agent v0.1 listening on %s (memonly=%v)", addr, s.IsMemOnly())
-	if err := e.Run(addr); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{Addr: addr, Handler: e}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+	<-sigCtx.Done()
+	stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("warn: server shutdown failed: %v", err)
 	}
 }

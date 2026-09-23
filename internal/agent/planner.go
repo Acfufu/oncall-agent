@@ -2,6 +2,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -22,14 +23,25 @@ func New(prom *tool.PromClient, r *rag.RAG) *Planner {
 }
 
 // Plan 执行三步：1) 拉 firing 告警 2) 逐告警 RAG 检索 3) 拼诊断报告（含引用）。
-// 无告警 / 无匹配均明示，不编造。
+// 无告警 / 无匹配均明示，不编造。无 ctx 版走 Background。
 func (p *Planner) Plan() (alerts []tool.Alert, diagnosis string, citations []rag.Result) {
+	return p.PlanWithContext(context.Background())
+}
+
+// PlanWithContext 为 Plan 的 ctx 版：Plan 根 span 包全程，
+// Prom.firing + RAG.search 子 span 包两步只读查询。
+func (p *Planner) PlanWithContext(ctx context.Context) (alerts []tool.Alert, diagnosis string, citations []rag.Result) {
+	ctx, _ = StartPlanSpan(ctx)
+	defer func() { EndCallbackSpan(ctx, nil, 0, 0) }()
 	topK := p.TopK
 	if topK <= 0 {
 		topK = 3
 	}
 	if p.Prom != nil {
-		if got, err := p.Prom.Firing(); err == nil && got != nil {
+		fctx := StartFiringSpan(ctx)
+		got, ferr := p.Prom.FiringWithContext(fctx)
+		EndCallbackSpan(fctx, ferr, 0, 0)
+		if ferr == nil && got != nil {
 			alerts = got
 		}
 	}
@@ -48,7 +60,12 @@ func (p *Planner) Plan() (alerts []tool.Alert, diagnosis string, citations []rag
 		query := strings.TrimSpace(a.Name + " " + a.Description)
 		var hits []rag.Result
 		if p.RAG != nil && query != "" {
-			hits, _ = p.RAG.Search(query, topK)
+			rctx := StartRAGSpan(ctx, query, topK)
+			h, rerr := p.RAG.Search(query, topK)
+			EndCallbackSpan(rctx, rerr, 0, 0)
+			if rerr == nil {
+				hits = h
+			}
 		}
 		if len(hits) == 0 {
 			sb.WriteString("   无匹配知识：知识库中未找到相关 runbook，请人工研判。\n")

@@ -76,7 +76,10 @@ const systemPrompt = `你是 oncall-agent 值班助手（只读）。可用工�
 诊断必须引用知识库原文片段；若 rag_search 无匹配，必须明示“未找到相关匹配”，不得编造处置步骤。`
 
 // Run 执行一轮用户问答，返回 reply + citations。会话历史保存在内存 map。
-func (r *ReAct) Run(ctx context.Context, sessionID, userMsg string) (string, []Citation, error) {
+// OTel：Run 根 span 包全程；ChatModel/Tool 子 span 见 loop/chat/post/fallback。
+func (r *ReAct) Run(ctx context.Context, sessionID, userMsg string) (reply string, cites []Citation, err error) {
+	ctx, _ = StartRunSpan(ctx, sessionID)
+	defer func() { EndCallbackSpan(ctx, err, 0, 0) }()
 	userMsg = strings.TrimSpace(userMsg)
 	if userMsg == "" {
 		return "", nil, fmt.Errorf("message required")
@@ -89,13 +92,13 @@ func (r *ReAct) Run(ctx context.Context, sessionID, userMsg string) (string, []C
 	hist := append(append([]apiMsg(nil), r.sessions[sessionID]...), apiMsg{Role: "user", Content: userMsg})
 	r.mu.Unlock()
 
-	cites := []Citation{}
+	cites = []Citation{}
 	seen := map[string]bool{}
 
 	final, err := r.loop(ctx, hist, &cites, seen)
 	if err != nil {
 		// LLM 不可用时降级：直接只读检索 + 模板回复，保证入库→检索链可用。
-		return r.fallback(userMsg)
+		return r.fallback(ctx, userMsg)
 	}
 
 	if len(cites) == 0 && !strings.Contains(final, "未找到相关匹配") {
@@ -134,7 +137,10 @@ func (r *ReAct) loop(ctx context.Context, hist []apiMsg, cites *[]Citation, seen
 		}
 		msgs = append(msgs, apiMsg{Role: "assistant", Content: resp.Content, ToolCalls: resp.ToolCalls})
 		for _, tc := range resp.ToolCalls {
-			out, hits, err := r.Tools.Exec(tc.Function.Name, tc.Function.Arguments)
+			tctx := StartToolSpan(ctx, tc.Function.Name, tc.Function.Arguments)
+			out, hits, terr := r.Tools.ExecWithContext(tctx, tc.Function.Name, tc.Function.Arguments)
+			EndCallbackSpan(tctx, terr, 0, 0)
+			err := terr
 			if err != nil {
 				out = "error: " + err.Error()
 			}
@@ -184,7 +190,9 @@ func (r *ReAct) chatFinal(ctx context.Context, msgs []apiMsg) (string, error) {
 	return out.Content, nil
 }
 
-func (r *ReAct) post(ctx context.Context, body []byte) (*chatRespMsg, error) {
+func (r *ReAct) post(ctx context.Context, body []byte) (out *chatRespMsg, err error) {
+	ctx = StartChatModelSpan(ctx, r.Model)
+	defer func() { EndCallbackSpan(ctx, err, 0, 0) }()
 	if strings.TrimSpace(r.Model) == "" {
 		return nil, fmt.Errorf("openai.model missing")
 	}
@@ -205,7 +213,7 @@ func (r *ReAct) post(ctx context.Context, body []byte) (*chatRespMsg, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	var out struct {
+	var decoded struct {
 		Choices []struct {
 			Message struct {
 				Content   any        `json:"content"`
@@ -216,29 +224,33 @@ func (r *ReAct) post(ctx context.Context, body []byte) (*chatRespMsg, error) {
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		return nil, fmt.Errorf("decode llm resp: %w", err)
 	}
 	if resp.StatusCode >= 300 {
 		msg := ""
-		if out.Error != nil {
-			msg = out.Error.Message
+		if decoded.Error != nil {
+			msg = decoded.Error.Message
 		}
 		return nil, fmt.Errorf("llm %d: %s", resp.StatusCode, msg)
 	}
-	if len(out.Choices) == 0 {
+	if len(decoded.Choices) == 0 {
 		return nil, fmt.Errorf("llm: empty choices")
 	}
-	m := out.Choices[0].Message
+	m := decoded.Choices[0].Message
 	return &chatRespMsg{Content: strOf(m.Content), ToolCalls: m.ToolCalls}, nil
 }
 
 // fallback LLM 失败时直连 rag 只读检索，保证闭环可用。
-func (r *ReAct) fallback(query string) (string, []Citation, error) {
+// OTel：fallback 子 span 包直连检索，token 计 0（模板回复无 LLM 消耗）。
+func (r *ReAct) fallback(ctx context.Context, query string) (string, []Citation, error) {
+	ctx = StartChatModelSpan(ctx, "fallback:rag-direct")
+	var ferr error
+	defer func() { EndCallbackSpan(ctx, ferr, 0, 0) }()
 	if r.Tools == nil {
 		return "未找到相关匹配：LLM 不可用且检索未配置。请稍后重试。", []Citation{}, nil
 	}
-	raw, hits, err := r.Tools.Exec("rag_search", `{"query":`+jsonStr(query)+`,"top_k":3}`)
+	raw, hits, err := r.Tools.ExecWithContext(ctx, "rag_search", `{"query":`+jsonStr(query)+`,"top_k":3}`)
 	if err != nil || len(hits) == 0 {
 		_ = raw
 		return "未找到相关匹配：知识库中暂无与该问题相关的内容，未查询到相关告警/指标。请补充故障名或告警名后重试。", []Citation{}, nil

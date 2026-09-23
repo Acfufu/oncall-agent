@@ -4,3 +4,7 @@ scrape_configs:
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]
+  - job_name: "oncall-agent"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["oncall-agent:8819", "host.docker.internal:8819"]
