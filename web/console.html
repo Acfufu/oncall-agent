@@ -47,14 +47,14 @@
 </section>
 
 <section id="eval" style="display:none">
-<h2>评测占位</h2>
+<h2>评测</h2>
 <table>
 <tr><th>配置</th><th>recall@3</th><th>说明</th></tr>
-<tr><td>单路稠密 + 标题加权（v0.1 基线）</td><td>--</td><td>跑脚本后填数</td></tr>
-<tr><td>混合检索（v0.2+）</td><td>--</td><td>未接入，后端无此接口</td></tr>
-<tr><td>重排（v0.2+）</td><td>--</td><td>未接入，后端无此接口</td></tr>
+<tr><td>混合检索 Hybrid BM25+RRF+标题加权（v0.2）</td><td>1.0 (30/30)</td><td>EVAL_NORERANK=1，2026-09-22实跑</td></tr>
+<tr><td>拒答率（Floor=0默认关）</td><td>0/2</td><td>已知局限：7库重叠无分界，v0.3再调</td></tr>
+<tr><td>重排 LLM-as-rerank+RerankFused</td><td>跳过live验</td><td>码合（rerank.go），待RERANK_BASE_URL实测</td></tr>
 </table>
-<p class="muted">占位：后端暂无评测接口，不虚构数据。</p>
+<p class="muted">数出自cmd/evalbaseline，非虚构。</p>
 </section>
 
 <script>

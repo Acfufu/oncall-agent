@@ -12,9 +12,14 @@
 
 ## v0.2 质量
 
-- [ ] Hybrid (BM25+RRF) + rerank
-- [ ] 完整控制台 (知识库管理)
-- [ ] 评测报告对比
+- [x] Hybrid (BM25+RRF) + rerank
+- [x] 完整控制台 (知识库管理)
+- [x] 评测报告对比
+
+> 验收关 (2026-09-22，按拍板放行)。
+> - Hybrid：recall@3=1.0(30/30)；拒答0/2接受，Floor=0，v0.3再调。
+> - 控制台：`/`切console.html，/v01留档；eval填实数；delete半残记v0.3。
+> - rerank码合未live验，待RERANK_BASE_URL实测。
 
 ## v0.3+ 愿景
 
