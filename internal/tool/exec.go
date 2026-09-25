@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"oncall-agent/internal/observability"
 	"oncall-agent/internal/rag"
 )
 
@@ -50,7 +51,13 @@ func (d *Deps) Exec(name, argsJSON string) (string, []rag.Result, error) {
 // ExecWithContext 为 Exec 的 ctx 版：span 挂在传入 ctx 下（chat→tool 树不断）。
 func (d *Deps) ExecWithContext(ctx context.Context, name, argsJSON string) (out string, hits []rag.Result, err error) {
 	ctx, s := startToolSpan(ctx, name, argsJSON)
-	defer func() { endToolSpan(s, err) }()
+	defer func() {
+		endToolSpan(s, err)
+		// ADR-0004 验收指标：rag_hits_total 经 /metrics 给 Prometheus 直抓。
+		if name == "rag_search" {
+			observability.AddRagHits(ctx, int64(len(hits)))
+		}
+	}()
 	if !IsAllowed(name) {
 		return "", nil, errDeny(name)
 	}
