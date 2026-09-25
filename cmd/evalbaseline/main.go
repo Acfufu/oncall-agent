@@ -4,9 +4,11 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -100,6 +102,10 @@ func main() {
 		}
 	}
 	noRerank := strings.TrimSpace(os.Getenv("EVAL_NORERANK")) == "1"
+	// 生成层拒答回归（v0.3）：EVAL_GEN=1 时对负例（expect_doc 为空）走一次
+	// LLM 诊断判定——引用不相关必须明示“未找到相关匹配”。消耗 LLM token，
+	// 默认关。拒答语义已证伪检索层 Floor（7库无可分界），验收挂生成层。
+	genOn := strings.TrimSpace(os.Getenv("EVAL_GEN")) == "1"
 	if v := strings.TrimSpace(os.Getenv("EVAL_FLOOR")); v != "" {
 		if f, err := strconv.ParseFloat(v, 32); err == nil && f > 0 {
 			r.Floor = float32(f)
@@ -114,6 +120,7 @@ func main() {
 
 	hit, n, refuseOK, refuseN := 0, 0, 0, 0
 	rhit, rn, rerr := 0, 0, 0
+	genRefused, genTotal, genErr := 0, 0, 0
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
 	count := 0
@@ -139,7 +146,26 @@ func main() {
 			if len(hits) == 0 {
 				refuseOK++
 			}
-			fmt.Printf("REFUSE q=%.30s hits=%d top=%.4f\n", q.Question, len(hits), topScore(hits))
+			genNote := "off"
+			if genOn {
+				genTotal++
+				refused, reply, gerr := genRefusal(cfg, q.Question, hits)
+				switch {
+				case gerr != nil:
+					genErr++
+					msg := gerr.Error()
+					if len(msg) > 60 {
+						msg = msg[:60] + "…"
+					}
+					genNote = "err:" + msg
+				case refused:
+					genRefused++
+					genNote = "refused"
+				default:
+					genNote = "leak:" + truncStr(reply, 60)
+				}
+			}
+			fmt.Printf("REFUSE q=%.30s hits=%d top=%.4f gen=%s\n", q.Question, len(hits), topScore(hits), genNote)
 			continue
 		}
 		n++
@@ -207,6 +233,67 @@ func main() {
 		"rerank_total":        rn,
 		"rerank_fallback_err": rerr,
 		"rerank_pool":         poolN,
+		"gen_refusal_rate":    safeDiv(genRefused, genTotal),
+		"gen_refused":         genRefused,
+		"gen_total":           genTotal,
+		"gen_err":             genErr,
 	})
 	fmt.Println(string(out))
+}
+
+// genRefusal 生成层拒答判定：把检索引用原样喂给 LLM 诊断，回复含
+// “未找到相关匹配”视为拒答成功（与 react 诊断语义同源）。
+func genRefusal(cfg *config.Config, question string, hits []rag.Result) (bool, string, error) {
+	var sb strings.Builder
+	sb.WriteString("你是运维诊断助手（只读）。仅可依据下列知识库引用作答；引用与问题不相关或不足以支撑诊断时，必须明示“未找到相关匹配”，不得编造处置步骤，不得硬凑不相关引用作答。\n\n问题：" + question + "\n")
+	if len(hits) == 0 {
+		sb.WriteString("\n知识库引用：（检索无结果）\n")
+	}
+	for i, h := range hits {
+		fmt.Fprintf(&sb, "\n%d.【%s】%s\n", i+1, h.Doc, truncStr(h.Snippet, 300))
+	}
+	body, _ := json.Marshal(map[string]any{
+		"model": cfg.OpenAI.Model,
+		"messages": []map[string]string{
+			{"role": "user", "content": sb.String()},
+		},
+		"temperature": 0,
+		"max_tokens":  256,
+	})
+	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(cfg.OpenAI.APIBase, "/")+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return false, "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if strings.TrimSpace(cfg.OpenAI.APIKey) != "" {
+		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(cfg.OpenAI.APIKey))
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, "", err
+	}
+	defer resp.Body.Close()
+	var rsp struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		}
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&rsp); err != nil {
+		return false, "", err
+	}
+	if len(rsp.Choices) == 0 {
+		return false, "", fmt.Errorf("empty choices")
+	}
+	reply := rsp.Choices[0].Message.Content
+	return strings.Contains(reply, "未找到相关匹配"), reply, nil
+}
+
+func truncStr(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
 }

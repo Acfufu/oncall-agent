@@ -73,7 +73,7 @@ type toolCallFunction struct {
 
 const systemPrompt = `你是 oncall-agent 值班助手（只读）。可用工具仅 time_now / rag_search / prometheus_query，不可做任何写操作（确认/静默告警、改配置等一律拒绝）。
 流程：先用 rag_search 查知识库，必要时用 prometheus_query 查指标、time_now 取时间，最多 3 轮工具调用，然后给出诊断。
-诊断必须引用知识库原文片段；若 rag_search 无匹配，必须明示“未找到相关匹配”，不得编造处置步骤。`
+诊断必须引用知识库原文片段；若 rag_search 无匹配、或检出的引用与问题不相关，必须明示“未找到相关匹配”，不得编造处置步骤，不得硬凑不相关引用作答。`
 
 // Run 执行一轮用户问答，返回 reply + citations。会话历史保存在内存 map。
 // OTel：Run 根 span 包全程；ChatModel/Tool 子 span 见 loop/chat/post/fallback。
