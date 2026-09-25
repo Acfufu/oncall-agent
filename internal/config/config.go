@@ -15,6 +15,12 @@ type Config struct {
 	Embedder   EmbedderConfig   `json:"embedder"`
 	Prometheus PrometheusConfig `json:"prometheus"`
 	Knowledge  KnowledgeConfig  `json:"knowledge"`
+	Queue      QueueConfig      `json:"queue"`
+}
+
+// QueueConfig 诊断队列旋钮（ADR-0006）：Redis 硬依赖，asynq 诊断队列地址。
+type QueueConfig struct {
+	RedisAddr string `json:"redis_addr"`
 }
 
 // KnowledgeConfig 事件沉淀旋钮（ADR-0005）：auto_ingest 自动入库开关，
@@ -61,6 +67,7 @@ func Default() Config {
 		Embedder:   EmbedderConfig{Host: "127.0.0.1", Port: 11434, Model: "nomic-embed-text"},
 		Prometheus: PrometheusConfig{URL: "http://localhost:9090"},
 		Knowledge:  KnowledgeConfig{AutoIngest: true, IncidentWeight: 0.5},
+		Queue:      QueueConfig{RedisAddr: "localhost:6379"},
 	}
 }
 
