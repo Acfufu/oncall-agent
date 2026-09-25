@@ -86,8 +86,33 @@ curl -s -X POST http://localhost:8819/chat \
 | `DELETE` | `/delete` | 从注册表删除标题 |
 | `POST` | `/reindex` | 重载演示库 |
 | `GET` | `/metrics` | Prometheus 抓取端点（不进 trace） |
+| `GET`+`POST` | `/mcp` | MCP server（StreamableHTTP）：三只读工具（ADR-0007） |
 
 控制台挂在 `/`；上一代单页保留在 `/v01`。
+
+## MCP server（v0.5）
+
+三只读工具（`time_now`、`rag_search`、`prometheus_query`）同时以 MCP 对外
+暴露（ADR-0007）——白名单语义不变，不暴露诊断 agent 本体：
+
+- **StreamableHTTP**：MCP 客户端直连 `http://localhost:8819/mcp`。
+- **STDIO** 给本地客户端（Claude Desktop / MCP inspector）：
+
+```bash
+go run ./cmd/server serve --mcp        # 不需要 LLM Key——工具只碰 Qdrant/Prometheus
+npx @modelcontextprotocol/inspector go run ./cmd/server serve --mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "oncall-agent": {
+      "command": "go",
+      "args": ["run", "./cmd/server", "serve", "--mcp"]
+    }
+  }
+}
+```
 
 ## 为什么要带引用
 
@@ -151,6 +176,8 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 - `/reports` 环为内存态：重启丢历史报告。排队中的任务在 Redis 里存活、
   重启后重投；事件沉淀同题覆盖保证重跑幂等。环容量 20——积压大时
   `queued` 条目可能在 worker 完成前被驱逐。
+- MCP 面（`/mcp`、`serve --mcp`）按设计不设鉴权——与其余只读 HTTP API
+  同一口径，请在网络层做好防护。
 - 暂无 license 文件声明。
 
 ## 开发

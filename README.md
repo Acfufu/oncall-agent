@@ -89,8 +89,34 @@ An empty citation list means the library had no match.
 | `DELETE` | `/delete` | Remove a title from the registry |
 | `POST` | `/reindex` | Reload the demo library |
 | `GET` | `/metrics` | Prometheus scrape endpoint (not traced) |
+| `GET`+`POST` | `/mcp` | MCP server over StreamableHTTP: the three read-only tools (ADR-0007) |
 
 The console is served at `/`; the previous single-page UI stays at `/v01`.
+
+## MCP server (v0.5)
+
+The three read-only tools (`time_now`, `rag_search`, `prometheus_query`) are
+also exposed over MCP (ADR-0007) — allowlist semantics unchanged, diagnostics
+agent not exposed:
+
+- **StreamableHTTP**: point any MCP client at `http://localhost:8819/mcp`.
+- **STDIO** for local clients (Claude Desktop / MCP inspector):
+
+```bash
+go run ./cmd/server serve --mcp        # no LLM key needed — tools only touch Qdrant/Prometheus
+npx @modelcontextprotocol/inspector go run ./cmd/server serve --mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "oncall-agent": {
+      "command": "go",
+      "args": ["run", "./cmd/server", "serve", "--mcp"]
+    }
+  }
+}
+```
 
 ## Why cited answers
 
@@ -157,6 +183,9 @@ read-only (no acknowledge, no silence).
   survive in Redis and are re-delivered after a restart; same-name incident
   overwrite keeps re-runs idempotent. Ring cap is 20 — a heavy backlog can
   evict a `queued` entry before its worker finishes.
+- The MCP surface (`/mcp`, `serve --mcp`) is unauthenticated by design — same
+  posture as the rest of the read-only HTTP API; protect it at the network
+  layer.
 - No license file is declared yet.
 
 ## Development
