@@ -99,6 +99,8 @@ func main() {
 	e.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	e.GET("/ping", h.Ping)
 	e.GET("/plan", h.Plan)
+	e.POST("/alert", h.Alert)
+	e.GET("/reports", h.Reports)
 	e.POST("/upload", h.Upload)
 	e.POST("/chat", h.Chat)
 	e.GET("/list", h.List)

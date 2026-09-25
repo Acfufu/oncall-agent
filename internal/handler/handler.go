@@ -21,6 +21,9 @@ type Handler struct {
 	// PlannerAgent 供 GET /plan 只读诊断用；nil 时 Plan() 按需兜底构造。
 	PlannerAgent *agent.Planner
 
+	// reports 告警驱动诊断落点环（POST /alert 写，GET /reports 读，ADR-0005）。
+	reports reportRing
+
 	mu     sync.RWMutex
 	titles map[string]string
 }

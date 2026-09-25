@@ -3,15 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>oncall-agent v0.2 控制台</title>
+<title>oncall-agent v0.4 控制台</title>
 <style>body{font-family:system-ui,sans-serif;max-width:900px;margin:24px auto;padding:0 16px}nav button{margin:4px 4px 4px 0}section{border:1px solid #ddd;padding:12px;margin:12px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #ccc;padding:6px;text-align:left}input,textarea{width:100%;margin:4px 0;box-sizing:border-box}textarea{min-height:80px}button{margin:4px 4px 4px 0}pre{background:#f4f4f4;padding:8px;white-space:pre-wrap;word-break:break-word}.err{color:#c00}.muted{color:#666;font-size:13px}</style>
 </head>
 <body>
-<h1>oncall-agent v0.2 控制台</h1>
+<h1>oncall-agent v0.4 控制台</h1>
 <nav>
 <button id="tKb">知识库</button>
 <button id="tSearch">检索预览</button>
-<button id="tEval">评测占位</button>
+<button id="tEval">评测</button>
+<button id="tAlerts">告警诊断</button>
 </nav>
 <p id="err" class="err"></p>
 
@@ -29,7 +30,7 @@
 <h3>删除</h3>
 <input id="delTitle" placeholder="标题">
 <div><button id="bDel">删除 /delete?title=</button></div>
-<p class="muted">仅清注册表、向量残留，真删 v0.3</p>
+<p class="muted">v0.3 起删全：向量 + 注册表 + source 标记</p>
 <p id="kbMsg" class="err"></p>
 </section>
 
@@ -49,12 +50,22 @@
 <section id="eval" style="display:none">
 <h2>评测</h2>
 <table>
-<tr><th>配置</th><th>recall@3</th><th>说明</th></tr>
-<tr><td>混合检索 Hybrid BM25+RRF+标题加权（v0.2）</td><td>1.0 (30/30)</td><td>EVAL_NORERANK=1，2026-09-22实跑</td></tr>
-<tr><td>拒答率（Floor=0默认关）</td><td>0/2</td><td>已知局限：7库重叠无分界，v0.3再调</td></tr>
-<tr><td>重排 LLM-as-rerank+RerankFused</td><td>跳过live验</td><td>码合（rerank.go），待RERANK_BASE_URL实测</td></tr>
+<tr><th>配置</th><th>结果</th><th>说明</th></tr>
+<tr><td>混合检索 Hybrid BM25+RRF+标题加权</td><td>recall@3 = 1.0 (30/30)</td><td>nomic-768，2026-09-26 实跑</td></tr>
+<tr><td>重排 LLM-as-rerank+RerankFused</td><td>rerank_recall@3 = 30/30</td><td>rerank_fallback_err=0，2026-09-26 实跑</td></tr>
+<tr><td>拒答（生成层，Floor=0 默认关）</td><td>2/2 明示未找到相关匹配</td><td>EVAL_GEN 负例回归，v0.3 收口</td></tr>
 </table>
 <p class="muted">数出自cmd/evalbaseline，非虚构。</p>
+</section>
+
+<section id="alerts" style="display:none">
+<h2>告警诊断（POST /alert 推送记录）</h2>
+<div>
+<button id="bReports">刷新 /reports</button>
+<span class="muted">Alertmanager webhook → 同步诊断，内存环存最近 20 条</span>
+</div>
+<pre id="reportList">(暂无告警驱动诊断。curl -X POST /alert 或等 AM 真流转)</pre>
+<p id="alertMsg" class="err"></p>
 </section>
 
 <script>
@@ -65,12 +76,13 @@ var refs = document.getElementById('refs');
 function showErr(m) { err.textContent = m || ''; }
 function showKbMsg(m) { kbMsg.textContent = m || ''; }
 function show(id) {
-  ['kb','search','eval'].forEach(function (x) { document.getElementById(x).style.display = x === id ? '' : 'none'; });
+  ['kb','search','eval','alerts'].forEach(function (x) { document.getElementById(x).style.display = x === id ? '' : 'none'; });
   showErr('');
 }
 document.getElementById('tKb').onclick = function () { show('kb'); };
 document.getElementById('tSearch').onclick = function () { show('search'); };
 document.getElementById('tEval').onclick = function () { show('eval'); };
+document.getElementById('tAlerts').onclick = function () { show('alerts'); doReports(); };
 function pickAnswer(d) {
   if (typeof d === 'string') return d;
   return d.diagnosis || d.answer || d.reply || d.text || d.result || JSON.stringify(d);
@@ -158,6 +170,25 @@ document.getElementById('bPlan').onclick = function () {
     });
   }).catch(function (e) { showErr('请求失败: ' + e); ans.textContent = ''; });
 };
+function doReports() {
+  document.getElementById('alertMsg').textContent = '';
+  fetch('/reports').then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { document.getElementById('alertMsg').textContent = d.error || ('请求失败: ' + r.status); return; }
+      var reps = d.reports || [];
+      if (!reps.length) {
+        document.getElementById('reportList').textContent = '(暂无告警驱动诊断。curl -X POST /alert 或等 AM 真流转)';
+        return;
+      }
+      document.getElementById('reportList').textContent = reps.map(function (rep) {
+        var names = (rep.alerts || []).map(function (a) { return a.name; }).join(', ');
+        var cites = (rep.citations || []).map(function (ct) { return '  引用【' + ct.doc + '】' + (ct.source ? '(source=' + ct.source + ') ' : '') + String(ct.snippet || '').slice(0, 120); }).join('\n');
+        return '[' + rep.received_at + '] ' + names + '\n' + rep.diagnosis + '\n' + cites;
+      }).join('\n\n==========\n\n');
+    });
+  }).catch(function (e) { document.getElementById('alertMsg').textContent = '请求失败: ' + e; });
+}
+document.getElementById('bReports').onclick = doReports;
 doList();
 </script>
 </body>

@@ -33,10 +33,6 @@ func (p *Planner) Plan() (alerts []tool.Alert, diagnosis string, citations []rag
 func (p *Planner) PlanWithContext(ctx context.Context) (alerts []tool.Alert, diagnosis string, citations []rag.Result) {
 	ctx, _ = StartPlanSpan(ctx)
 	defer func() { EndCallbackSpan(ctx, nil, 0, 0) }()
-	topK := p.TopK
-	if topK <= 0 {
-		topK = 3
-	}
 	if p.Prom != nil {
 		fctx := StartFiringSpan(ctx)
 		got, ferr := p.Prom.FiringWithContext(fctx)
@@ -51,10 +47,32 @@ func (p *Planner) PlanWithContext(ctx context.Context) (alerts []tool.Alert, dia
 	if len(alerts) == 0 {
 		return alerts, "当前无 firing 告警，无需诊断。", []rag.Result{}
 	}
+	diagnosis, citations = p.diagnose(ctx, alerts)
+	return alerts, diagnosis, citations
+}
 
+// PlanPushed 推送入口（POST /alert，ADR-0005）：告警由 webhook 传入不拉 Prom，
+// 检索与拼报告与 Plan 同一条链，Plan 根 span 同名以示同链。
+func (p *Planner) PlanPushed(ctx context.Context, alerts []tool.Alert) (string, []rag.Result) {
+	ctx, _ = StartPlanSpan(ctx)
+	defer func() { EndCallbackSpan(ctx, nil, 0, 0) }()
+	if len(alerts) == 0 {
+		return "payload 无 firing 告警，无需诊断。", []rag.Result{}
+	}
+	return p.diagnose(ctx, alerts)
+}
+
+// diagnose 检索+拼报告内核：逐告警 RAG 检索后拼诊断（含引用），
+// 无匹配明示无匹配，不编造。调用方保证 alerts 非空。
+func (p *Planner) diagnose(ctx context.Context, alerts []tool.Alert) (string, []rag.Result) {
+	topK := p.TopK
+	if topK <= 0 {
+		topK = 3
+	}
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "检出 %d 条 firing 告警，诊断如下：\n", len(alerts))
 	seen := map[string]bool{}
+	var citations []rag.Result
 	for i, a := range alerts {
 		fmt.Fprintf(&sb, "\n%d. [%s] %s (severity=%s, startsAt=%s)\n", i+1, a.Name, a.Description, a.Severity, a.StartsAt)
 		query := strings.TrimSpace(a.Name + " " + a.Description)
@@ -82,7 +100,7 @@ func (p *Planner) PlanWithContext(ctx context.Context) (alerts []tool.Alert, dia
 	if citations == nil {
 		citations = []rag.Result{}
 	}
-	return alerts, sb.String(), citations
+	return sb.String(), citations
 }
 
 func truncate(s string, n int) string {
