@@ -1,7 +1,7 @@
 # ADR 0004 — MCP/OTel范围（v0.3首刀）
 
 - Date: 2026-09-22
-- Status: Proposed（待批）
+- Status: Accepted（2026-09-26 验收实测通过：16686 chat→rag→tool 六span树；9090 `http.server.request.duration`(/chat) + `rag_hits_total` 双指标在抓）
 
 ## Context
 
