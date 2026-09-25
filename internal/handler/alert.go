@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,19 +21,31 @@ import (
 	"oncall-agent/internal/tool"
 )
 
-// POST /alert + GET /reports（ADR-0005）：告警推送入口同步诊断，
-// 报告落内存环供人查看；AM webhook 重试会重复投递，环按到达顺序覆盖。
+// POST /alert + GET /reports（ADR-0005/0006）：告警驱动诊断，报告落内存环供人
+// 查看；诊断后置管线 RunAlertDiagnosis 为 HTTP 与队列 worker 共用链。
+
+// 报告状态（ADR-0006 异步契约）：queued 入队 → running 执行中 → done/failed。
+const (
+	StatusQueued  = "queued"
+	StatusRunning = "running"
+	StatusDone    = "done"
+	StatusFailed  = "failed"
+)
 
 // reportRingCap 报告环容量：存最近 N 条告警驱动诊断，内存态重启即失。
 const reportRingCap = 20
 
-// Report 为一条告警驱动诊断的落点记录。
+// Report 为一条告警驱动诊断的落点记录。Score=0 表示 judge 未评分（降级或关闭）。
 type Report struct {
+	ID         string       `json:"id"`
+	Status     string       `json:"status"`
 	ReceivedAt string       `json:"received_at"`
 	Alerts     []tool.Alert `json:"alerts"`
 	Diagnosis  string       `json:"diagnosis"`
 	Citations  []rag.Result `json:"citations"`
 	Ingested   int          `json:"ingested"`
+	Score      int          `json:"score"`
+	LowScore   bool         `json:"low_score"`
 }
 
 // reportRing 并发安全的定长报告环，零值可用。
@@ -58,6 +72,27 @@ func (r *reportRing) snapshot() []Report {
 		out[len(r.items)-1-i] = it
 	}
 	return out
+}
+
+// update 按 ID 就地改写环内条目（worker 回填 running/done/failed 用），
+// 返回是否命中（条目可能已被环容量驱逐）。
+func (r *reportRing) update(id string, mut func(*Report)) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.items {
+		if r.items[i].ID == id {
+			mut(&r.items[i])
+			return true
+		}
+	}
+	return false
+}
+
+// newReportID 报告 ID：8 字节随机 hex。
+func newReportID() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 // amAlert 为 Alertmanager webhook payload 的单条告警形状。
@@ -117,6 +152,30 @@ func parseAlertPayload(raw []byte) ([]tool.Alert, error) {
 	return alerts, nil
 }
 
+// RunAlertDiagnosis 诊断后置管线（ADR-0005/0006，HTTP 与 asynq worker 共用链）：
+// PlanPushed → 事件沉淀 → 落环（命中已有 ID 条目则就地回填，否则新增）→ 指标。
+// id 由调用方生成：HTTP 同步路径现生成现用；异步路径在入队时生成并随任务透传。
+func (h *Handler) RunAlertDiagnosis(ctx context.Context, id string, alerts []tool.Alert) Report {
+	if h.PlannerAgent == nil {
+		h.PlannerAgent = agent.New(nil, h.RAG)
+	}
+	diagnosis, citations := h.PlannerAgent.PlanPushed(ctx, alerts)
+	rep := Report{
+		ID:         id,
+		Status:     StatusDone,
+		ReceivedAt: time.Now().UTC().Format(time.RFC3339),
+		Alerts:     alerts,
+		Diagnosis:  diagnosis,
+		Citations:  citations,
+	}
+	rep.Ingested = h.ingestIncident(alerts, diagnosis)
+	if !h.reports.update(id, func(r *Report) { *r = rep }) {
+		h.reports.add(rep)
+	}
+	observability.AddAlertDiagnosis(ctx, 1)
+	return rep
+}
+
 // Alert 处理 POST /alert：同步走 Plan-Execute 同一条链，报告入环。
 func (h *Handler) Alert(c *gin.Context) {
 	raw, err := io.ReadAll(c.Request.Body)
@@ -139,24 +198,12 @@ func (h *Handler) Alert(c *gin.Context) {
 			return
 		}
 	}
-	if h.PlannerAgent == nil {
-		h.PlannerAgent = agent.New(nil, h.RAG)
-	}
-	diagnosis, citations := h.PlannerAgent.PlanPushed(c.Request.Context(), alerts)
-	rep := Report{
-		ReceivedAt: time.Now().UTC().Format(time.RFC3339),
-		Alerts:     alerts,
-		Diagnosis:  diagnosis,
-		Citations:  citations,
-	}
-	rep.Ingested = h.ingestIncident(alerts, diagnosis)
-	h.reports.add(rep)
-	observability.AddAlertDiagnosis(c.Request.Context(), 1)
+	rep := h.RunAlertDiagnosis(c.Request.Context(), newReportID(), alerts)
 	c.JSON(http.StatusOK, gin.H{
 		"received":  len(alerts),
 		"ingested":  rep.Ingested,
-		"diagnosis": diagnosis,
-		"citations": citations,
+		"diagnosis": rep.Diagnosis,
+		"citations": rep.Citations,
 	})
 }
 
