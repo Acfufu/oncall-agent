@@ -73,7 +73,7 @@ func main() {
 				break
 			}
 		}
-		if err := r.AddDoc(title, string(b)); err != nil {
+		if err := r.AddDoc(title, string(b), "demo"); err != nil {
 			log.Fatalf("warmup: %v", err)
 		}
 	}

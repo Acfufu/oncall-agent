@@ -141,10 +141,9 @@ func TitleBoost(score float32, query, title string) float32 {
 	return score
 }
 
-// AddDoc 切分 md 并写入 store，point id 为 doc+序号 hash；
-// 同步镜像 chunk 到内存 BM25（同 ID 键覆盖。注：删档残留不清理，
-// 语料删除需重启进程重建镜像）。
-func (r *RAG) AddDoc(doc, md string) error {
+// AddDoc 切分 md 并写入 store（source 标记 demo/upload，reindex 只清 demo），
+// point id 为 doc+序号 hash；同步镜像 chunk 到内存 BM25（同 ID 键覆盖）。
+func (r *RAG) AddDoc(doc, md, source string) error {
 	chunks := ChunkMarkdown(doc, md)
 	for i, c := range chunks {
 		vec, err := r.embed.Embed(c.Title + "\n" + c.Snippet)
@@ -153,16 +152,37 @@ func (r *RAG) AddDoc(doc, md string) error {
 		}
 		sum := md5.Sum([]byte(fmt.Sprintf("%s#%d#%s", doc, i, c.Snippet)))
 		id := fmt.Sprintf("%x", sum)
-		r.bm.upsert(id, doc, c.Title, c.Snippet)
+		r.bm.upsert(id, doc, c.Title, c.Snippet, source)
 		if err := r.store.Upsert(store.Point{
 			ID:        id,
 			Title:     c.Title,
 			Content:   "【" + doc + "】" + c.Snippet,
+			Doc:       doc,
+			Source:    source,
 			Embedding: vec,
 		}); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// DeleteDoc 删除某文档：store 按 payload.doc 过滤删点 + BM25 镜像同步清理。
+// store 删除失败返回错误，调用方不应视为已删。
+func (r *RAG) DeleteDoc(doc string) error {
+	if err := r.store.DeleteByDoc(doc); err != nil {
+		return err
+	}
+	r.bm.deleteDoc(doc)
+	return nil
+}
+
+// DeleteSource 删除某来源（demo/upload）全部向量，reindex 同步用。
+func (r *RAG) DeleteSource(source string) error {
+	if err := r.store.DeleteBySource(source); err != nil {
+		return err
+	}
+	r.bm.deleteSource(source)
 	return nil
 }
 

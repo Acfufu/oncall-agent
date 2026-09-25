@@ -68,6 +68,7 @@ type bm25Doc struct {
 	Doc     string
 	Title   string
 	Snippet string
+	Source  string
 	tf      map[string]int
 	length  int
 }
@@ -85,7 +86,7 @@ func newBM25Index() *bm25Index {
 }
 
 // upsert 写入/覆盖一条。text 取 title+"\n"+snippet，与稠密 embed 输入一致。
-func (b *bm25Index) upsert(id, doc, title, snippet string) {
+func (b *bm25Index) upsert(id, doc, title, snippet, source string) {
 	toks := tokenize(title + "\n" + snippet)
 	tf := make(map[string]int, len(toks))
 	for _, t := range toks {
@@ -106,8 +107,47 @@ func (b *bm25Index) upsert(id, doc, title, snippet string) {
 	for t := range tf {
 		b.df[t]++
 	}
-	b.docs[id] = &bm25Doc{Doc: doc, Title: title, Snippet: snippet, tf: tf, length: len(toks)}
+	b.docs[id] = &bm25Doc{Doc: doc, Title: title, Snippet: snippet, Source: source, tf: tf, length: len(toks)}
 	b.totLen += len(toks)
+}
+
+// removeLocked 删一条并回滚 df/totLen，须持锁调用。
+func (b *bm25Index) removeLocked(id string) {
+	old, ok := b.docs[id]
+	if !ok {
+		return
+	}
+	for t := range old.tf {
+		if b.df[t] <= 1 {
+			delete(b.df, t)
+		} else {
+			b.df[t]--
+		}
+	}
+	b.totLen -= old.length
+	delete(b.docs, id)
+}
+
+// deleteDoc 删除某文档全部镜像条目（/delete 与 /delete 同名陈旧 chunk 用）。
+func (b *bm25Index) deleteDoc(doc string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for id, d := range b.docs {
+		if d.Doc == doc {
+			b.removeLocked(id)
+		}
+	}
+}
+
+// deleteSource 删除某来源全部镜像条目（reindex 清 demo 用）。
+func (b *bm25Index) deleteSource(source string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for id, d := range b.docs {
+		if d.Source == source {
+			b.removeLocked(id)
+		}
+	}
 }
 
 // bm25Hit 为稀疏路命中。

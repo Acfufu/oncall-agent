@@ -18,11 +18,15 @@ import (
 // DefaultCollection 与 config_template.json 保持一致。
 const DefaultCollection = "oncallagent"
 
-// Point 为 Qdrant 点结构：id/title/content/embedding。
+// Point 为 Qdrant 点结构：id/title/content/embedding + doc/source。
+// Doc 为所属文档名（删除与 reindex 同步的键），Source 标记来源
+// demo/upload（reindex 只清 demo，不伤上传文档）。
 type Point struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
+	Doc       string    `json:"doc"`
+	Source    string    `json:"source"`
 	Embedding []float32 `json:"embedding"`
 }
 
@@ -191,6 +195,8 @@ func (s *VectorStore) Upsert(p Point) error {
 				"payload": map[string]any{
 					"title":   p.Title,
 					"content": p.Content,
+					"doc":     p.Doc,
+					"source":  p.Source,
 				},
 			},
 		},
@@ -242,17 +248,73 @@ func (s *VectorStore) Search(query []float32, topK int) ([]ScoredPoint, error) {
 	for _, r := range resp.Result {
 		title, _ := r.Payload["title"].(string)
 		content, _ := r.Payload["content"].(string)
+		doc, _ := r.Payload["doc"].(string)
+		source, _ := r.Payload["source"].(string)
 		out = append(out, ScoredPoint{
 			Point: Point{
 				ID:        fmt.Sprintf("%v", r.ID),
 				Title:     title,
 				Content:   content,
+				Doc:       doc,
+				Source:    source,
 				Embedding: r.Vector,
 			},
 			Score: r.Score,
 		})
 	}
 	return out, nil
+}
+
+// deleteByFilter 按 payload 精确匹配删点。Qdrant 删失败返回错误（不降级内存：
+// 删除必须如实报告，静默降级会假装删掉而向量仍在）；内存镜像同步清理。
+func (s *VectorStore) deleteByFilter(key, value string) error {
+	s.mu.Lock()
+	for id, p := range s.mem {
+		if matchPoint(p, key, value) {
+			delete(s.mem, id)
+		}
+	}
+	memOnly := s.memOnly
+	s.mu.Unlock()
+	if memOnly {
+		return nil
+	}
+	body := map[string]any{
+		"filter": map[string]any{
+			"must": []map[string]any{
+				{"key": key, "match": map[string]any{"value": value}},
+			},
+		},
+	}
+	var out map[string]any
+	return s.doJSON(http.MethodPost, "/collections/"+s.collection+"/points/delete?wait=true", body, &out)
+}
+
+func matchPoint(p Point, key, value string) bool {
+	switch key {
+	case "doc":
+		return p.Doc == value
+	case "source":
+		return p.Source == value
+	}
+	return false
+}
+
+// DeleteByDoc 删除某文档（payload.doc 精确匹配）的全部点。
+// 旧数据（v0.3 前写入，payload 无 doc 字段）不命中，需 reindex 重建。
+func (s *VectorStore) DeleteByDoc(doc string) error {
+	if strings.TrimSpace(doc) == "" {
+		return fmt.Errorf("doc required")
+	}
+	return s.deleteByFilter("doc", doc)
+}
+
+// DeleteBySource 删除某来源（demo/upload）的全部点，reindex 同步用。
+func (s *VectorStore) DeleteBySource(source string) error {
+	if strings.TrimSpace(source) == "" {
+		return fmt.Errorf("source required")
+	}
+	return s.deleteByFilter("source", source)
 }
 
 func (s *VectorStore) searchMem(query []float32, topK int) []ScoredPoint {

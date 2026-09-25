@@ -50,6 +50,13 @@ func (h *Handler) removeTitle(title string) (int, bool) {
 	return len(h.titles), true
 }
 
+func (h *Handler) hasTitle(title string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	_, ok := h.titles[title]
+	return ok
+}
+
 func (h *Handler) listTitles() []string {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
