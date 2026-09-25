@@ -18,6 +18,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"oncall-agent/internal/agent"
+	"oncall-agent/internal/judge"
 	"oncall-agent/internal/observability"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/tool"
@@ -177,6 +178,21 @@ func (h *Handler) RunAlertDiagnosis(ctx context.Context, id string, alerts []too
 		Citations:  citations,
 	}
 	rep.Ingested = h.ingestIncident(alerts, diagnosis)
+	// judge 自评分（ADR-0006）：纯观察值，失败降级 Score=0 不挡链；LLM 配置
+	// 不全（如无 key）直接跳过。
+	if h.judgeLLM.APIBase != "" && h.judgeLLM.Model != "" && strings.TrimSpace(h.judgeLLM.APIKey) != "" {
+		score, reason, err := judge.Score(ctx, h.judgeLLM, diagnosis, citations)
+		if err != nil {
+			log.Printf("warn: judge score %s failed (degrade to unscored): %v", id, err)
+		} else {
+			rep.Score = score
+			rep.LowScore = h.judgeThreshold > 0 && score < h.judgeThreshold
+			log.Printf("info: judge %s score=%d/5 reason=%s", id, score, reason)
+			if rep.LowScore {
+				observability.AddDiagnosisScoreLow(ctx)
+			}
+		}
+	}
 	if !h.reports.update(id, func(r *Report) { *r = rep }) {
 		h.reports.add(rep)
 	}

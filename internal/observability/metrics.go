@@ -19,6 +19,10 @@ var AlertDiagnosesTotal metric.Int64Counter
 // IncidentIngestedTotal backs `incident_ingested_total`: 事件沉淀入库次数（ADR 0005）。
 var IncidentIngestedTotal metric.Int64Counter
 
+// DiagnosisScoreLowTotal backs `diagnosis_score_low_total`: judge 自评分低于
+// 阈值的诊断数（v0.5，ADR 0006，纯观察值）。
+var DiagnosisScoreLowTotal metric.Int64Counter
+
 // InitMetrics installs a Prometheus exporter + MeterProvider on the same
 // process registry served by promhttp on /metrics, creates the counters,
 // and returns its shutdown func.
@@ -54,6 +58,13 @@ func InitMetrics(ctx context.Context) (ShutdownFunc, error) {
 		_ = mp.Shutdown(context.Background())
 		return nil, err
 	}
+	if DiagnosisScoreLowTotal, err = meter.Int64Counter(
+		"diagnosis_score_low_total",
+		metric.WithDescription("Total diagnoses scored below judge low threshold"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
 	return mp.Shutdown, nil
 }
 
@@ -79,4 +90,12 @@ func AddIncidentIngested(ctx context.Context, n int64) {
 		return
 	}
 	IncidentIngestedTotal.Add(ctx, n)
+}
+
+// AddDiagnosisScoreLow records one low-score diagnosis (no-op before InitMetrics).
+func AddDiagnosisScoreLow(ctx context.Context) {
+	if DiagnosisScoreLowTotal == nil {
+		return
+	}
+	DiagnosisScoreLowTotal.Add(ctx, 1)
 }

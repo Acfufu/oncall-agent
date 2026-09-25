@@ -62,6 +62,7 @@ func main() {
 	handler.SetChatAgent(agent.NewReAct(cfg.OpenAI.APIBase, cfg.OpenAI.APIKey, cfg.OpenAI.Model, tool.NewDeps(r, cfg.Prometheus.URL)))
 	h.Planner(tool.NewPromClient(cfg.Prometheus.URL), r)
 	h.SetAutoIngest(cfg.Knowledge.AutoIngest)
+	h.SetJudge(cfg.OpenAI, cfg.Judge.LowThreshold)
 	if _, err := h.ReindexLoad(); err != nil {
 		log.Printf("warn: demo preload failed: %v", err)
 	}

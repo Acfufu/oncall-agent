@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"oncall-agent/internal/agent"
+	"oncall-agent/internal/config"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/store"
 )
@@ -25,6 +26,12 @@ type Handler struct {
 	// 硬依赖），nil 时 /alert 返回 503；测试注入同步假实现。
 	queue AlertEnqueuer
 
+	// judgeLLM 自评分主 LLM 配置（复用 openai 段，ADR-0006）；key 空则跳过评分。
+	judgeLLM config.OpenAIConfig
+
+	// judgeThreshold 低分阈值（1-5 分制，score<阈值记 low_score），<=0 关低分标记。
+	judgeThreshold int
+
 	// reports 告警驱动诊断落点环（POST /alert 写，GET /reports 读，ADR-0005）。
 	reports reportRing
 
@@ -44,6 +51,12 @@ func (h *Handler) SetAutoIngest(v bool) { h.autoIngest = v }
 
 // SetQueue 装配诊断任务入队实现（config queue.redis_addr，ADR-0006）。
 func (h *Handler) SetQueue(q AlertEnqueuer) { h.queue = q }
+
+// SetJudge 装配自评分配置（config judge.low_threshold，LLM 复用 openai 段）。
+func (h *Handler) SetJudge(llm config.OpenAIConfig, threshold int) {
+	h.judgeLLM = llm
+	h.judgeThreshold = threshold
+}
 
 func errJSON(msg string) map[string]string {
 	return map[string]string{"error": msg}
