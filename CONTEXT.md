@@ -9,9 +9,12 @@
 - **诊断 (Diagnosis)**: 引用知识生成的处置报告。必须带引用片段，无匹配则明示无匹配，不编造。
 - **工具 (Tool)**: Agent 可调的只读查询。时间/文档检索/指标与告警查询。白名单外一律拒绝，写操作不作为工具。
 - **会话 (Session)**: 一串多轮对话的 ID。服务端保历史，客户端传 Id 复用，可清空。
-- **开箱即用 (Out-of-box)**: `compose up` 后即玩。仅 LLM Key 必填，Qdrant/Prometheus/demo 知识全预置。
+- **开箱即用 (Out-of-box)**: `compose up` 后即玩。LLM Key 与 Redis 必填（v0.5 起诊断队列硬依赖 Redis，词条自 v0.4 的「仅 Key 必填」降级），Qdrant/Prometheus/Alertmanager/demo 知识全预置。
 - **评测 (Eval)**: 证明检索/生成可信的 sample 集 + 脚本。v0.1 占位，v0.2 对比报告。
 - **拒答 (Refusal)**: 库外或无匹配的问题明示无匹配、不编造。语义落生成层（v0.3 起）；检索层 Floor 门控只作旋钮保留，不承担拒答验收。
+- **诊断队列 (Diagnosis Queue)**: 告警诊断的异步执行（v0.5 起）。Redis 硬依赖，POST /alert 入队秒回，诊断完成后落 /reports。与手动入口同一条执行链。
+- **诊断自评分 (Diagnosis Self-score)**: judge 对诊断的 1-5 评估（v0.5 起）。纯观察值，挂 /reports 条目，不驱动任何行为；评分失败降级无分，不挡主链。
+- **低分标记 (Low-score Flag)**: 自评分低的布尔标记（v0.5 起）。仅 /reports 与控制台高亮可见；把低分送达给人是通知写回的事，v0.6 立项。
 
 ## Vision (deferred)
 

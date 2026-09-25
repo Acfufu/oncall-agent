@@ -57,11 +57,25 @@
 
 > 推 v0.5：deploy_events 变更富化、对外 MCP server（对标 k8sgpt serve --mcp）、通知写回（需 ADR 界定只读边界）、job 化异步、LLM-as-judge 评分。企业库/沙箱继续搁置（沙箱 ADR 顺延 0006）。
 
-## v0.5+ 愿景
+## v0.5 诊断队列化 + 自评分 + MCP server (2026-09-26 立项)
 
+主题：还债 + 质量 + 分发。队列化还 v0.4 记录在案的同步债（ADR-0006），judge 升级诊断质量度量，对外 MCP server 分发三只读（ADR-0007，对标 k8sgpt serve --mcp）。拷问拍板：Redis+asynq 硬依赖、单一异步契约、自评分纯观察值、低分先标记后送达（外发拆 v0.6）。
+
+- [ ] 诊断队列化（ADR-0006）：Redis + asynq 硬依赖，compose 预置 redis；POST /alert 单一异步契约——入队秒回 202 {id,status:queued}，诊断落 /reports（queued/running/done/failed）；console 改轮询；BREAKING 写 README
+- [ ] 运行时自评分 + 低分标记：judge 1-5 分挂 /reports 条目，纯观察值不驱动行为；低分布尔标记 + console 高亮；judge 失败降级无分不挡主链
+- [ ] judge eval 门控：EVAL_JUDGE=1，alert 集 7 正例出 1-5 分，与规则断言并列进评测报告；复用主 LLM 配置
+- [ ] 对外 MCP server（ADR-0007）：官方 go-sdk 双传输——Gin /mcp StreamableHTTP + serve --mcp STDIO，共享 tool handler；只暴露三只读；鉴权不新设；MCP 进程不需 LLM Key
+
+> 验收关（草案，验收时填实数）。
+> - 队列化：compose 起 redis；POST /alert 秒回 202；AM 真流转零重试；重启丢在途列 README known limitation；EVAL_ALERT 直调链回归同级。
+> - 自评分：/reports 带 score/low_score；console 高亮；拔 LLM Key 活验降级无分不挡链。
+> - judge eval：EVAL_JUDGE=1 出分并列报告。
+> - MCP：inspector/Claude Desktop 双传输连通，三只读列出，写调用被拒。
+> - 既有回归不破：recall@3 30/30、拒答生成层 2/2、rerank 30/30 同级可比。
+
+## v0.6+ 愿景
+
+- [ ] 通知写回（需 ADR 界定"通知不是 remediation"；judge 低分送达作第一个触发器）
 - [ ] deploy_events 变更富化（第四只读白名单工具，需先定真实变更源）
-- [ ] 对外 MCP server（ADR-0004 传输缝反向暴露三只读）
-- [ ] 通知写回（Slack/飞书 webhook，需 ADR 界定"通知不是 remediation"）
-- [ ] 诊断 job 化异步 + LLM-as-judge 评分
 - [ ] 企业级知识库 (版本/权限/去重)
-- [ ] 沙箱执行 (默认关，另立 ADR-0006)
+- [ ] 沙箱执行 (默认关，另立 ADR，顺延 0008)
