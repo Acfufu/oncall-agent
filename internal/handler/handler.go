@@ -21,6 +21,10 @@ type Handler struct {
 	// PlannerAgent 供 GET /plan 只读诊断用；nil 时 Plan() 按需兜底构造。
 	PlannerAgent *agent.Planner
 
+	// queue 诊断任务入队缝（ADR-0006）：生产实现 internal/queue.Client（Redis
+	// 硬依赖），nil 时 /alert 返回 503；测试注入同步假实现。
+	queue AlertEnqueuer
+
 	// reports 告警驱动诊断落点环（POST /alert 写，GET /reports 读，ADR-0005）。
 	reports reportRing
 
@@ -37,6 +41,9 @@ func New(s *store.VectorStore, r *rag.RAG, demoDir string) *Handler {
 
 // SetAutoIngest 设置事件沉淀自动入库开关（config knowledge.auto_ingest）。
 func (h *Handler) SetAutoIngest(v bool) { h.autoIngest = v }
+
+// SetQueue 装配诊断任务入队实现（config queue.redis_addr，ADR-0006）。
+func (h *Handler) SetQueue(q AlertEnqueuer) { h.queue = q }
 
 func errJSON(msg string) map[string]string {
 	return map[string]string{"error": msg}

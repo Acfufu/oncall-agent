@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 
 	"oncall-agent/internal/agent"
 	"oncall-agent/internal/observability"
@@ -152,6 +154,12 @@ func parseAlertPayload(raw []byte) ([]tool.Alert, error) {
 	return alerts, nil
 }
 
+// AlertEnqueuer 诊断任务入队缝（ADR-0006）：生产实现 internal/queue.Client，
+// 测试注入同步假实现；接口收窄使 handler 不依赖 asynq 类型。
+type AlertEnqueuer interface {
+	EnqueueAlertDiagnosis(reportID string, alerts []tool.Alert) error
+}
+
 // RunAlertDiagnosis 诊断后置管线（ADR-0005/0006，HTTP 与 asynq worker 共用链）：
 // PlanPushed → 事件沉淀 → 落环（命中已有 ID 条目则就地回填，否则新增）→ 指标。
 // id 由调用方生成：HTTP 同步路径现生成现用；异步路径在入队时生成并随任务透传。
@@ -176,7 +184,9 @@ func (h *Handler) RunAlertDiagnosis(ctx context.Context, id string, alerts []too
 	return rep
 }
 
-// Alert 处理 POST /alert：同步走 Plan-Execute 同一条链，报告入环。
+// Alert 处理 POST /alert：入队即回 202 {id, status:"queued"}（ADR-0006 单一异步
+// 语义，BREAKING）。诊断由 worker 消费执行，结果落 /reports；队列未装配或同
+// payload 任务在队返回 503（AM 退避后重试自愈）。
 func (h *Handler) Alert(c *gin.Context) {
 	raw, err := io.ReadAll(c.Request.Body)
 	if err != nil || len(raw) == 0 {
@@ -198,13 +208,43 @@ func (h *Handler) Alert(c *gin.Context) {
 			return
 		}
 	}
-	rep := h.RunAlertDiagnosis(c.Request.Context(), newReportID(), alerts)
-	c.JSON(http.StatusOK, gin.H{
-		"received":  len(alerts),
-		"ingested":  rep.Ingested,
-		"diagnosis": rep.Diagnosis,
-		"citations": rep.Citations,
+	if h.queue == nil {
+		c.JSON(http.StatusServiceUnavailable, errJSON("诊断队列未就绪（queue 未装配，需 redis）"))
+		return
+	}
+	id := newReportID()
+	h.reports.add(Report{
+		ID:         id,
+		Status:     StatusQueued,
+		ReceivedAt: time.Now().UTC().Format(time.RFC3339),
+		Alerts:     alerts,
 	})
+	if err := h.queue.EnqueueAlertDiagnosis(id, alerts); err != nil {
+		msg := "诊断任务入队失败"
+		if errors.Is(err, asynq.ErrTaskIDConflict) {
+			msg = "同告警诊断任务已在队列（去重）"
+		}
+		log.Printf("warn: enqueue alert diagnosis %s: %v", id, err)
+		h.reports.update(id, func(r *Report) {
+			r.Status = StatusFailed
+			r.Diagnosis = msg
+		})
+		c.JSON(http.StatusServiceUnavailable, errJSON(msg))
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{
+		"id":       id,
+		"status":   StatusQueued,
+		"received": len(alerts),
+	})
+}
+
+// ProcessAlertDiagnosis 队列 worker 回调（ADR-0006）：回填 running 后走共用链，
+// 结果 upsert 为 done。PlanPushed 内部降级不返回错误，故恒 nil。
+func (h *Handler) ProcessAlertDiagnosis(ctx context.Context, reportID string, alerts []tool.Alert) error {
+	h.reports.update(reportID, func(r *Report) { r.Status = StatusRunning })
+	h.RunAlertDiagnosis(ctx, reportID, alerts)
+	return nil
 }
 
 // Reports 处理 GET /reports：返回最近告警驱动诊断（新→旧）。
