@@ -61,10 +61,17 @@ An empty citation list means the library had no match.
 1. **Load the demo library.** `POST /reindex` ingests the seven
    `aiops-docs-demo/` runbooks (CPU, service-down, OOM, disk, P99, MQ, TLS).
 2. **Run the baseline.** `EVAL_NORERANK=1 go run ./cmd/evalbaseline`
-   replays 32 seeded questions: recall@3 1.0 on 30 answerable items,
-   0/2 refusals on out-of-library probes.
+   replays 32 seeded questions: recall@3 1.0 on 30 answerable items;
+   `EVAL_GEN=1` also verifies generation-layer refusal (2/2 out-of-library
+   probes answer "no relevant match", never invented).
 3. **Watch a diagnosis.** `GET /plan` pulls firing Prometheus alerts and
    returns a cited report; traces land in Jaeger at `:16686`.
+4. **Push an alert.** The compose stack ships Alertmanager plus a demo
+   always-firing rule (`ContainerOOMKilled`): Prometheus → AM → `POST /alert`
+   → cited diagnosis, visible via `GET /reports` and the console. The report
+   is auto-ingested as an incident note (`source=incident`, retrieval
+   down-weighted, same-name overwrite, `knowledge.auto_ingest` to switch off).
+   Eval before regressing: `EVAL_ALERT=1 go run ./cmd/evalbaseline`.
 
 ## Routes
 
@@ -73,6 +80,8 @@ An empty citation list means the library had no match.
 | `GET` | `/ping` | Health check, `{"status":"ok"}` |
 | `POST` | `/chat` | ReAct dialogue over read-only tools, cited reply |
 | `GET` | `/plan` | Plan-Execute: firing alerts → retrieval → cited report |
+| `POST` | `/alert` | Alertmanager webhook: pushed alerts → cited diagnosis (sync) |
+| `GET` | `/reports` | Recent alert-driven diagnoses (in-memory ring, last 20) |
 | `POST` | `/upload` | Ingest one Markdown runbook |
 | `GET` | `/list` | List ingested titles |
 | `DELETE` | `/delete` | Remove a title from the registry |
@@ -99,18 +108,19 @@ at the tool layer:
 
 ```text
 Prometheus alerts ──▶ /plan ──▶ Hybrid RAG ──▶ cited report
+Alertmanager ───────▶ /alert ──▶ same chain ──▶ cited report + incident note
 Operator question ──▶ /chat (ReAct + 3 read-only tools) ──▶ cited answer
 Runbook .md ──▶ /upload · /reindex ──▶ Qdrant + BM25 mirror
 ```
 
 ```text
-compose: qdrant (:6333) · prometheus (:9090) · otel-collector (:4317/:4318) · jaeger (:16686)
+compose: qdrant (:6333) · prometheus (:9090) · alertmanager (:9093) · otel-collector (:4317/:4318) · jaeger (:16686)
 app: :8819 · embedder default: local Ollama nomic-embed-text (:11434) · LLM: OpenAI-compatible api_base + model + key
 ```
 
 Layout follows `internal/` layers: `config`, `handler`, `agent`, `rag`,
 `store`, `tool`, `observability`, `trace`. Decisions are pinned in
-`docs/adr/0001-0004`; scope per release in `docs/ROADMAP.md`.
+`docs/adr/0001-0005`; scope per release in `docs/ROADMAP.md`.
 
 ## Configuration and operations
 
@@ -123,6 +133,7 @@ Only `openai.api_key` is mandatory. Everything else runs on template defaults:
 | `qdrant` | `127.0.0.1:6334`, collection `oncallagent` | HTTP probed on `:6333`; falls back to memory |
 | `embedder` | `127.0.0.1:11434`, `nomic-embed-text` | Dimension auto-probed at boot |
 | `prometheus.url` | `http://localhost:9090` | Alert + query source |
+| `knowledge` | `auto_ingest: true`, `incident_weight: 0.5` | Incident-note ingestion + retrieval down-weight (ADR-0005) |
 
 Never commit `config/config.json` — it is git-ignored. MCP tool routing
 (`modelcontextprotocol/go-sdk`) and the similarity floor are staged behind
@@ -131,11 +142,14 @@ read-only (no acknowledge, no silence).
 
 ## Known limitations
 
-- Refusal is floor-gated, not perfect: the current sample shows 0/2 refusals
-  on out-of-library probes with the floor at its default.
+- Retrieval-layer refusal stays 0/2 by design: refusal is asserted at the
+  generation layer (eval shows 2/2 "no relevant match" with `EVAL_GEN=1`);
+  the similarity floor knob remains off by default.
 - Rerank runs on the evaluation path only, not on live `/chat`.
+- `/alert` diagnoses synchronously: a slow LLM can outlive Alertmanager's
+  delivery timeout and trigger webhook retries (duplicate diagnoses);
+  tune `group_interval`/`repeat_interval`, async job mode is a v0.5 item.
 - No license file is declared yet.
-- `delete` clears the registry; full vector removal is a v0.3 item.
 
 ## Development
 

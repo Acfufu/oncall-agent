@@ -54,15 +54,21 @@ curl -s -X POST http://localhost:8819/chat \
 
 返回包含回答与 `citations`（`{doc, snippet}`）。引用为空即表示库中无匹配。
 
-### 接下来三步
+### 接下来四步
 
 1. **载入演示库。** `POST /reindex` 导入 `aiops-docs-demo/` 下 7 篇
    runbook（CPU宕机、服务不可用、OOM、磁盘、P99、MQ、TLS）。
 2. **跑基线。** `EVAL_NORERANK=1 go run ./cmd/evalbaseline`
-   回放 32 个种子问题：30 个可回答项 recall@3 为 1.0，
-   2 个库外探测项拒答 0/2。
+   回放 32 个种子问题：30 个可回答项 recall@3 为 1.0；
+   加 `EVAL_GEN=1` 验生成层拒答（2 个库外探测项 2/2 明示
+   “未找到相关匹配”，不编造）。
 3. **看一次诊断。** `GET /plan` 拉取 firing 的 Prometheus 告警并返回
    带引用的报告；调用链可在 `:16686` 的 Jaeger 里看到。
+4. **推一条告警。** compose 预置 Alertmanager + demo 恒真规则
+   （`ContainerOOMKilled`）：Prometheus → AM → `POST /alert` → 带引用
+   诊断，`GET /reports` 与控制台可见。报告自动入库为事件沉淀
+   （`source=incident`，检索降权，同题覆盖，`knowledge.auto_ingest`
+   可关）。回归用 `EVAL_ALERT=1 go run ./cmd/evalbaseline`。
 
 ## 路由
 
@@ -71,6 +77,8 @@ curl -s -X POST http://localhost:8819/chat \
 | `GET` | `/ping` | 健康检查，`{"status":"ok"}` |
 | `POST` | `/chat` | ReAct 多轮对话，只读工具，回答带引用 |
 | `GET` | `/plan` | Plan-Execute：拉告警 → 检索 → 带引用的报告 |
+| `POST` | `/alert` | Alertmanager webhook：推入告警 → 同步带引用诊断 |
+| `GET` | `/reports` | 最近告警驱动诊断（内存环，近 20 条） |
 | `POST` | `/upload` | 入库一篇 Markdown runbook |
 | `GET` | `/list` | 列出已入库标题 |
 | `DELETE` | `/delete` | 从注册表删除标题 |
@@ -96,18 +104,19 @@ curl -s -X POST http://localhost:8819/chat \
 
 ```text
 Prometheus 告警 ──▶ /plan ──▶ Hybrid RAG ──▶ 带引用的报告
+Alertmanager ──────▶ /alert ──▶ 同一条链 ──▶ 带引用的报告 + 事件沉淀
 值班提问 ──▶ /chat（ReAct + 3 个只读工具）──▶ 带引用的回答
 Runbook .md ──▶ /upload · /reindex ──▶ Qdrant + BM25 镜像
 ```
 
 ```text
-compose: qdrant（:6333）· prometheus（:9090）· otel-collector（:4317/:4318）· jaeger（:16686）
+compose: qdrant（:6333）· prometheus（:9090）· alertmanager（:9093）· otel-collector（:4317/:4318）· jaeger（:16686）
 app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM：OpenAI 兼容 api_base + model + key
 ```
 
 目录按 `internal/` 分层：`config`、`handler`、`agent`、`rag`、
 `store`、`tool`、`observability`、`trace`。选型钉在
-`docs/adr/0001-0004`；各版本范围见 `docs/ROADMAP.md`。
+`docs/adr/0001-0005`；各版本范围见 `docs/ROADMAP.md`。
 
 ## 配置与运维
 
@@ -120,6 +129,7 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 | `qdrant` | `127.0.0.1:6334`，collection `oncallagent` | HTTP 探测 `:6333`；失败回退内存 |
 | `embedder` | `127.0.0.1:11434`，`nomic-embed-text` | 启动时自动探测向量维度 |
 | `prometheus.url` | `http://localhost:9090` | 告警 + 查询来源 |
+| `knowledge` | `auto_ingest: true`，`incident_weight: 0.5` | 事件沉淀入库 + 检索降权（ADR-0005） |
 
 不要提交 `config/config.json`——它已在 gitignore 里。MCP 工具路由
 （`modelcontextprotocol/go-sdk`）与相似度 floor 按
@@ -128,10 +138,13 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 
 ## 已知局限
 
-- 拒答靠 floor 门控，不完美：当前样本里库外探测 0/2 拒答（floor 默认值）。
+- 检索层拒答 0/2 属预期：拒答验收挂生成层（`EVAL_GEN=1` 实测 2/2 明示
+  “未找到相关匹配”）；余弦 floor 旋钮默认保持关。
 - Rerank 只在评测链路跑，不进线上 `/chat`。
+- `/alert` 同步诊断：LLM 慢时响应可能超出 Alertmanager 投递超时，
+  触发 webhook 重试（重复诊断）；调 `group_interval`/`repeat_interval`
+  缓解，job 化异步是 v0.5 项。
 - 暂无 license 文件声明。
-- `delete` 只清注册表；向量彻底删除是 v0.3 项。
 
 ## 开发
 

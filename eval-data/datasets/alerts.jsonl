@@ -1,0 +1,9 @@
+{"alertname":"ContainerOOMKilled","severity":"critical","description":"容器 OOMKilled：容器内存超限被杀","expect_doc":"container_oom.md"}
+{"alertname":"CPUHighUsage","severity":"critical","description":"CPU 使用率持续大于 90%","expect_doc":"cpu_high_usage.md"}
+{"alertname":"DiskUsageFull","severity":"warn","description":"磁盘使用率超过 95%，空间即将写满","expect_doc":"disk_full.md"}
+{"alertname":"MQConsumerBacklog","severity":"critical","description":"消息队列消费堆积持续增长","expect_doc":"mq_backlog.md"}
+{"alertname":"P99LatencyHigh","severity":"critical","description":"接口 P99 延迟突增超过阈值","expect_doc":"p99_latency.md"}
+{"alertname":"ServiceUnavailable","severity":"critical","description":"服务健康检查失败，5xx 激增不可用","expect_doc":"service_unavailable.md"}
+{"alertname":"TLSCertExpired","severity":"warn","description":"TLS 证书即将过期或已过期","expect_doc":"tls_cert_expired.md"}
+{"alertname":"DatabaseReplicationLag","severity":"warn","description":"数据库主从复制延迟持续增大","expect_doc":""}
+{"alertname":"CronJobRepeatedFail","severity":"warn","description":"定时任务连续三次执行失败","expect_doc":""}

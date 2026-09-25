@@ -42,14 +42,20 @@
 
 主题：告警进来→诊断出去。POST /alert 推送入口 + 诊断 eval 门禁 + 事件沉淀回流。依据 docs/research/2026-09-26-v040-survey.md（开源对标 + 商业趋势两路调研）。
 
-- [ ] POST /alert：Alertmanager webhook 兼容 payload，复用 Plan-Execute 同一条链，同步返回结构化诊断报告
-- [ ] GET /reports：内存环存最近 N 条告警驱动诊断；console 加区块
-- [ ] compose 预置 Alertmanager + demo 告警规则：Prometheus 规则→AM→/alert 真流转
-- [ ] 事件沉淀：诊断报告自动入库 source=incident（同题覆盖、auto_ingest 可开关、检索降权 0.5 可配）；沉淀是管线后置写入，不是 agent 工具
-- [ ] 诊断 eval：fixture 告警 ~10 条规则断言（引用含 expect_doc / 负例明示无匹配 / 无 gen_err），eval 前清 incident 防自证循环
+- [x] POST /alert：Alertmanager webhook 兼容 payload，复用 Plan-Execute 同一条链，同步返回结构化诊断报告（619f970）
+- [x] GET /reports：内存环存最近 20 条告警驱动诊断；console 加告警诊断区块（619f970）
+- [x] compose 预置 Alertmanager + demo 告警规则：Prometheus 规则→AM→/alert 真流转（e4d0570）
+- [x] 事件沉淀：诊断报告自动入库 source=incident（同题覆盖、auto_ingest 可开关、检索降权 0.5 可配）；沉淀是管线后置写入，不是 agent 工具（81dea18）
+- [x] 诊断 eval：fixture 告警 9 条（7 正例 + 2 负例）规则断言，eval 前清 incident 防自证循环
 
-> 推 v0.5：deploy_events 变更富化、对外 MCP server（对标 k8sgpt serve --mcp）、通知写回（需 ADR 界定只读边界）、job 化异步。企业库/沙箱继续搁置（沙箱 ADR 顺延 0006）。
-> 验收关（待填实数）：AM 真流转报告可查；诊断 eval 规则断言全绿；降权/开关/清沉淀活验；既有回归不破（recall@3 30/30、拒答 2/2、rerank 30/30）。
+> 验收关 (2026-09-26 全量活跑：LM Studio nomic-768 + qwen3-vl-8b，Qdrant 真库)。
+> - AM 真流转：compose up 后 Prometheus `ContainerOOMKilled` firing → AM → /alert 自动诊断入 /reports，ingested=1；手动 curl POST /alert 同验。
+> - 诊断 eval：alert_recall@3=7/7=1.0；负例生成层拒答 2/2 明示未找到相关匹配，alert_gen_err=0（EVAL_ALERT=1 EVAL_GEN=1）。
+> - 事件沉淀：Qdrant source=incident 点落库（2 告警 × 3 chunk=6 点）；重推同告警点数不涨（同题覆盖）；citations 透出 source=demo/incident；/metrics 实测 `alert_diagnoses_total` 与 `incident_ingested_total`；internal/rag/incident_test.go 回归降权与按 source 清除。
+> - 既有回归不破：recall@3=30/30、rerank_recall@3=30/30（fallback_err=0）、拒答生成层 2/2（gen_err=0），与 v0.3 验收同级可比。
+> - 同步形态代价已记录（README 已知局限）：LLM 慢可超 AM 投递超时触发重试，demo 靠 repeat_interval=4h 缓解，job 化异步留 v0.5。
+
+> 推 v0.5：deploy_events 变更富化、对外 MCP server（对标 k8sgpt serve --mcp）、通知写回（需 ADR 界定只读边界）、job 化异步、LLM-as-judge 评分。企业库/沙箱继续搁置（沙箱 ADR 顺延 0006）。
 
 ## v0.5+ 愿景
 

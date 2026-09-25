@@ -106,6 +106,14 @@ func main() {
 	// LLM 诊断判定——引用不相关必须明示“未找到相关匹配”。消耗 LLM token，
 	// 默认关。拒答语义已证伪检索层 Floor（7库无可分界），验收挂生成层。
 	genOn := strings.TrimSpace(os.Getenv("EVAL_GEN")) == "1"
+	// 告警驱动诊断 eval（v0.4，ADR-0005）：EVAL_ALERT=1 切入 fixture 告警集，
+	// 走与 POST /alert→Planner.PlanPushed 同参链（query=alertname+description，
+	// topK=3），规则断言引用命中 expect_doc；负例拒答仍挂 EVAL_GEN。
+	alertOn := strings.TrimSpace(os.Getenv("EVAL_ALERT")) == "1"
+	if alertOn {
+		runAlertEval(cfg, r, genOn)
+		return
+	}
 	if v := strings.TrimSpace(os.Getenv("EVAL_FLOOR")); v != "" {
 		if f, err := strconv.ParseFloat(v, 32); err == nil && f > 0 {
 			r.Floor = float32(f)
@@ -239,6 +247,112 @@ func main() {
 		"gen_err":             genErr,
 	})
 	fmt.Println(string(out))
+}
+
+// alertSample 为 fixture 告警：eval-data/datasets/alerts.jsonl，一行一条。
+// expect_doc 空 = 负例（库外告警，须明示无匹配，不硬凑）。
+type alertSample struct {
+	AlertName   string `json:"alertname"`
+	Severity    string `json:"severity"`
+	Description string `json:"description"`
+	ExpectDoc   string `json:"expect_doc"`
+}
+
+// runAlertEval 告警驱动诊断 eval（v0.4，ADR-0005）。检索参同
+// Planner.diagnose：query=alertname+" "+description，topK=3，与线上
+// /alert 同链同参。跑前按 source 清 incident 沉淀——否则 fixture 告警
+// 命中上次沉淀、引用自己的报告，eval 自证失真。
+func runAlertEval(cfg *config.Config, r *rag.RAG, genOn bool) {
+	if err := r.DeleteSource("incident"); err != nil {
+		log.Printf("warn: clear incident source before alert eval: %v", err)
+	}
+	f, err := os.Open("eval-data/datasets/alerts.jsonl")
+	if err != nil {
+		log.Fatalf("open alert dataset: %v", err)
+	}
+	defer f.Close()
+
+	hit, total := 0, 0
+	genRefused, genTotal, genErr := 0, 0, 0
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		var a alertSample
+		if err := json.Unmarshal([]byte(line), &a); err != nil {
+			log.Fatalf("parse alert dataset: %v", err)
+		}
+		query := strings.TrimSpace(a.AlertName + " " + a.Description)
+		hits, err := r.Search(query, 3)
+		if err != nil {
+			log.Fatalf("alert search: %v", err)
+		}
+		if a.ExpectDoc == "" {
+			// 负例：检索层必有余弦命中（Floor=0），拒答验收挂生成层（v0.3 同语义）。
+			note := "off"
+			if genOn {
+				genTotal++
+				refused, reply, gerr := genRefusal(cfg, query, hits)
+				switch {
+				case gerr != nil:
+					genErr++
+					msg := gerr.Error()
+					if len(msg) > 60 {
+						msg = msg[:60] + "…"
+					}
+					note = "err:" + msg
+				case refused:
+					genRefused++
+					note = "refused"
+				default:
+					note = "leak:" + truncStr(reply, 60)
+				}
+			}
+			fmt.Printf("ALERT_REFUSE %.30s hits=%d top=%.4f gen=%s\n", query, len(hits), topOf(hits), note)
+			continue
+		}
+		total++
+		want := docTitle("aiops-docs-demo", a.ExpectDoc)
+		ok := false
+		for _, h := range hits {
+			if h.Doc == want {
+				ok = true
+				break
+			}
+		}
+		if ok {
+			hit++
+		}
+		fmt.Printf("ALERT_HIT=%v want=%.16s alert=%.30s top=%.4f\n", ok, want, query, topOf(hits))
+	}
+	if err := sc.Err(); err != nil {
+		log.Fatalf("scan alert dataset: %v", err)
+	}
+	safeDiv := func(a, b int) float64 {
+		if b == 0 {
+			return 0
+		}
+		return float64(a) / float64(b)
+	}
+	out, _ := json.Marshal(map[string]any{
+		"alert_recall_at_3": safeDiv(hit, total),
+		"alert_hit":         hit,
+		"alert_total":       total,
+		"alert_gen_refused": genRefused,
+		"alert_gen_total":   genTotal,
+		"alert_gen_err":     genErr,
+	})
+	fmt.Println(string(out))
+}
+
+func topOf(rs []rag.Result) float32 {
+	if len(rs) == 0 {
+		return 0
+	}
+	return rs[0].Score
 }
 
 // genRefusal 生成层拒答判定：把检索引用原样喂给 LLM 诊断，回复含
