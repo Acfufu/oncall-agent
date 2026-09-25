@@ -9,6 +9,7 @@
 - **会话 (Session)**: 一串多轮对话的 ID。服务端保历史，客户端传 Id 复用，可清空。
 - **开箱即用 (Out-of-box)**: `compose up` 后即玩。仅 LLM Key 必填，Qdrant/Prometheus/demo 知识全预置。
 - **评测 (Eval)**: 证明检索/生成可信的 sample 集 + 脚本。v0.1 占位，v0.2 对比报告。
+- **拒答 (Refusal)**: 库外或无匹配的问题明示无匹配、不编造。语义落生成层（v0.3 起）；检索层 Floor 门控只作旋钮保留，不承担拒答验收。
 
 ## Vision (deferred)
 

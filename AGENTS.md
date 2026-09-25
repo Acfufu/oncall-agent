@@ -1,4 +1,4 @@
-# AGENTS.md — oncall-agent（v0.2 落地中）
+# AGENTS.md — oncall-agent（v0.3 收口中）
 
 Go 1.25 + Gin + CloudWeGo Eino. OpenAI兼容 + Qdrant + Prometheus + OTel. 只读闭环优先。
 
