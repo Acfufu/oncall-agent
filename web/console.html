@@ -177,6 +177,11 @@ document.getElementById('bPlan').onclick = function () {
     });
   }).catch(function (e) { showErr('请求失败: ' + e); ans.textContent = ''; });
 };
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
 function doReports() {
   document.getElementById('alertMsg').textContent = '';
   fetch('/reports').then(function (r) {
@@ -187,18 +192,22 @@ function doReports() {
         document.getElementById('reportList').textContent = '(暂无告警驱动诊断。curl -X POST /alert 或等 AM 真流转)';
         return;
       }
-      document.getElementById('reportList').textContent = reps.map(function (rep) {
+      document.getElementById('reportList').innerHTML = reps.map(function (rep) {
         var names = (rep.alerts || []).map(function (a) { return a.name; }).join(', ');
-        var head = '[' + rep.received_at + '] ' + names + '  (id=' + (rep.id || '-') + ' status=' + (rep.status || '-') +
-          (rep.score ? ' score=' + rep.score + '/5' : '') + (rep.low_score ? ' ⚠低分' : '') + ')';
+        var low = !!rep.low_score;
+        var head = '[' + esc(rep.received_at) + '] ' + esc(names) + '  (id=' + esc(rep.id) + ' status=' + esc(rep.status) +
+          (rep.score ? ' score=' + rep.score + '/5' : '') + (low ? ' ⚠低分' : '') + ')';
+        var body;
         if (rep.status === 'queued' || rep.status === 'running') {
-          return head + '\n  诊断执行中，完成后自动刷新…';
+          body = '  诊断执行中，完成后自动刷新…';
+        } else if (rep.status === 'failed') {
+          body = '  ' + esc(rep.diagnosis || '诊断失败');
+        } else {
+          var cites = (rep.citations || []).map(function (ct) { return '  引用【' + esc(ct.doc) + '】' + (ct.source ? '(source=' + esc(ct.source) + ') ' : '') + esc(String(ct.snippet || '').slice(0, 120)); }).join('\n');
+          body = '\n' + esc(rep.diagnosis) + '\n' + cites;
         }
-        if (rep.status === 'failed') {
-          return head + '\n  ' + (rep.diagnosis || '诊断失败');
-        }
-        var cites = (rep.citations || []).map(function (ct) { return '  引用【' + ct.doc + '】' + (ct.source ? '(source=' + ct.source + ') ' : '') + String(ct.snippet || '').slice(0, 120); }).join('\n');
-        return head + '\n' + rep.diagnosis + '\n' + cites;
+        if (low) head = '<span style="color:#e5484d;font-weight:bold">' + head + '</span>';
+        return head + '\n' + body;
       }).join('\n\n==========\n\n');
     });
   }).catch(function (e) { document.getElementById('alertMsg').textContent = '请求失败: ' + e; });
