@@ -17,6 +17,7 @@ import (
 	"oncall-agent/internal/config"
 	"oncall-agent/internal/handler"
 	"oncall-agent/internal/observability"
+	"oncall-agent/internal/queue"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/store"
 	"oncall-agent/internal/tool"
@@ -64,6 +65,18 @@ func main() {
 	if _, err := h.ReindexLoad(); err != nil {
 		log.Printf("warn: demo preload failed: %v", err)
 	}
+
+	// 诊断队列（ADR-0006）：Redis 硬依赖，同进程收发两端——入队端给 /alert，
+	// 消费端 goroutine 调 Handler.ProcessAlertDiagnosis 走共用链。
+	qClient := queue.NewClient(cfg.Queue.RedisAddr)
+	defer qClient.Close()
+	h.SetQueue(qClient)
+	qServer := queue.NewServer(cfg.Queue.RedisAddr, h)
+	go func() {
+		if err := qServer.Start(); err != nil {
+			log.Printf("warn: diagnosis queue server exited: %v", err)
+		}
+	}()
 
 	// OTel providers: trace via OTLP gRPC -> collector -> Jaeger;
 	// metrics via /metrics scraped directly by Prometheus (ADR 0004).
@@ -129,4 +142,9 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Printf("warn: server shutdown failed: %v", err)
 	}
+	// 队列退出序列（ADR-0006）：Stop 停拉取（在途继续），Shutdown 落盘在途任务，
+	// Redis 侧未完成任务重投靠事件沉淀同题覆盖幂等。
+	qServer.Stop()
+	qServer.Shutdown()
+	log.Printf("diagnosis queue drained, bye")
 }

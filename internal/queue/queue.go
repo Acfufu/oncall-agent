@@ -12,6 +12,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"oncall-agent/internal/tool"
+	"oncall-agent/internal/trace"
 )
 
 // 诊断队列（ADR-0006）：Redis+asynq 硬依赖，POST /alert 入队、worker 消费后调
@@ -113,9 +114,23 @@ func (s *Server) handleAlertDiagnosis(ctx context.Context, t *asynq.Task) error 
 		// 载荷坏任务重试无意义，直接跳过重试进 archived。
 		return fmt.Errorf("bad payload: %w: %v", asynq.SkipRetry, err)
 	}
+	// worker 根 span（ADR-0006）：HTTP span 树在异步边界断裂为已接受取舍，
+	// Jaeger 以本 span 为根，带 report_id/alertname 定位。
+	alertname := ""
+	if len(p.Alerts) > 0 {
+		alertname = p.Alerts[0].Name
+	}
+	ctx, span := trace.Start(ctx, "AlertWorker.Process", map[string]string{
+		"report_id": p.ReportID,
+		"alertname": alertname,
+	})
+	defer span.End()
 	if err := s.h.ProcessAlertDiagnosis(ctx, p.ReportID, p.Alerts); err != nil {
+		span.SetStatus(trace.StatusError, err.Error())
+		span.RecordError(err)
 		log.Printf("warn: alert diagnosis task %s failed: %v", p.ReportID, err)
 		return err
 	}
+	span.SetStatus(trace.StatusOK, "")
 	return nil
 }
