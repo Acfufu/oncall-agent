@@ -1,0 +1,14 @@
+# demo 告警规则：一条恒真 fixture，让 compose up 后告警真流转可活验。
+# 告警名/描述对齐 aiops-docs-demo/container_oom.md（标题即故障名），
+# 诊断引用才命中；接真实集群时删掉本文件换成你的规则。
+groups:
+  - name: oncall-agent-demo
+    rules:
+      - alert: ContainerOOMKilled
+        expr: vector(1) > 0
+        for: 0s
+        labels:
+          severity: critical
+          demo: "true"
+        annotations:
+          description: "容器 OOMKilled：容器内存超限被杀，需排查内存泄漏或调大 limit"
