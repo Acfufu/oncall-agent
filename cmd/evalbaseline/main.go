@@ -5,6 +5,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -14,9 +15,12 @@ import (
 	"strconv"
 	"strings"
 
+	"oncall-agent/internal/agent"
 	"oncall-agent/internal/config"
+	"oncall-agent/internal/judge"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/store"
+	"oncall-agent/internal/tool"
 )
 
 type sample struct {
@@ -112,6 +116,14 @@ func main() {
 	alertOn := strings.TrimSpace(os.Getenv("EVAL_ALERT")) == "1"
 	if alertOn {
 		runAlertEval(cfg, r, genOn)
+		return
+	}
+	// judge 评分 eval（v0.5，ADR-0006）：EVAL_JUDGE=1 对 alert fixture 正例逐条
+	// PlanPushed 出诊断→judge 1-5 打分（纯观察值）。每正例消耗 2 次 LLM 调用
+	// （诊断+评分），默认关。
+	judgeOn := strings.TrimSpace(os.Getenv("EVAL_JUDGE")) == "1"
+	if judgeOn {
+		runJudgeEval(cfg, r)
 		return
 	}
 	if v := strings.TrimSpace(os.Getenv("EVAL_FLOOR")); v != "" {
@@ -344,6 +356,81 @@ func runAlertEval(cfg *config.Config, r *rag.RAG, genOn bool) {
 		"alert_gen_refused": genRefused,
 		"alert_gen_total":   genTotal,
 		"alert_gen_err":     genErr,
+	})
+	fmt.Println(string(out))
+}
+
+// runJudgeEval judge 评分 eval（v0.5，ADR-0006）：对 alerts.jsonl 正例逐条
+// PlanPushed 出诊断（与线上 /alert worker 同链同参）→ judge.Score 1-5 打分。
+// 跑前先按 source 清 incident 沉淀防自证循环（同 runAlertEval：否则 fixture
+// 告警命中上次沉淀、judge 给自指报告打分）。评分失败计 err，不计入均分。
+func runJudgeEval(cfg *config.Config, r *rag.RAG) {
+	if err := r.DeleteSource("incident"); err != nil {
+		log.Printf("warn: clear incident source before judge eval: %v", err)
+	}
+	f, err := os.Open("eval-data/datasets/alerts.jsonl")
+	if err != nil {
+		log.Fatalf("open alert dataset: %v", err)
+	}
+	defer f.Close()
+
+	threshold := cfg.Judge.LowThreshold
+	if threshold <= 0 {
+		threshold = 3
+	}
+	ctx := context.Background()
+	planner := agent.New(nil, r)
+	sum, n, lowN, errN := 0, 0, 0, 0
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		var a alertSample
+		if err := json.Unmarshal([]byte(line), &a); err != nil {
+			log.Fatalf("parse alert dataset: %v", err)
+		}
+		if a.ExpectDoc == "" {
+			continue // 负例不评分：无匹配诊断没有质量可言
+		}
+		alerts := []tool.Alert{{Name: a.AlertName, Severity: a.Severity, Description: a.Description}}
+		diagnosis, citations := planner.PlanPushed(ctx, alerts)
+		score, reason, jerr := judge.Score(ctx, cfg.OpenAI, diagnosis, citations)
+		if jerr != nil {
+			errN++
+			msg := jerr.Error()
+			if len(msg) > 60 {
+				msg = msg[:60] + "…"
+			}
+			fmt.Printf("JUDGE %.30s err=%.60s\n", a.AlertName, msg)
+			continue
+		}
+		n++
+		sum += score
+		lowMark := ""
+		if score < threshold {
+			lowN++
+			lowMark = " LOW"
+		}
+		fmt.Printf("JUDGE %.30s score=%d/5%s reason=%.40s\n", a.AlertName, score, lowMark, reason)
+	}
+	if err := sc.Err(); err != nil {
+		log.Fatalf("scan alert dataset: %v", err)
+	}
+	safeDiv := func(a, b int) float64 {
+		if b == 0 {
+			return 0
+		}
+		return float64(a) / float64(b)
+	}
+	out, _ := json.Marshal(map[string]any{
+		"alert_judge_avg":           safeDiv(sum, n),
+		"alert_judge_total":         n,
+		"alert_judge_low_count":     lowN,
+		"alert_judge_low_threshold": threshold,
+		"alert_judge_err":           errN,
 	})
 	fmt.Println(string(out))
 }
