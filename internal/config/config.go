@@ -16,11 +16,18 @@ type Config struct {
 	Prometheus PrometheusConfig `json:"prometheus"`
 	Knowledge  KnowledgeConfig  `json:"knowledge"`
 	Queue      QueueConfig      `json:"queue"`
+	Judge      JudgeConfig      `json:"judge"`
 }
 
 // QueueConfig 诊断队列旋钮（ADR-0006）：Redis 硬依赖，asynq 诊断队列地址。
 type QueueConfig struct {
 	RedisAddr string `json:"redis_addr"`
+}
+
+// JudgeConfig 诊断自评分旋钮（ADR-0006）：低分阈值（1-5 分制，score<阈值
+// 记 low_score）；judge 复用 openai 段的 LLM 配置，无独立模型项。
+type JudgeConfig struct {
+	LowThreshold int `json:"low_threshold"`
 }
 
 // KnowledgeConfig 事件沉淀旋钮（ADR-0005）：auto_ingest 自动入库开关，
@@ -68,6 +75,7 @@ func Default() Config {
 		Prometheus: PrometheusConfig{URL: "http://localhost:9090"},
 		Knowledge:  KnowledgeConfig{AutoIngest: true, IncidentWeight: 0.5},
 		Queue:      QueueConfig{RedisAddr: "localhost:6379"},
+		Judge:      JudgeConfig{LowThreshold: 3},
 	}
 }
 

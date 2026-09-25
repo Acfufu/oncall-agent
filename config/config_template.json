@@ -9,5 +9,6 @@
   "embedder": { "host": "127.0.0.1", "port": 11434, "model": "nomic-embed-text" },
   "prometheus": { "url": "http://localhost:9090" },
   "knowledge": { "auto_ingest": true, "incident_weight": 0.5 },
-  "queue": { "redis_addr": "localhost:6379" }
+  "queue": { "redis_addr": "localhost:6379" },
+  "judge": { "low_threshold": 3 }
 }
