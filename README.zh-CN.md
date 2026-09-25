@@ -65,10 +65,12 @@ curl -s -X POST http://localhost:8819/chat \
 3. **看一次诊断。** `GET /plan` 拉取 firing 的 Prometheus 告警并返回
    带引用的报告；调用链可在 `:16686` 的 Jaeger 里看到。
 4. **推一条告警。** compose 预置 Alertmanager + demo 恒真规则
-   （`ContainerOOMKilled`）：Prometheus → AM → `POST /alert` → 带引用
-   诊断，`GET /reports` 与控制台可见。报告自动入库为事件沉淀
-   （`source=incident`，检索降权，同题覆盖，`knowledge.auto_ingest`
-   可关）。回归用 `EVAL_ALERT=1 go run ./cmd/evalbaseline`。
+   （`ContainerOOMKilled`）：Prometheus → AM → `POST /alert` → 当场返回
+   `202 {id, status:"queued"}`，Redis 队列 worker 完成诊断后，带引用报告
+   落进 `GET /reports` 与控制台（条目带 `id`/`status`/`score`）。报告自动
+   入库为事件沉淀（`source=incident`，检索降权，同题覆盖，
+   `knowledge.auto_ingest` 可关）。回归用
+   `EVAL_ALERT=1 go run ./cmd/evalbaseline`。
 
 ## 路由
 
@@ -77,7 +79,7 @@ curl -s -X POST http://localhost:8819/chat \
 | `GET` | `/ping` | 健康检查，`{"status":"ok"}` |
 | `POST` | `/chat` | ReAct 多轮对话，只读工具，回答带引用 |
 | `GET` | `/plan` | Plan-Execute：拉告警 → 检索 → 带引用的报告 |
-| `POST` | `/alert` | Alertmanager webhook：推入告警 → 同步带引用诊断 |
+| `POST` | `/alert` | Alertmanager webhook：推入告警 → `202 {id, status:"queued"}`，worker 完成诊断（异步，ADR-0006） |
 | `GET` | `/reports` | 最近告警驱动诊断（内存环，近 20 条） |
 | `POST` | `/upload` | 入库一篇 Markdown runbook |
 | `GET` | `/list` | 列出已入库标题 |
@@ -110,13 +112,13 @@ Runbook .md ──▶ /upload · /reindex ──▶ Qdrant + BM25 镜像
 ```
 
 ```text
-compose: qdrant（:6333）· prometheus（:9090）· alertmanager（:9093）· otel-collector（:4317/:4318）· jaeger（:16686）
+compose: redis（:6379）· qdrant（:6333）· prometheus（:9090）· alertmanager（:9093）· otel-collector（:4317/:4318）· jaeger（:16686）
 app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM：OpenAI 兼容 api_base + model + key
 ```
 
-目录按 `internal/` 分层：`config`、`handler`、`agent`、`rag`、
+目录按 `internal/` 分层：`config`、`handler`、`agent`、`queue`、`rag`、
 `store`、`tool`、`observability`、`trace`。选型钉在
-`docs/adr/0001-0005`；各版本范围见 `docs/ROADMAP.md`。
+`docs/adr/0001-0007`；各版本范围见 `docs/ROADMAP.md`。
 
 ## 配置与运维
 
@@ -130,6 +132,7 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 | `embedder` | `127.0.0.1:11434`，`nomic-embed-text` | 启动时自动探测向量维度 |
 | `prometheus.url` | `http://localhost:9090` | 告警 + 查询来源 |
 | `knowledge` | `auto_ingest: true`，`incident_weight: 0.5` | 事件沉淀入库 + 检索降权（ADR-0005） |
+| `queue` | `redis_addr: localhost:6379` | 诊断队列（Redis 硬依赖，ADR-0006） |
 
 不要提交 `config/config.json`——它已在 gitignore 里。MCP 工具路由
 （`modelcontextprotocol/go-sdk`）与相似度 floor 按
@@ -141,9 +144,13 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 - 检索层拒答 0/2 属预期：拒答验收挂生成层（`EVAL_GEN=1` 实测 2/2 明示
   “未找到相关匹配”）；余弦 floor 旋钮默认保持关。
 - Rerank 只在评测链路跑，不进线上 `/chat`。
-- `/alert` 同步诊断：LLM 慢时响应可能超出 Alertmanager 投递超时，
-  触发 webhook 重试（重复诊断）；调 `group_interval`/`repeat_interval`
-  缓解，job 化异步是 v0.5 项。
+- **v0.5 起 `POST /alert` 为异步（BREAKING）**：入队即回
+  `202 {id, status:"queued"}`，结果经 `GET /reports` 获取；读 v0.4 同步
+  返回体的客户端需迁移。队列跑在 Redis 上（compose 预置）；队列未装配时
+  `/alert` 返回 `503`。
+- `/reports` 环为内存态：重启丢历史报告。排队中的任务在 Redis 里存活、
+  重启后重投；事件沉淀同题覆盖保证重跑幂等。环容量 20——积压大时
+  `queued` 条目可能在 worker 完成前被驱逐。
 - 暂无 license 文件声明。
 
 ## 开发

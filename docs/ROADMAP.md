@@ -67,7 +67,7 @@
 - [ ] 对外 MCP server（ADR-0007）：官方 go-sdk 双传输——Gin /mcp StreamableHTTP + serve --mcp STDIO，共享 tool handler；只暴露三只读；鉴权不新设；MCP 进程不需 LLM Key
 
 > 验收关（草案，验收时填实数）。
-> - 队列化：compose 起 redis；POST /alert 秒回 202；AM 真流转零重试；重启丢在途列 README known limitation；EVAL_ALERT 直调链回归同级。
+> - 队列化：compose 起 redis；POST /alert 秒回 202；AM 真流转零重试；重启丢 /reports 历史（队列任务经 Redis 重投，README known limitation）；EVAL_ALERT 直调链回归同级。
 > - 自评分：/reports 带 score/low_score；console 高亮；拔 LLM Key 活验降级无分不挡链。
 > - judge eval：EVAL_JUDGE=1 出分并列报告。
 > - MCP：inspector/Claude Desktop 双传输连通，三只读列出，写调用被拒。

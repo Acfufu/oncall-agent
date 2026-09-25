@@ -68,9 +68,11 @@ An empty citation list means the library had no match.
    returns a cited report; traces land in Jaeger at `:16686`.
 4. **Push an alert.** The compose stack ships Alertmanager plus a demo
    always-firing rule (`ContainerOOMKilled`): Prometheus → AM → `POST /alert`
-   → cited diagnosis, visible via `GET /reports` and the console. The report
-   is auto-ingested as an incident note (`source=incident`, retrieval
-   down-weighted, same-name overwrite, `knowledge.auto_ingest` to switch off).
+   → `202 {id, status:"queued"}` on the spot; a Redis-backed worker finishes
+   the diagnosis and the cited report lands in `GET /reports` and the console
+   (entries carry `id`/`status`/`score`). The report is auto-ingested as an
+   incident note (`source=incident`, retrieval down-weighted, same-name
+   overwrite, `knowledge.auto_ingest` to switch off).
    Eval before regressing: `EVAL_ALERT=1 go run ./cmd/evalbaseline`.
 
 ## Routes
@@ -80,7 +82,7 @@ An empty citation list means the library had no match.
 | `GET` | `/ping` | Health check, `{"status":"ok"}` |
 | `POST` | `/chat` | ReAct dialogue over read-only tools, cited reply |
 | `GET` | `/plan` | Plan-Execute: firing alerts → retrieval → cited report |
-| `POST` | `/alert` | Alertmanager webhook: pushed alerts → cited diagnosis (sync) |
+| `POST` | `/alert` | Alertmanager webhook: pushed alerts → `202 {id, status:"queued"}`, worker completes the diagnosis (async, ADR-0006) |
 | `GET` | `/reports` | Recent alert-driven diagnoses (in-memory ring, last 20) |
 | `POST` | `/upload` | Ingest one Markdown runbook |
 | `GET` | `/list` | List ingested titles |
@@ -114,13 +116,13 @@ Runbook .md ──▶ /upload · /reindex ──▶ Qdrant + BM25 mirror
 ```
 
 ```text
-compose: qdrant (:6333) · prometheus (:9090) · alertmanager (:9093) · otel-collector (:4317/:4318) · jaeger (:16686)
+compose: redis (:6379) · qdrant (:6333) · prometheus (:9090) · alertmanager (:9093) · otel-collector (:4317/:4318) · jaeger (:16686)
 app: :8819 · embedder default: local Ollama nomic-embed-text (:11434) · LLM: OpenAI-compatible api_base + model + key
 ```
 
-Layout follows `internal/` layers: `config`, `handler`, `agent`, `rag`,
-`store`, `tool`, `observability`, `trace`. Decisions are pinned in
-`docs/adr/0001-0005`; scope per release in `docs/ROADMAP.md`.
+Layout follows `internal/` layers: `config`, `handler`, `agent`, `queue`,
+`rag`, `store`, `tool`, `observability`, `trace`. Decisions are pinned in
+`docs/adr/0001-0007`; scope per release in `docs/ROADMAP.md`.
 
 ## Configuration and operations
 
@@ -134,6 +136,7 @@ Only `openai.api_key` is mandatory. Everything else runs on template defaults:
 | `embedder` | `127.0.0.1:11434`, `nomic-embed-text` | Dimension auto-probed at boot |
 | `prometheus.url` | `http://localhost:9090` | Alert + query source |
 | `knowledge` | `auto_ingest: true`, `incident_weight: 0.5` | Incident-note ingestion + retrieval down-weight (ADR-0005) |
+| `queue` | `redis_addr: localhost:6379` | Diagnosis queue (Redis hard dependency, ADR-0006) |
 
 Never commit `config/config.json` — it is git-ignored. MCP tool routing
 (`modelcontextprotocol/go-sdk`) and the similarity floor are staged behind
@@ -146,9 +149,14 @@ read-only (no acknowledge, no silence).
   generation layer (eval shows 2/2 "no relevant match" with `EVAL_GEN=1`);
   the similarity floor knob remains off by default.
 - Rerank runs on the evaluation path only, not on live `/chat`.
-- `/alert` diagnoses synchronously: a slow LLM can outlive Alertmanager's
-  delivery timeout and trigger webhook retries (duplicate diagnoses);
-  tune `group_interval`/`repeat_interval`, async job mode is a v0.5 item.
+- **`POST /alert` is async since v0.5 (BREAKING)**: it returns
+  `202 {id, status:"queued"}` and results arrive via `GET /reports`; v0.4
+  clients reading the sync body must migrate. The queue runs on Redis
+  (compose presets it); with the queue unwired `/alert` answers `503`.
+- The `/reports` ring is in-memory: history is lost on restart. Queued tasks
+  survive in Redis and are re-delivered after a restart; same-name incident
+  overwrite keeps re-runs idempotent. Ring cap is 20 — a heavy backlog can
+  evict a `queued` entry before its worker finishes.
 - No license file is declared yet.
 
 ## Development
