@@ -1,4 +1,4 @@
-# AGENTS.md — oncall-agent（v0.3 收口中）
+# AGENTS.md — oncall-agent（v0.4 告警驱动闭环）
 
 Go 1.25 + Gin + CloudWeGo Eino. OpenAI兼容 + Qdrant + Prometheus + OTel. 只读闭环优先。
 
@@ -24,16 +24,17 @@ make check  # curl /ping
 - `aiops-docs-demo/` demo知识，一篇一故障，标题即故障名
 - `eval-data/datasets/sample.jsonl` 评测集，`{question,expect_doc,severity}`
 - `web/`：console.html 正式控制台挂 `/`，v0.1极简页留 `/v01`
-- `docs/adr/0001-0004` 选型锁死，改需先改ADR
-- `prometheus/prometheus.yml` 本地抓取配置
+- `docs/adr/0001-0005` 选型锁死，改需先改ADR；`docs/research/` 调研存档
+- `prometheus/prometheus.yml` 本地抓取+demo告警规则；`alertmanager/alertmanager.yml` AM route→/alert
 
 ## 约定
 
-- API：`GET /ping` `POST /upload` `POST /chat` `GET /plan` `GET /list` `DELETE /delete` `POST /reindex` `GET /metrics`。全小写JSON，错误`{"error":"..."}`。
-- Agent：ReAct（time_now/rag_search/prometheus_query 三只读白名单，白名单外一律拒绝）+ Plan-Execute（拉告警→检索→报告）。
+- API：`GET /ping` `POST /upload` `POST /chat` `GET /plan` `POST /alert` `GET /reports` `GET /list` `DELETE /delete` `POST /reindex` `GET /metrics`。全小写JSON，错误`{"error":"..."}`。
+- Agent：ReAct（time_now/rag_search/prometheus_query 三只读白名单，白名单外一律拒绝）+ Plan-Execute（拉告警→检索→报告）；POST /alert 推送入口同链（ADR-0005）。
+- 事件沉淀：告警驱动诊断报告自动入库 source=incident，同题覆盖、auto_ingest 可关、检索降权；是管线后置写入，不是 agent 工具。
 - MCP（ADR-0004）：官方 go-sdk 传输缝，STDIO/StreamableHTTP，失联回退本地直调；白名单与只读语义不变。
 - OTel：otelgin 全链埋点，trace 走 OTLP gRPC→collector→Jaeger；metrics 由 Prometheus 直抓 `/metrics`（`/ping` `/metrics` 不建span）。
-- RAG：Qdrant稠密召回+标题加权；Hybrid BM25+RRF、rerank（LLM-as-rerank + RerankFused护栏）已落地；余弦Floor门控默认关。
+- RAG：Qdrant稠密召回+标题加权；Hybrid BM25+RRF、rerank（LLM-as-rerank + RerankFused护栏）已落地；余弦Floor门控默认关；incident沉淀检索降权(0.5可配)。
 - 诊断必须带引用片段，无匹配明示无匹配，不编造。见CONTEXT.md。
 - 配置经`api_base+model+key`，默认OpenAI协议。Embedding本地Ollama `nomic-embed-text`优先。
 - 沙箱默认关。告警只读，不确认不静默。
@@ -41,7 +42,7 @@ make check  # curl /ping
 ## 改代码前
 
 - 读`CONTEXT.md`术语 + `docs/ROADMAP.md`分期 +对应ADR。
-- 未立项需求（企业库等）直接拒，标v0.3+，先补ROADMAP/ADR再动手。
+- 未立项需求（企业库等）直接拒，标v0.5+，先补ROADMAP/ADR再动手。
 - 新增工具必须只读，写工具需ADR批准。
 
 ## 验证

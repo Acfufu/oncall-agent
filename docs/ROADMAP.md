@@ -38,8 +38,24 @@
 > - rerank：rerank_recall@3=30/30，rerank_fallback_err=0。
 > - MCP/OTel：16686 见 POST /chat→Run.run→Tool.exec:rag_search→RAG.search+ChatModel 六 span 树；9090 实测 `http_server_request_duration_seconds_count{http_route=/chat}` 与 `rag_hits_total`。旁注：Qdrant 旧 collection 为 768 维(nomic)，embedder 降级 hash 64 维时 app 按 memonly 跑（预置行为，非回归）。
 
-## v0.4+ 愿景
+## v0.4 告警驱动闭环 (2026-09-26 立项)
 
+主题：告警进来→诊断出去。POST /alert 推送入口 + 诊断 eval 门禁 + 事件沉淀回流。依据 docs/research/2026-09-26-v040-survey.md（开源对标 + 商业趋势两路调研）。
+
+- [ ] POST /alert：Alertmanager webhook 兼容 payload，复用 Plan-Execute 同一条链，同步返回结构化诊断报告
+- [ ] GET /reports：内存环存最近 N 条告警驱动诊断；console 加区块
+- [ ] compose 预置 Alertmanager + demo 告警规则：Prometheus 规则→AM→/alert 真流转
+- [ ] 事件沉淀：诊断报告自动入库 source=incident（同题覆盖、auto_ingest 可开关、检索降权 0.5 可配）；沉淀是管线后置写入，不是 agent 工具
+- [ ] 诊断 eval：fixture 告警 ~10 条规则断言（引用含 expect_doc / 负例明示无匹配 / 无 gen_err），eval 前清 incident 防自证循环
+
+> 推 v0.5：deploy_events 变更富化、对外 MCP server（对标 k8sgpt serve --mcp）、通知写回（需 ADR 界定只读边界）、job 化异步。企业库/沙箱继续搁置（沙箱 ADR 顺延 0006）。
+> 验收关（待填实数）：AM 真流转报告可查；诊断 eval 规则断言全绿；降权/开关/清沉淀活验；既有回归不破（recall@3 30/30、拒答 2/2、rerank 30/30）。
+
+## v0.5+ 愿景
+
+- [ ] deploy_events 变更富化（第四只读白名单工具，需先定真实变更源）
+- [ ] 对外 MCP server（ADR-0004 传输缝反向暴露三只读）
+- [ ] 通知写回（Slack/飞书 webhook，需 ADR 界定"通知不是 remediation"）
+- [ ] 诊断 job 化异步 + LLM-as-judge 评分
 - [ ] 企业级知识库 (版本/权限/去重)
-- [ ] 沙箱执行 (默认关，另立 ADR-0005)
-- [ ] MCP/OTel 深化 (工具面扩展/采样策略)
+- [ ] 沙箱执行 (默认关，另立 ADR-0006)
