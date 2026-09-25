@@ -62,7 +62,7 @@
 <h2>告警诊断（POST /alert 推送记录）</h2>
 <div>
 <button id="bReports">刷新 /reports</button>
-<span class="muted">Alertmanager webhook → 同步诊断，内存环存最近 20 条</span>
+<span class="muted">Alertmanager webhook → 异步诊断（202 入队，worker 消费），内存环存最近 20 条；本页停留时每 5s 自动刷新</span>
 </div>
 <pre id="reportList">(暂无告警驱动诊断。curl -X POST /alert 或等 AM 真流转)</pre>
 <p id="alertMsg" class="err"></p>
@@ -75,9 +75,16 @@ var ans = document.getElementById('ans');
 var refs = document.getElementById('refs');
 function showErr(m) { err.textContent = m || ''; }
 function showKbMsg(m) { kbMsg.textContent = m || ''; }
+var alertsTimer = null;
 function show(id) {
   ['kb','search','eval','alerts'].forEach(function (x) { document.getElementById(x).style.display = x === id ? '' : 'none'; });
   showErr('');
+  if (id === 'alerts') {
+    if (!alertsTimer) alertsTimer = setInterval(doReports, 5000);
+  } else if (alertsTimer) {
+    clearInterval(alertsTimer);
+    alertsTimer = null;
+  }
 }
 document.getElementById('tKb').onclick = function () { show('kb'); };
 document.getElementById('tSearch').onclick = function () { show('search'); };
@@ -182,8 +189,16 @@ function doReports() {
       }
       document.getElementById('reportList').textContent = reps.map(function (rep) {
         var names = (rep.alerts || []).map(function (a) { return a.name; }).join(', ');
+        var head = '[' + rep.received_at + '] ' + names + '  (id=' + (rep.id || '-') + ' status=' + (rep.status || '-') +
+          (rep.score ? ' score=' + rep.score + '/5' : '') + (rep.low_score ? ' ⚠低分' : '') + ')';
+        if (rep.status === 'queued' || rep.status === 'running') {
+          return head + '\n  诊断执行中，完成后自动刷新…';
+        }
+        if (rep.status === 'failed') {
+          return head + '\n  ' + (rep.diagnosis || '诊断失败');
+        }
         var cites = (rep.citations || []).map(function (ct) { return '  引用【' + ct.doc + '】' + (ct.source ? '(source=' + ct.source + ') ' : '') + String(ct.snippet || '').slice(0, 120); }).join('\n');
-        return '[' + rep.received_at + '] ' + names + '\n' + rep.diagnosis + '\n' + cites;
+        return head + '\n' + rep.diagnosis + '\n' + cites;
       }).join('\n\n==========\n\n');
     });
   }).catch(function (e) { document.getElementById('alertMsg').textContent = '请求失败: ' + e; });
