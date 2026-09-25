@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"oncall-agent/internal/agent"
 	"oncall-agent/internal/config"
 	"oncall-agent/internal/handler"
+	"oncall-agent/internal/mcpserver"
 	"oncall-agent/internal/observability"
 	"oncall-agent/internal/queue"
 	"oncall-agent/internal/rag"
@@ -24,6 +27,19 @@ import (
 )
 
 func main() {
+	// serve --mcp（ADR-0007，对标 k8sgpt serve --mcp）：STDIO 模式只暴露
+	// 三只读查询工具，不启 Gin/HTTP/LLM，不需要 api_key。
+	if len(os.Args) > 1 && os.Args[1] == "serve" {
+		fs := flag.NewFlagSet("serve", flag.ExitOnError)
+		mcpMode := fs.Bool("mcp", false, "expose time_now/rag_search/prometheus_query over MCP STDIO")
+		_ = fs.Parse(os.Args[2:])
+		if !*mcpMode {
+			log.Fatal("serve 需要 --mcp；不带参数直接运行即启 HTTP 服务")
+		}
+		runMCPStdio()
+		return
+	}
+
 	cfg, err := config.Load("config/config.json")
 	if err != nil {
 		log.Printf("warn: %v; using defaults (key needed only for /chat, next slice)", err)
@@ -120,6 +136,11 @@ func main() {
 	e.GET("/plan", h.Plan)
 	e.POST("/alert", h.Alert)
 	e.GET("/reports", h.Reports)
+	// /mcp（ADR-0007）：对外 MCP server StreamableHTTP 传输，与 serve --mcp
+	// STDIO 共享同一 server 实例；鉴权不新设（与 /chat 口径一致，README 已知局限）。
+	mcpSrv := mcpserver.New(r, cfg.Prometheus.URL)
+	e.POST("/mcp", gin.WrapH(mcpserver.StreamableHTTPHandler(mcpSrv)))
+	e.GET("/mcp", gin.WrapH(mcpserver.StreamableHTTPHandler(mcpSrv)))
 	e.POST("/upload", h.Upload)
 	e.POST("/chat", h.Chat)
 	e.GET("/list", h.List)
@@ -148,4 +169,27 @@ func main() {
 	qServer.Stop()
 	qServer.Shutdown()
 	log.Printf("diagnosis queue drained, bye")
+}
+
+// runMCPStdio serve --mcp：STDIO 传输跑三只读 MCP server。不启 HTTP/队列/LLM；
+// 日志默认走 stderr，不污染 stdout 协议通道。
+func runMCPStdio() {
+	cfg, err := config.LoadMCP("config/config.json")
+	if err != nil {
+		log.Fatalf("load config (mcp): %v", err)
+	}
+	httpPort := cfg.Qdrant.Port
+	if httpPort == 6334 {
+		httpPort = 6333
+	}
+	s := store.NewVectorFromHostPort(cfg.Qdrant.Host, httpPort, cfg.Qdrant.Collection)
+	emb := rag.SelectEmbedder(cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model)
+	r := rag.New(s, emb)
+	mcpSrv := mcpserver.New(r, cfg.Prometheus.URL)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	log.Printf("oncall-agent MCP server (stdio) starting: tools=time_now,rag_search,prometheus_query")
+	if err := mcpserver.RunStdio(mcpSrv, ctx); err != nil {
+		log.Fatalf("mcp server: %v", err)
+	}
 }

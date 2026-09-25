@@ -82,6 +82,23 @@ func Default() Config {
 // Load reads JSON config from path (default config/config.json when empty),
 // applies OPENAI_API_KEY env override, and errors when key missing.
 func Load(path string) (*Config, error) {
+	cfg, err := loadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if isMissingKey(cfg.OpenAI.APIKey) {
+		return nil, fmt.Errorf("openai.api_key missing: fill config/config.json or set OPENAI_API_KEY")
+	}
+	return cfg, nil
+}
+
+// LoadMCP 为 serve --mcp 模式读配置（ADR-0007）：MCP server 只暴露三只读
+// 查询工具、不碰 LLM，故不校验 api_key；其余语义同 Load。
+func LoadMCP(path string) (*Config, error) {
+	return loadFile(path)
+}
+
+func loadFile(path string) (*Config, error) {
 	if strings.TrimSpace(path) == "" {
 		path = "config/config.json"
 	}
@@ -98,9 +115,6 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 8819
-	}
-	if isMissingKey(cfg.OpenAI.APIKey) {
-		return nil, fmt.Errorf("openai.api_key missing: fill config/config.json or set OPENAI_API_KEY")
 	}
 	return &cfg, nil
 }
