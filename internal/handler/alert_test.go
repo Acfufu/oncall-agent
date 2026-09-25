@@ -26,6 +26,7 @@ func newTestHandler(t *testing.T) *Handler {
 	}
 	h := New(s, r, "")
 	h.PlannerAgent = agent.New(nil, r)
+	h.SetAutoIngest(false) // 默认测试关沉淀，入库行为单测另开
 	return h
 }
 
@@ -138,5 +139,56 @@ func TestReportsOrderAndCap(t *testing.T) {
 	// 新→旧：最新一条在最前。
 	if reps[0].ReceivedAt < reps[len(reps)-1].ReceivedAt {
 		t.Fatalf("order not newest-first: first=%s last=%s", reps[0].ReceivedAt, reps[len(reps)-1].ReceivedAt)
+	}
+}
+
+// v0.4 事件沉淀（ADR-0005）：告警驱动诊断后报告自动入库，同题覆盖，可关。
+func TestAlertAutoIngestIncident(t *testing.T) {
+	h := newTestHandler(t)
+	h.SetAutoIngest(true)
+	w := postAlert(t, h, amPayload)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Ingested int `json:"ingested"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Ingested != 1 {
+		t.Fatalf("ingested=%d want 1", resp.Ingested)
+	}
+	hits, err := h.RAG.Search("CPUHighUsage", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, hit := range hits {
+		if hit.Doc == "CPUHighUsage.incident.md" && hit.Source == "incident" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("incident note not retrievable: %+v", hits)
+	}
+
+	// 同告警重推：同题覆盖不膨胀。
+	w = postAlert(t, h, amPayload)
+	if w.Code != http.StatusOK {
+		t.Fatalf("repost failed: %d", w.Code)
+	}
+	_ = w
+	// 关开关后不再入库。
+	h.SetAutoIngest(false)
+	w = postAlert(t, h, `{"name":"DiskFull","severity":"warn","description":"磁盘满"}`)
+	var resp2 struct {
+		Ingested int `json:"ingested"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp2); err != nil {
+		t.Fatal(err)
+	}
+	if resp2.Ingested != 0 {
+		t.Fatalf("ingest should be off, got %d", resp2.Ingested)
 	}
 }

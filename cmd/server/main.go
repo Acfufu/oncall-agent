@@ -52,10 +52,15 @@ func main() {
 	}
 	r := rag.New(s, emb)
 	r.Floor = rag.DefaultFloor
+	// 事件沉淀降权（ADR-0005）：config 可调，缺省 0.5。
+	if cfg.Knowledge.IncidentWeight > 0 {
+		r.IncidentWeight = cfg.Knowledge.IncidentWeight
+	}
 
 	h := handler.New(s, r, "aiops-docs-demo")
 	handler.SetChatAgent(agent.NewReAct(cfg.OpenAI.APIBase, cfg.OpenAI.APIKey, cfg.OpenAI.Model, tool.NewDeps(r, cfg.Prometheus.URL)))
 	h.Planner(tool.NewPromClient(cfg.Prometheus.URL), r)
+	h.SetAutoIngest(cfg.Knowledge.AutoIngest)
 	if _, err := h.ReindexLoad(); err != nil {
 		log.Printf("warn: demo preload failed: %v", err)
 	}

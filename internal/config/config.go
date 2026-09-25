@@ -14,6 +14,14 @@ type Config struct {
 	Qdrant     QdrantConfig     `json:"qdrant"`
 	Embedder   EmbedderConfig   `json:"embedder"`
 	Prometheus PrometheusConfig `json:"prometheus"`
+	Knowledge  KnowledgeConfig  `json:"knowledge"`
+}
+
+// KnowledgeConfig 事件沉淀旋钮（ADR-0005）：auto_ingest 自动入库开关，
+// incident_weight 检索降权系数（缺省 true/0.5）。
+type KnowledgeConfig struct {
+	AutoIngest     bool    `json:"auto_ingest"`
+	IncidentWeight float32 `json:"incident_weight"`
 }
 
 type ServerConfig struct {
@@ -52,6 +60,7 @@ func Default() Config {
 		Qdrant:     QdrantConfig{Host: "127.0.0.1", Port: 6334, Collection: "oncallagent"},
 		Embedder:   EmbedderConfig{Host: "127.0.0.1", Port: 11434, Model: "nomic-embed-text"},
 		Prometheus: PrometheusConfig{URL: "http://localhost:9090"},
+		Knowledge:  KnowledgeConfig{AutoIngest: true, IncidentWeight: 0.5},
 	}
 }
 

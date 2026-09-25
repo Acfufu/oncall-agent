@@ -24,13 +24,19 @@ type Handler struct {
 	// reports 告警驱动诊断落点环（POST /alert 写，GET /reports 读，ADR-0005）。
 	reports reportRing
 
+	// autoIngest 事件沉淀自动入库开关（ADR-0005，默认开）。
+	autoIngest bool
+
 	mu     sync.RWMutex
 	titles map[string]string
 }
 
 func New(s *store.VectorStore, r *rag.RAG, demoDir string) *Handler {
-	return &Handler{Store: s, RAG: r, DemoDir: demoDir, titles: make(map[string]string)}
+	return &Handler{Store: s, RAG: r, DemoDir: demoDir, autoIngest: true, titles: make(map[string]string)}
 }
+
+// SetAutoIngest 设置事件沉淀自动入库开关（config knowledge.auto_ingest）。
+func (h *Handler) SetAutoIngest(v bool) { h.autoIngest = v }
 
 func errJSON(msg string) map[string]string {
 	return map[string]string{"error": msg}

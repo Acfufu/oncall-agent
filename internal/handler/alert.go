@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +31,7 @@ type Report struct {
 	Alerts     []tool.Alert `json:"alerts"`
 	Diagnosis  string       `json:"diagnosis"`
 	Citations  []rag.Result `json:"citations"`
+	Ingested   int          `json:"ingested"`
 }
 
 // reportRing 并发安全的定长报告环，零值可用。
@@ -144,10 +149,12 @@ func (h *Handler) Alert(c *gin.Context) {
 		Diagnosis:  diagnosis,
 		Citations:  citations,
 	}
+	rep.Ingested = h.ingestIncident(alerts, diagnosis)
 	h.reports.add(rep)
 	observability.AddAlertDiagnosis(c.Request.Context(), 1)
 	c.JSON(http.StatusOK, gin.H{
 		"received":  len(alerts),
+		"ingested":  rep.Ingested,
 		"diagnosis": diagnosis,
 		"citations": citations,
 	})
@@ -156,4 +163,37 @@ func (h *Handler) Alert(c *gin.Context) {
 // Reports 处理 GET /reports：返回最近告警驱动诊断（新→旧）。
 func (h *Handler) Reports(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"reports": h.reports.snapshot()})
+}
+
+// ingestIncident 事件沉淀（ADR-0005）：每告警名一篇（doc={name}.incident.md），
+// 同题覆盖；开关关或 RAG 缺席时跳过。返回入库篇数。
+func (h *Handler) ingestIncident(alerts []tool.Alert, diagnosis string) int {
+	if !h.autoIngest || h.RAG == nil {
+		return 0
+	}
+	seen := map[string]bool{}
+	ingested := 0
+	for _, a := range alerts {
+		if a.Name == "" || seen[a.Name] {
+			continue
+		}
+		seen[a.Name] = true
+		if err := h.RAG.IngestIncident(a.Name+".incident.md", incidentMarkdown(a, diagnosis)); err != nil {
+			log.Printf("warn: incident ingest %s failed: %v", a.Name, err)
+			continue
+		}
+		ingested++
+	}
+	if ingested > 0 {
+		observability.AddIncidentIngested(context.Background(), int64(ingested))
+	}
+	return ingested
+}
+
+// incidentMarkdown 沉淀文档形状：一级标题即题（含告警名），标注来源与信任级。
+func incidentMarkdown(a tool.Alert, diagnosis string) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "# %s 事件沉淀\n\n> AI 诊断报告自动入库（source=incident，检索降权，未经人工审定）。\n\n## 告警\n- alertname: %s\n- severity: %s\n- startsAt: %s\n- description: %s\n\n## 诊断\n%s\n",
+		a.Name, a.Name, a.Severity, a.StartsAt, a.Description, diagnosis)
+	return sb.String()
 }

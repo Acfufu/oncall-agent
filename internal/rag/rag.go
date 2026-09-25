@@ -13,6 +13,9 @@ import (
 // TitleBoostFactor 标题命中加权系数。
 const TitleBoostFactor = 1.5
 
+// DefaultIncidentWeight 事件沉淀（source=incident）检索降权默认系数。
+const DefaultIncidentWeight float32 = 0.5
+
 // Chunk 为 md 切分单元：Doc 为文档名，Title 为所属标题，Snippet 为引用片段。
 type Chunk struct {
 	Doc       string
@@ -21,11 +24,13 @@ type Chunk struct {
 	Embedding []float32
 }
 
-// Result 为检索返回：{doc,snippet,score}。
+// Result 为检索返回：{doc,snippet,score,source}。source 标证据来源
+// （demo/upload=人工审定知识，incident=AI 事件沉淀），供引用侧分辨信任级。
 type Result struct {
 	Doc     string  `json:"doc"`
 	Snippet string  `json:"snippet"`
 	Score   float32 `json:"score"`
+	Source  string  `json:"source,omitempty"`
 }
 
 // DefaultFloor 为稠密余弦下限默认（0=关闭；校准值由服务显式设置）。
@@ -38,6 +43,9 @@ type RAG struct {
 	bm    *bm25Index
 	// Floor 为融合后 Score 下限；低于者丢弃（真拒答）。0 关闭。
 	Floor float32
+	// IncidentWeight 事件沉淀降权乘子：source=incident 命中 score*=权重。
+	// (0,1) 生效，>=1 或 <=0 关闭；New 默认 DefaultIncidentWeight。
+	IncidentWeight float32
 }
 
 // New 构造 RAG，embed 为 nil 时用离线 HashEmbedder。
@@ -45,7 +53,7 @@ func New(s *store.VectorStore, e Embedder) *RAG {
 	if e == nil {
 		e = HashEmbedder{}
 	}
-	return &RAG{store: s, embed: e, bm: newBM25Index()}
+	return &RAG{store: s, embed: e, bm: newBM25Index(), IncidentWeight: DefaultIncidentWeight}
 }
 
 // ChunkMarkdown 按 md 标题切分：一级标题为文档标题（故障名），
@@ -186,6 +194,15 @@ func (r *RAG) DeleteSource(source string) error {
 	return nil
 }
 
+// IngestIncident 事件沉淀入库（ADR-0005）：先删后写实现同题覆盖，
+// source=incident；与 AddDoc 同一切分/嵌入路径。reindex 只清 demo，沉淀保留。
+func (r *RAG) IngestIncident(doc, md string) error {
+	if err := r.DeleteDoc(doc); err != nil {
+		return err
+	}
+	return r.AddDoc(doc, md, "incident")
+}
+
 // Search 稠密 + BM25 经 RRF(k=60) 融合再标题加权；无匹配返回空，不编造。
 // 稠密与 BM25 各取 topK*2，融合后按 RRF 分排序、TitleBoost 加权，截 topK。
 func (r *RAG) Search(query string, topK int) ([]Result, error) {
@@ -230,6 +247,7 @@ func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 		doc     string
 		title   string
 		snippet string
+		source  string
 	}
 	cands := make(map[string]cand, len(hits)+len(bhits))
 	denseIDs := make([]string, 0, len(hits))
@@ -239,6 +257,7 @@ func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 			doc:     docOf(h.Point.Content),
 			title:   h.Point.Title,
 			snippet: h.Point.Content,
+			source:  h.Point.Source,
 		}
 	}
 	bmIDs := make([]string, 0, len(bhits))
@@ -251,6 +270,7 @@ func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 					doc:     d.Doc,
 					title:   d.Title,
 					snippet: "【" + d.Doc + "】" + d.Snippet,
+					source:  d.Source,
 				}
 			}
 		}
@@ -263,10 +283,15 @@ func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 		if !ok {
 			continue
 		}
+		score := TitleBoost(float32(fs), query, c.title)
+		if c.source == "incident" && r.IncidentWeight > 0 && r.IncidentWeight < 1 {
+			score *= r.IncidentWeight
+		}
 		out = append(out, Result{
 			Doc:     c.doc,
 			Snippet: c.snippet,
-			Score:   TitleBoost(float32(fs), query, c.title),
+			Score:   score,
+			Source:  c.source,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Score > out[j].Score })
