@@ -121,11 +121,23 @@ type Server struct {
 	h   Handler
 }
 
-// NewServer 建消费端：并发 2、单队列、失败任务退避重试（重试上限入队时定）。
+// NewServer 建消费端：并发 2、双队列（诊断/通知，通知快投递不与慢诊断互堵）、
+// 失败任务退避重试（重试上限入队时定）。通知任务用 5s<<n 的显式指数退避
+// （ADR-0008，验收窗口内可观测重投）；诊断任务沿用 asynq 默认退避不动
+// （ADR-0006 语义不变）。
 func NewServer(redisAddr string, h Handler) *Server {
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
-		asynq.Config{Concurrency: 2, Queues: map[string]int{queueName: 10}},
+		asynq.Config{
+			Concurrency: 2,
+			Queues:      map[string]int{queueName: 10, notifyQueue: 5},
+			RetryDelayFunc: func(n int, err error, t *asynq.Task) time.Duration {
+				if t.Type() == TypeNotification {
+					return 5 * time.Second << n
+				}
+				return asynq.DefaultRetryDelayFunc(n, err, t)
+			},
+		},
 	)
 	return &Server{srv: srv, h: h}
 }
