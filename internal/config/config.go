@@ -17,6 +17,7 @@ type Config struct {
 	Knowledge  KnowledgeConfig  `json:"knowledge"`
 	Queue      QueueConfig      `json:"queue"`
 	Judge      JudgeConfig      `json:"judge"`
+	Notify     NotifyConfig     `json:"notify"`
 }
 
 // QueueConfig 诊断队列旋钮（ADR-0006）：Redis 硬依赖，asynq 诊断队列地址。
@@ -30,6 +31,12 @@ type QueueConfig struct {
 // 记 low_score）；judge 复用 openai 段的 LLM 配置，无独立模型项。
 type JudgeConfig struct {
 	LowThreshold int `json:"low_threshold"`
+}
+
+// NotifyConfig 通知写回旋钮（ADR-0008）：诊断终态（low_score 或 failed）报告
+// POST 到的通用 webhook 地址。空 URL=通知关闭（零值即关，同 judge 阈值<=0 口径）。
+type NotifyConfig struct {
+	WebhookURL string `json:"webhook_url"`
 }
 
 // KnowledgeConfig 事件沉淀旋钮（ADR-0005）：auto_ingest 自动入库开关，
@@ -78,6 +85,7 @@ func Default() Config {
 		Knowledge:  KnowledgeConfig{AutoIngest: true, IncidentWeight: 0.5},
 		Queue:      QueueConfig{RedisAddr: "127.0.0.1:6379"},
 		Judge:      JudgeConfig{LowThreshold: 3},
+		Notify:     NotifyConfig{}, // webhook_url 空=关闭（ADR-0008）
 	}
 }
 
