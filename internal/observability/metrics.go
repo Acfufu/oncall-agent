@@ -23,6 +23,14 @@ var IncidentIngestedTotal metric.Int64Counter
 // 阈值的诊断数（v0.5，ADR 0006，纯观察值）。
 var DiagnosisScoreLowTotal metric.Int64Counter
 
+// NotificationSentTotal backs `notification_sent_total`: 通知成功送达数（ADR 0008；
+// 与 failed 成对——失败计数无成功分母不可读）。
+var NotificationSentTotal metric.Int64Counter
+
+// NotificationFailedTotal backs `notification_failed_total`: 通知重试耗尽终败数
+// （ADR 0008，观察面不升级为状态机）。
+var NotificationFailedTotal metric.Int64Counter
+
 // InitMetrics installs a Prometheus exporter + MeterProvider on the same
 // process registry served by promhttp on /metrics, creates the counters,
 // and returns its shutdown func.
@@ -65,6 +73,20 @@ func InitMetrics(ctx context.Context) (ShutdownFunc, error) {
 		_ = mp.Shutdown(context.Background())
 		return nil, err
 	}
+	if NotificationSentTotal, err = meter.Int64Counter(
+		"notification_sent_total",
+		metric.WithDescription("Total diagnosis notifications delivered to webhook"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
+	if NotificationFailedTotal, err = meter.Int64Counter(
+		"notification_failed_total",
+		metric.WithDescription("Total notifications dropped after retry exhaustion"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
 	return mp.Shutdown, nil
 }
 
@@ -98,4 +120,21 @@ func AddDiagnosisScoreLow(ctx context.Context) {
 		return
 	}
 	DiagnosisScoreLowTotal.Add(ctx, 1)
+}
+
+// AddNotificationSent records one delivered notification (no-op before InitMetrics).
+func AddNotificationSent(ctx context.Context) {
+	if NotificationSentTotal == nil {
+		return
+	}
+	NotificationSentTotal.Add(ctx, 1)
+}
+
+// AddNotificationFailed records one notification lost to retry exhaustion
+// (no-op before InitMetrics).
+func AddNotificationFailed(ctx context.Context) {
+	if NotificationFailedTotal == nil {
+		return
+	}
+	NotificationFailedTotal.Add(ctx, 1)
 }
