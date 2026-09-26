@@ -8,3 +8,6 @@ qdrant_data/
 artifacts/tmp/
 .DS_Store
 .omo/
+
+# lazyzcode goal-loop state (evidence archived in attestations + ROADMAP)
+.lazyzcode/

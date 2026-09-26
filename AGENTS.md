@@ -43,7 +43,7 @@ make check  # curl /ping
 ## 改代码前
 
 - 读`CONTEXT.md`术语 + `docs/ROADMAP.md`分期 +对应ADR。
-- 未立项需求（企业库等）直接拒，标v0.5+，先补ROADMAP/ADR再动手。
+- 未立项需求（企业库等）直接拒，标v0.6+，先补ROADMAP/ADR再动手。
 - 新增工具必须只读，写工具需ADR批准。
 
 ## 验证

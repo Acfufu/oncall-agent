@@ -61,17 +61,17 @@
 
 主题：还债 + 质量 + 分发。队列化还 v0.4 记录在案的同步债（ADR-0006），judge 升级诊断质量度量，对外 MCP server 分发三只读（ADR-0007，对标 k8sgpt serve --mcp）。拷问拍板：Redis+asynq 硬依赖、单一异步契约、自评分纯观察值、低分先标记后送达（外发拆 v0.6）。
 
-- [ ] 诊断队列化（ADR-0006）：Redis + asynq 硬依赖，compose 预置 redis；POST /alert 单一异步契约——入队秒回 202 {id,status:queued}，诊断落 /reports（queued/running/done/failed）；console 改轮询；BREAKING 写 README
-- [ ] 运行时自评分 + 低分标记：judge 1-5 分挂 /reports 条目，纯观察值不驱动行为；低分布尔标记 + console 高亮；judge 失败降级无分不挡主链
-- [ ] judge eval 门控：EVAL_JUDGE=1，alert 集 7 正例出 1-5 分，与规则断言并列进评测报告；复用主 LLM 配置
-- [ ] 对外 MCP server（ADR-0007）：官方 go-sdk 双传输——Gin /mcp StreamableHTTP + serve --mcp STDIO，共享 tool handler；只暴露三只读；鉴权不新设；MCP 进程不需 LLM Key
+- [x] 诊断队列化（ADR-0006）：Redis + asynq 硬依赖，compose 预置 redis；POST /alert 单一异步契约——入队秒回 202 {id,status:queued}，诊断落 /reports（queued/running/done/failed）；console 改轮询；BREAKING 写 README
+- [x] 运行时自评分 + 低分标记：judge 1-5 分挂 /reports 条目，纯观察值不驱动行为；低分布尔标记 + console 高亮；judge 失败降级无分不挡主链
+- [x] judge eval 门控：EVAL_JUDGE=1，alert 集 7 正例出 1-5 分，与规则断言并列进评测报告；复用主 LLM 配置
+- [x] 对外 MCP server（ADR-0007）：官方 go-sdk 双传输——Gin /mcp StreamableHTTP + serve --mcp STDIO，共享 tool handler；只暴露三只读；鉴权不新设；MCP 进程不需 LLM Key
 
-> 验收关（草案，验收时填实数）。
-> - 队列化：compose 起 redis；POST /alert 秒回 202；AM 真流转零重试；重启丢 /reports 历史（队列任务经 Redis 重投，README known limitation）；EVAL_ALERT 直调链回归同级。
-> - 自评分：/reports 带 score/low_score；console 高亮；拔 LLM Key 活验降级无分不挡链。
-> - judge eval：EVAL_JUDGE=1 出分并列报告。
-> - MCP：inspector/Claude Desktop 双传输连通，三只读列出，写调用被拒。
-> - 既有回归不破：recall@3 30/30、拒答生成层 2/2、rerank 30/30 同级可比。
+> 验收关 (2026-09-26 全量活跑：LM Studio qwen3-vl-8b + nomic-768，compose 真栈；zw 目标 v050-queue-judge-mcp 21/21 步，红绿双证 + qa-executor 逐对对照 COMPARATOR: MATCH，终验 attestation 517427896a9e81d3 在档)。
+> - 队列化：compose 起 redis（healthy）；POST /alert 实回 202 {id,status:queued}，worker running→done cites=3 非空；AM 真流转（labels demo:true 毫秒级 startsAt）done ingested=1 且 AM 日志 40m 窗口零 error/retry；验收现场发现并修 redis_addr 默认——macOS localhost 解析 ::1 被 Docker Desktop 仅 IPv4 发布拒连（19fd516）。
+> - 自评分：/reports 真实评分 score=1 low_score=true 与 score=3 low_score=false 并存（console 低分红色高亮消费 low_score）；无 key defaults 路径 202→done score=0 诊断正常主链不断；现场 judge 调用失败降级 score=0 活样。
+> - judge eval：EVAL_JUDGE=1 7/7 出分（3,1,3,3,3,1,5 含中文理由，2 条 LOW），汇总 alert_judge_avg=2.714 low_count=2 err=0。
+> - MCP：SDK 客户端双传输（/mcp + serve --mcp）各列出三只读、rag_search/time_now isError=false、write_file 协议层拒；MCP inspector 完成 /mcp 握手；Claude Desktop GUI 手验留用户侧（inspector+SDK 已覆盖协议兼容）。
+> - 既有回归不破：recall@3=30/30、rerank 30/30 fallback_err=0、alert_recall_at_3=7/7、拒答生成层 2/2 gen_err=0，与 v0.4 验收同级可比。
 
 ## v0.6+ 愿景
 
