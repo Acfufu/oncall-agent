@@ -158,6 +158,18 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 | `prometheus.url` | `http://localhost:9090` | 告警 + 查询来源 |
 | `knowledge` | `auto_ingest: true`，`incident_weight: 0.5` | 事件沉淀入库 + 检索降权（ADR-0005） |
 | `queue` | `redis_addr: 127.0.0.1:6379` | 诊断队列（Redis 硬依赖，ADR-0006） |
+| `notify` | `webhook_url: ""` | 通知写回；空 = 关闭（ADR-0008） |
+
+### 通知写回（v0.6，ADR-0008）
+
+诊断落到 `low_score=true`（judge 评分低于 `judge.low_threshold`）或
+`status=failed` 终态时，完整报告——与 `GET /reports` 条目同形状的 JSON——
+POST 到 `notify.webhook_url`。投递跑独立 asynq 队列：at-least-once、最多
+重试 3 次指数退避（5s/10s/20s）。载荷自包含，环驱逐或重启不影响在途通知。
+接收端应按 `id` 幂等去重（同一报告可能送达多次）。重试耗尽的丢弃会记日志
+并计入 `notification_failed_total`（成功计入 `notification_sent_total`）；
+`/reports` 条目不含通知状态字段。通知纯 outbound——它不是 remediation：
+本服务不确认、不静默、不处置任何告警。
 
 不要提交 `config/config.json`——它已在 gitignore 里。MCP 工具路由
 （`modelcontextprotocol/go-sdk`）与相似度 floor 按
@@ -175,7 +187,8 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
   `/alert` 返回 `503`。
 - `/reports` 环为内存态：重启丢历史报告。排队中的任务在 Redis 里存活、
   重启后重投；事件沉淀同题覆盖保证重跑幂等。环容量 20——积压大时
-  `queued` 条目可能在 worker 完成前被驱逐。
+  `queued` 条目可能在 worker 完成前被驱逐。通知载荷自包含，驱逐或重启
+  不会丢在途通知（ADR-0008）。
 - MCP 面（`/mcp`、`serve --mcp`）按设计不设鉴权——与其余只读 HTTP API
   同一口径，请在网络层做好防护。
 

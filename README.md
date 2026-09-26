@@ -163,6 +163,21 @@ Only `openai.api_key` is mandatory. Everything else runs on template defaults:
 | `prometheus.url` | `http://localhost:9090` | Alert + query source |
 | `knowledge` | `auto_ingest: true`, `incident_weight: 0.5` | Incident-note ingestion + retrieval down-weight (ADR-0005) |
 | `queue` | `redis_addr: 127.0.0.1:6379` | Diagnosis queue (Redis hard dependency, ADR-0006) |
+| `notify` | `webhook_url: ""` | Notification write-back; empty = off (ADR-0008) |
+
+### Notification write-back (v0.6, ADR-0008)
+
+When a diagnosis settles on `low_score=true` (judge scored below
+`judge.low_threshold`) or `status=failed`, the full report — same JSON shape
+as a `GET /reports` entry — is POSTed to `notify.webhook_url`. Delivery runs
+as a dedicated asynq queue: at-least-once, up to 3 retries with exponential
+backoff (5s/10s/20s). The payload is self-contained, so ring eviction or a
+restart never affects an in-flight notification. Receivers should deduplicate
+by `id` (one report may arrive more than once). A drop after retry
+exhaustion is logged and counted in `notification_failed_total` (successes
+increment `notification_sent_total`); `/reports` entries carry no
+notification state. Notification is outbound only — it is not remediation:
+the service never acknowledges, silences, or resolves alerts.
 
 Never commit `config/config.json` — it is git-ignored. MCP tool routing
 (`modelcontextprotocol/go-sdk`) and the similarity floor are staged behind
@@ -182,7 +197,9 @@ read-only (no acknowledge, no silence).
 - The `/reports` ring is in-memory: history is lost on restart. Queued tasks
   survive in Redis and are re-delivered after a restart; same-name incident
   overwrite keeps re-runs idempotent. Ring cap is 20 — a heavy backlog can
-  evict a `queued` entry before its worker finishes.
+  evict a `queued` entry before its worker finishes. Notification payloads
+  are self-contained, so eviction or a restart never drops an in-flight
+  notification (ADR-0008).
 - The MCP surface (`/mcp`, `serve --mcp`) is unauthenticated by design — same
   posture as the rest of the read-only HTTP API; protect it at the network
   layer.
