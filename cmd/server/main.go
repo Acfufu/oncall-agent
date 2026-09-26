@@ -88,6 +88,7 @@ func main() {
 	qClient := queue.NewClient(cfg.Queue.RedisAddr)
 	defer qClient.Close()
 	h.SetQueue(qClient)
+	h.SetNotify(cfg.Notify.WebhookURL, qClient)
 	qServer := queue.NewServer(cfg.Queue.RedisAddr, h)
 	go func() {
 		if err := qServer.Start(); err != nil {
