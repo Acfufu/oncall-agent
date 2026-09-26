@@ -1,4 +1,4 @@
-# AGENTS.md — oncall-agent（v0.5 队列化+自评分+MCP server）
+# AGENTS.md — oncall-agent（v0.6 通知写回：低分/failed 诊断 webhook 送达）
 
 Go 1.25 + Gin + CloudWeGo Eino. OpenAI兼容 + Qdrant + Prometheus + OTel. 只读闭环优先。
 
@@ -31,7 +31,8 @@ make check  # curl /ping
 
 - API：`GET /ping` `POST /upload` `POST /chat` `GET /plan` `POST /alert` `GET /reports` `GET /list` `DELETE /delete` `POST /reindex` `GET /metrics` `/mcp`(MCP StreamableHTTP)。全小写JSON，错误`{"error":"..."}`。
 - Agent：ReAct（time_now/rag_search/prometheus_query 三只读白名单，白名单外一律拒绝）+ Plan-Execute（拉告警→检索→报告）；POST /alert 推送入口同链（ADR-0005），v0.5 起异步入队秒回 202、诊断落 /reports 带状态（ADR-0006）。
-- 诊断队列+自评分：asynq 硬依赖 Redis，无进程内回退；judge 1-5 分纯观察值挂 /reports，失败降级无分不挡链；低分仅布尔标记+console 高亮，外发送达留 v0.6（ADR-0006）。
+- 诊断队列+自评分：asynq 硬依赖 Redis，无进程内回退；judge 1-5 分纯观察值挂 /reports，失败降级无分不挡链；低分仅布尔标记+console 高亮。
+- 通知写回（ADR-0008）：低分（low_score）或 failed 终态入 asynq 通知 task，报告同形状 JSON POST 到 `notify.webhook_url`（空=关）；at-least-once、MaxRetry 3 指数退避，接收端按 report id 幂等；耗尽记 notification_failed_total 不加 /reports 状态字段；通知失败不挡诊断主链。通知不是 remediation——不确认不静默不处置。
 - 事件沉淀：告警驱动诊断报告自动入库 source=incident，同题覆盖、auto_ingest 可关、检索降权；是管线后置写入，不是 agent 工具。
 - MCP（ADR-0004）：官方 go-sdk 传输缝，STDIO/StreamableHTTP，失联回退本地直调；白名单与只读语义不变。对外 MCP server 双传输 `/mcp` 端点 + `serve --mcp` STDIO，只暴露三只读，鉴权不新设（ADR-0007）。
 - OTel：otelgin 全链埋点，trace 走 OTLP gRPC→collector→Jaeger；metrics 由 Prometheus 直抓 `/metrics`（`/ping` `/metrics` 不建span）。

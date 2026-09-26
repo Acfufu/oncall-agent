@@ -77,10 +77,16 @@
 
 主题：把 judge 低分与 failed 诊断送达给人——ADR-0006 拆两步的第二步。ADR-0008 界定「通知不是 remediation」：outbound 单向告知，不确认不静默不处置，通知失败不挡诊断主链。拷问拍板：触发器=低分+failed 只挂异步链（手动 /chat 本人在场不通知）；渠道=通用 webhook（IM 适配留适配层不上核）；投递=asynq 第二类 task at-least-once（MaxRetry 3 退避，载荷自包含，耗尽记 notification_failed_total 不加 /reports 状态字段）；low_threshold 默认 3 不动（v0.5 eval 2 条 LOW fixture 复用为通知触发用例）；license=Apache-2.0。
 
-- [ ] 通知触发与 webhook client：worker 终态（low_score 或 failed）入 asynq 通知 task，POST /reports 条目同形状 JSON 到配置 URL
-- [ ] 投递保证：MaxRetry 3 + 指数退避，at-least-once 接收端按 report id 幂等，重试耗尽 notification_failed_total + 日志终态
-- [ ] config notify 段（webhook url，空=关闭）+ README 用法与接收端幂等说明
-- [ ] 验收关：LOW fixture 触发通知活验、failed 触发、断网重试恢复送达活验、license 落档
+- [x] 通知触发与 webhook client：worker 终态（low_score 或 failed）入 asynq 通知 task，POST /reports 条目同形状 JSON 到配置 URL
+- [x] 投递保证：MaxRetry 3 + 指数退避，at-least-once 接收端按 report id 幂等，重试耗尽 notification_failed_total + 日志终态
+- [x] config notify 段（webhook url，空=关闭）+ README 用法与接收端幂等说明
+- [x] 验收关：LOW fixture 触发通知活验、failed 触发、断网重试恢复送达活验、license 落档
+
+> 验收关 (2026-09-27 全量活跑：LM Studio qwen3-vl-8b + nomic-768，compose 真栈；zw 目标 v060-notify-webhook 14/14 步，红绿双证+F 活验，终验 attestation 见 .lazyzcode/attestations/)。
+> - LOW 送达：POST /alert（CPUHighUsage，judge 实测打 1 分 low_score=true）→ 常驻 sink 秒收与 /reports 条目同形状 JSON（id/score/low_score/citations 一致），一次送达无重试。
+> - 断网恢复：webhook 先指死端口，投递 attempt 1/4→2/4→3/4 连接拒绝（5s/10s 指数退避可见），sink 起来后第 4/4 次送达，notification_sent_total=1、failed_total=0。
+> - failed 触发：worker 链全降级是 ADR-0006 锁定语义、failed 无自然生产者——panic 恢复落 failed 终态为唯一真实失败面；故障注入四例（go test -run Notify）全过（载荷 status=failed、报告永停 running 的黑洞随 N6 关闭）。
+> - 回归同级：alert_recall@3=7/7、负例拒答 2/2 gen_err=0；recall@3=30/30、rerank 30/30 fallback_err=0；gofmt/vet 净；LICENSE Apache-2.0 双语链接在档。
 
 ## v0.7+ 愿景
 
