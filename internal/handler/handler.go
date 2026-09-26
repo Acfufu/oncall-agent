@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"sort"
 	"sync"
 
@@ -51,6 +52,12 @@ func (h *Handler) SetAutoIngest(v bool) { h.autoIngest = v }
 
 // SetQueue 装配诊断任务入队实现（config queue.redis_addr，ADR-0006）。
 func (h *Handler) SetQueue(q AlertEnqueuer) { h.queue = q }
+
+// ProcessNotification 通知投递 worker 回调（ADR-0008）：N5 落实现，此占位
+// 使 handler 满足 queue.Handler 双方法接口、仓库随 N3 提交保持可编译。
+func (h *Handler) ProcessNotification(ctx context.Context, reportID string, report []byte) error {
+	return nil
+}
 
 // SetJudge 装配自评分配置（config judge.low_threshold，LLM 复用 openai 段）。
 func (h *Handler) SetJudge(llm config.OpenAIConfig, threshold int) {

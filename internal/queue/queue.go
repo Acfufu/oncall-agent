@@ -21,17 +21,35 @@ import (
 // TypeAlertDiagnosis 告警驱动诊断任务类型。
 const TypeAlertDiagnosis = "diagnosis:alert"
 
+// TypeNotification 通知写回任务类型（ADR-0008）：诊断终态（low_score/failed）
+// 报告投递到配置 webhook。
+const TypeNotification = "notify:report"
+
 // queueName 单队列，消费顺序由 server 并发数控制。
 const queueName = "diagnosis"
 
+// notifyQueue 通知队列：快投递不与慢诊断互堵（ADR-0008 第二类 task）。
+const notifyQueue = "notify"
+
 // taskTimeout 单任务执行上限：诊断含多跳 LLM/RAG 调用，给足余量。
 const taskTimeout = 10 * time.Minute
+
+// notifyTimeout 单次通知任务上限：一次 HTTP POST，远小于诊断。
+const notifyTimeout = time.Minute
 
 // alertPayload 任务载荷：reportID 与入队时落环的 queued 条目一致，
 // worker 据此回填 running/done/failed。
 type alertPayload struct {
 	ReportID string       `json:"report_id"`
 	Alerts   []tool.Alert `json:"alerts"`
+}
+
+// notifyPayload 通知载荷：Report 是完整报告 JSON 原文（与 GET /reports 条目
+// 同形状），信封仅用于传输与定位；投递 body 即 Report 原文（ADR-0008 载荷
+// 自包含——/reports 环驱逐与重启丢历史不影响在途通知）。
+type notifyPayload struct {
+	ReportID string          `json:"report_id"`
+	Report   json.RawMessage `json:"report"`
 }
 
 // Client 入队端。
@@ -72,9 +90,28 @@ func taskID(payload []byte) string {
 	return hex.EncodeToString(sum[:16])
 }
 
-// Handler worker 侧回调：执行诊断后置管线并回填报告环状态。
+// EnqueueNotification 入队一条通知任务（ADR-0008）：TaskID 取 "notify:"+reportID，
+// 同报告重入队即 ErrTaskIDConflict 天然去重（worker 重试期 panic 复发重通知场景
+// 不重复投）；at-least-once 语义由接收端按 report id 幂等去重兜底。
+func (c *Client) EnqueueNotification(reportID string, reportJSON []byte) error {
+	payload, err := json.Marshal(notifyPayload{ReportID: reportID, Report: reportJSON})
+	if err != nil {
+		return fmt.Errorf("marshal notify task: %w", err)
+	}
+	task := asynq.NewTask(TypeNotification, payload)
+	_, err = c.c.Enqueue(task,
+		asynq.Queue(notifyQueue),
+		asynq.TaskID("notify:"+reportID),
+		asynq.MaxRetry(3),
+		asynq.Timeout(notifyTimeout),
+	)
+	return err
+}
+
+// Handler worker 侧回调：执行诊断后置管线并回填报告环状态；投递终态通知。
 type Handler interface {
 	ProcessAlertDiagnosis(ctx context.Context, reportID string, alerts []tool.Alert) error
+	ProcessNotification(ctx context.Context, reportID string, report []byte) error
 }
 
 // Server 消费端。启动/停止用 Start/Stop/Shutdown 组合——asynq 的 Run() 自装
@@ -105,6 +142,7 @@ func (s *Server) Shutdown() { s.srv.Shutdown() }
 func (s *Server) mux() *asynq.ServeMux {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(TypeAlertDiagnosis, s.handleAlertDiagnosis)
+	mux.HandleFunc(TypeNotification, s.handleNotification)
 	return mux
 }
 
@@ -129,6 +167,26 @@ func (s *Server) handleAlertDiagnosis(ctx context.Context, t *asynq.Task) error 
 		span.SetStatus(trace.StatusError, err.Error())
 		span.RecordError(err)
 		log.Printf("warn: alert diagnosis task %s failed: %v", p.ReportID, err)
+		return err
+	}
+	span.SetStatus(trace.StatusOK, "")
+	return nil
+}
+
+// handleNotification 通知任务包装（ADR-0008）：坏载荷 SkipRetry（重试无意义，
+// 永远投不出去）；其余错误交 asynq 退避重投，重试语义在 handler.ProcessNotification。
+func (s *Server) handleNotification(ctx context.Context, t *asynq.Task) error {
+	var p notifyPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil || len(p.Report) == 0 {
+		return fmt.Errorf("bad payload: %w: %v", asynq.SkipRetry, err)
+	}
+	ctx, span := trace.Start(ctx, "NotifyWorker.Deliver", map[string]string{
+		"report_id": p.ReportID,
+	})
+	defer span.End()
+	if err := s.h.ProcessNotification(ctx, p.ReportID, p.Report); err != nil {
+		span.SetStatus(trace.StatusError, err.Error())
+		span.RecordError(err)
 		return err
 	}
 	span.SetStatus(trace.StatusOK, "")
