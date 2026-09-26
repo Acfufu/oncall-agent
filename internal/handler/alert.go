@@ -19,6 +19,7 @@ import (
 
 	"oncall-agent/internal/agent"
 	"oncall-agent/internal/judge"
+	"oncall-agent/internal/notify"
 	"oncall-agent/internal/observability"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/tool"
@@ -328,6 +329,31 @@ func (h *Handler) maybeNotify(ctx context.Context, rep Report) {
 // Reports 处理 GET /reports：返回最近告警驱动诊断（新→旧）。
 func (h *Handler) Reports(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"reports": h.reports.snapshot()})
+}
+
+// ProcessNotification 通知投递 worker 回调（ADR-0008）：报告 JSON POST 到配置
+// webhook，2xx 记 sent；终次尝试失败记 failed + 日志终态后上抛（asynq 归档），
+// 中途失败仅告警交退避重投；通知关闭但任务在队（配置热改）SkipRetry 不重试。
+func (h *Handler) ProcessNotification(ctx context.Context, reportID string, report []byte) error {
+	if h.webhookURL == "" {
+		return fmt.Errorf("notify disabled but task queued: %w", asynq.SkipRetry)
+	}
+	if err := notify.Post(ctx, h.webhookURL, report); err != nil {
+		// 终次尝试判定（ADR-0008 KN#1，评审实证）：GetRetryCount/GetMaxRetry
+		// 双值返回，ok=false 即无任务上下文（如单测），按未耗尽处理走重试。
+		retried, _ := asynq.GetRetryCount(ctx)
+		maxRetry, _ := asynq.GetMaxRetry(ctx)
+		if retried >= maxRetry {
+			observability.AddNotificationFailed(ctx)
+			log.Printf("error: notify %s dropped after retry exhaustion: %v", reportID, err)
+		} else {
+			log.Printf("warn: notify %s attempt %d/%d failed: %v", reportID, retried+1, maxRetry+1, err)
+		}
+		return err
+	}
+	observability.AddNotificationSent(ctx)
+	log.Printf("info: notify %s delivered", reportID)
+	return nil
 }
 
 // ingestIncident 事件沉淀（ADR-0005）：每告警名一篇（doc={name}.incident.md），

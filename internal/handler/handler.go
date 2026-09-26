@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"sort"
 	"sync"
 
@@ -68,15 +67,6 @@ func (h *Handler) SetJudge(llm config.OpenAIConfig, threshold int) {
 func (h *Handler) SetNotify(url string, q NotifyEnqueuer) {
 	h.webhookURL = url
 	h.notifier = q
-}
-
-// ProcessNotification 通知投递 worker 回调（ADR-0008）：N5 落实现，此占位使
-// handler 满足 queue.Handler 双方法接口、N6 提交保持仓库可编译。
-func (h *Handler) ProcessNotification(ctx context.Context, reportID string, report []byte) error {
-	_ = ctx
-	_ = reportID
-	_ = report
-	return nil
 }
 
 func errJSON(msg string) map[string]string {
