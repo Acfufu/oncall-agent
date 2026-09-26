@@ -157,7 +157,7 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 | `embedder` | `127.0.0.1:11434`，`nomic-embed-text` | 启动时自动探测向量维度 |
 | `prometheus.url` | `http://localhost:9090` | 告警 + 查询来源 |
 | `knowledge` | `auto_ingest: true`，`incident_weight: 0.5` | 事件沉淀入库 + 检索降权（ADR-0005） |
-| `queue` | `redis_addr: localhost:6379` | 诊断队列（Redis 硬依赖，ADR-0006） |
+| `queue` | `redis_addr: 127.0.0.1:6379` | 诊断队列（Redis 硬依赖，ADR-0006） |
 
 不要提交 `config/config.json`——它已在 gitignore 里。MCP 工具路由
 （`modelcontextprotocol/go-sdk`）与相似度 floor 按

@@ -162,7 +162,7 @@ Only `openai.api_key` is mandatory. Everything else runs on template defaults:
 | `embedder` | `127.0.0.1:11434`, `nomic-embed-text` | Dimension auto-probed at boot |
 | `prometheus.url` | `http://localhost:9090` | Alert + query source |
 | `knowledge` | `auto_ingest: true`, `incident_weight: 0.5` | Incident-note ingestion + retrieval down-weight (ADR-0005) |
-| `queue` | `redis_addr: localhost:6379` | Diagnosis queue (Redis hard dependency, ADR-0006) |
+| `queue` | `redis_addr: 127.0.0.1:6379` | Diagnosis queue (Redis hard dependency, ADR-0006) |
 
 Never commit `config/config.json` — it is git-ignored. MCP tool routing
 (`modelcontextprotocol/go-sdk`) and the similarity floor are staged behind

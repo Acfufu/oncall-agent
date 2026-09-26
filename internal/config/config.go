@@ -20,6 +20,8 @@ type Config struct {
 }
 
 // QueueConfig 诊断队列旋钮（ADR-0006）：Redis 硬依赖，asynq 诊断队列地址。
+// 默认 127.0.0.1 而非 localhost——macOS 上 localhost 常解析为 ::1，Docker
+// Desktop 端口发布仅 IPv4，asynq 直连会拒（v0.5 验收实测）。
 type QueueConfig struct {
 	RedisAddr string `json:"redis_addr"`
 }
@@ -74,7 +76,7 @@ func Default() Config {
 		Embedder:   EmbedderConfig{Host: "127.0.0.1", Port: 11434, Model: "nomic-embed-text"},
 		Prometheus: PrometheusConfig{URL: "http://localhost:9090"},
 		Knowledge:  KnowledgeConfig{AutoIngest: true, IncidentWeight: 0.5},
-		Queue:      QueueConfig{RedisAddr: "localhost:6379"},
+		Queue:      QueueConfig{RedisAddr: "127.0.0.1:6379"},
 		Judge:      JudgeConfig{LowThreshold: 3},
 	}
 }
