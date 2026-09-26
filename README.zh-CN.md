@@ -178,7 +178,6 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
   `queued` 条目可能在 worker 完成前被驱逐。
 - MCP 面（`/mcp`、`serve --mcp`）按设计不设鉴权——与其余只读 HTTP API
   同一口径，请在网络层做好防护。
-- 暂无 license 文件声明。
 
 ## 开发
 
@@ -191,3 +190,7 @@ EVAL_NORERANK=1 go run ./cmd/evalbaseline   # 检索基线
 
 提交用 Conventional Commits（`feat:`、`fix:`、`docs:`、`chore:`），一次
 一个原子改动。
+
+## 许可
+
+[Apache-2.0](LICENSE)

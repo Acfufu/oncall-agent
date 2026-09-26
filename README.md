@@ -186,7 +186,6 @@ read-only (no acknowledge, no silence).
 - The MCP surface (`/mcp`, `serve --mcp`) is unauthenticated by design — same
   posture as the rest of the read-only HTTP API; protect it at the network
   layer.
-- No license file is declared yet.
 
 ## Development
 
@@ -199,3 +198,7 @@ EVAL_NORERANK=1 go run ./cmd/evalbaseline   # retrieval baseline
 
 Commits use Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`), one
 atomic change each.
+
+## License
+
+[Apache-2.0](LICENSE)

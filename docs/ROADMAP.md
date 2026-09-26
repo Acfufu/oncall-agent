@@ -73,9 +73,20 @@
 > - MCP：SDK 客户端双传输（/mcp + serve --mcp）各列出三只读、rag_search/time_now isError=false、write_file 协议层拒；MCP inspector 完成 /mcp 握手；Claude Desktop GUI 手验留用户侧（inspector+SDK 已覆盖协议兼容）。
 > - 既有回归不破：recall@3=30/30、rerank 30/30 fallback_err=0、alert_recall_at_3=7/7、拒答生成层 2/2 gen_err=0，与 v0.4 验收同级可比。
 
-## v0.6+ 愿景
+## v0.6 通知写回 (2026-09-27 立项)
 
-- [ ] 通知写回（需 ADR 界定"通知不是 remediation"；judge 低分送达作第一个触发器）
+主题：把 judge 低分与 failed 诊断送达给人——ADR-0006 拆两步的第二步。ADR-0008 界定「通知不是 remediation」：outbound 单向告知，不确认不静默不处置，通知失败不挡诊断主链。拷问拍板：触发器=低分+failed 只挂异步链（手动 /chat 本人在场不通知）；渠道=通用 webhook（IM 适配留适配层不上核）；投递=asynq 第二类 task at-least-once（MaxRetry 3 退避，载荷自包含，耗尽记 notification_failed_total 不加 /reports 状态字段）；low_threshold 默认 3 不动（v0.5 eval 2 条 LOW fixture 复用为通知触发用例）；license=Apache-2.0。
+
+- [ ] 通知触发与 webhook client：worker 终态（low_score 或 failed）入 asynq 通知 task，POST /reports 条目同形状 JSON 到配置 URL
+- [ ] 投递保证：MaxRetry 3 + 指数退避，at-least-once 接收端按 report id 幂等，重试耗尽 notification_failed_total + 日志终态
+- [ ] config notify 段（webhook url，空=关闭）+ README 用法与接收端幂等说明
+- [ ] 验收关：LOW fixture 触发通知活验、failed 触发、断网重试恢复送达活验、license 落档
+
+## v0.7+ 愿景
+
 - [ ] deploy_events 变更富化（第四只读白名单工具，需先定真实变更源）
+- [ ] /reports 持久化（重启丢历史+环驱逐；v0.6 通知载荷自包含后刺已钝，重开需 ADR）
+- [ ] MCP 鉴权（维持网络层防护口径，有外部客户端真依赖时再立 ADR）
+- [ ] rerank live（正交质量项，自带一套验收负担，不搭车）
 - [ ] 企业级知识库 (版本/权限/去重)
-- [ ] 沙箱执行 (默认关，另立 ADR，顺延 0008)
+- [ ] 沙箱执行 (默认关，另立 ADR，顺延 0009)

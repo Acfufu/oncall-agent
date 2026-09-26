@@ -14,7 +14,8 @@
 - **拒答 (Refusal)**: 库外或无匹配的问题明示无匹配、不编造。语义落生成层（v0.3 起）；检索层 Floor 门控只作旋钮保留，不承担拒答验收。
 - **诊断队列 (Diagnosis Queue)**: 告警诊断的异步执行（v0.5 起）。Redis 硬依赖，POST /alert 入队秒回，诊断完成后落 /reports。与手动入口同一条执行链。
 - **诊断自评分 (Diagnosis Self-score)**: judge 对诊断的 1-5 评估（v0.5 起）。纯观察值，挂 /reports 条目，不驱动任何行为；评分失败降级无分，不挡主链。
-- **低分标记 (Low-score Flag)**: 自评分低的布尔标记（v0.5 起）。仅 /reports 与控制台高亮可见；把低分送达给人是通知写回的事，v0.6 立项。
+- **低分标记 (Low-score Flag)**: 自评分低的布尔标记（v0.5 起）。仅 /reports 与控制台高亮可见；把低分送达给人由[[通知写回]]承接（ADR-0008）。
+- **通知写回 (Notification Write-back)**: 低分或 failed 诊断经 webhook 送达（v0.6 立项，ADR-0008）。outbound 单向告知，不是 remediation——不确认不静默不处置；at-least-once，通知失败不挡诊断主链。
 
 ## Vision (deferred)
 
