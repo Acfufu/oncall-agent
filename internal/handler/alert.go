@@ -161,6 +161,12 @@ type AlertEnqueuer interface {
 	EnqueueAlertDiagnosis(reportID string, alerts []tool.Alert) error
 }
 
+// NotifyEnqueuer 通知任务入队缝（ADR-0008）：生产实现 queue.Client（同进程
+// 收发两端），测试注入假实现；收窄同 AlertEnqueuer。
+type NotifyEnqueuer interface {
+	EnqueueNotification(reportID string, report []byte) error
+}
+
 // RunAlertDiagnosis 诊断后置管线（ADR-0005/0006，HTTP 与 asynq worker 共用链）：
 // PlanPushed → 事件沉淀 → 落环（命中已有 ID 条目则就地回填，否则新增）→ 指标。
 // id 由调用方生成：HTTP 同步路径现生成现用；异步路径在入队时生成并随任务透传。
@@ -255,12 +261,68 @@ func (h *Handler) Alert(c *gin.Context) {
 	})
 }
 
-// ProcessAlertDiagnosis 队列 worker 回调（ADR-0006）：回填 running 后走共用链，
-// 结果 upsert 为 done。PlanPushed 内部降级不返回错误，故恒 nil。
-func (h *Handler) ProcessAlertDiagnosis(ctx context.Context, reportID string, alerts []tool.Alert) error {
+// runChain 共用链注入缝：方法表达式的包级变量，生产零开销，测试换装注入
+// panic/异常链路（F2 故障注入载体）。
+var runChain = (*Handler).RunAlertDiagnosis
+
+// ProcessAlertDiagnosis 队列 worker 回调（ADR-0006）：回填 running 后走共用链
+// 回填终态；终态为 low_score 或 failed 时入队通知（ADR-0008 触发器只挂 worker
+// 终态，手动 /chat 本人在场不通知）。链内 panic 在此收口：落 failed 终态 +
+// 通知 + error 上抛交 asynq 退避重试——不恢复的现状是报告永停 running（ADR-0008
+// 所指黑洞）。
+func (h *Handler) ProcessAlertDiagnosis(ctx context.Context, reportID string, alerts []tool.Alert) (err error) {
 	h.reports.update(reportID, func(r *Report) { r.Status = StatusRunning })
-	h.RunAlertDiagnosis(ctx, reportID, alerts)
+	defer func() {
+		if rec := recover(); rec != nil {
+			rep := h.markFailed(reportID, rec)
+			h.maybeNotify(ctx, rep)
+			err = fmt.Errorf("alert diagnosis %s panic: %v", reportID, rec)
+		}
+	}()
+	rep := runChain(h, ctx, reportID, alerts)
+	h.maybeNotify(ctx, rep)
 	return nil
+}
+
+// markFailed 把报告环内条目落 failed 终态（panic 摘要进 Diagnosis），不中
+// （条目被驱逐）则新增兜底。
+func (h *Handler) markFailed(reportID string, rec any) Report {
+	rep := Report{
+		ID:         reportID,
+		Status:     StatusFailed,
+		ReceivedAt: time.Now().UTC().Format(time.RFC3339),
+		Diagnosis:  fmt.Sprintf("%v", rec),
+	}
+	if !h.reports.update(reportID, func(r *Report) {
+		r.Status = StatusFailed
+		r.Diagnosis = rep.Diagnosis
+	}) {
+		h.reports.add(rep)
+	}
+	return rep
+}
+
+// maybeNotify 通知触发器（ADR-0008）：low_score（沿用 v0.5 布尔——未评分
+// score=0 是「无分」不是低分）或 failed 终态才入队；载荷=报告整体 JSON（与
+// GET /reports 条目同形状，自包含）。入队失败仅告警不挡诊断主链；同报告
+// TaskID 冲突是 worker 重试期复发场景，记 info 即去重。
+func (h *Handler) maybeNotify(ctx context.Context, rep Report) {
+	if h.webhookURL == "" || h.notifier == nil || !(rep.LowScore || rep.Status == StatusFailed) {
+		return
+	}
+	body, err := json.Marshal(rep)
+	if err != nil {
+		log.Printf("warn: notify %s marshal: %v", rep.ID, err)
+		return
+	}
+	if err := h.notifier.EnqueueNotification(rep.ID, body); err != nil {
+		if errors.Is(err, asynq.ErrTaskIDConflict) {
+			log.Printf("info: notify %s already queued (dedup)", rep.ID)
+			return
+		}
+		// 通知失败不挡诊断主链（ADR-0008，与 judge 同降级姿态）。
+		log.Printf("warn: notify %s enqueue: %v", rep.ID, err)
+	}
 }
 
 // Reports 处理 GET /reports：返回最近告警驱动诊断（新→旧）。

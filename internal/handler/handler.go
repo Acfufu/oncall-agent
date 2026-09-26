@@ -33,6 +33,11 @@ type Handler struct {
 	// judgeThreshold 低分阈值（1-5 分制，score<阈值记 low_score），<=0 关低分标记。
 	judgeThreshold int
 
+	// webhookURL 通知写回目标（ADR-0008）：空=通知关闭；notifier 通知任务
+	// 入队缝（生产实现 queue.Client，测试假实现）。
+	webhookURL string
+	notifier   NotifyEnqueuer
+
 	// reports 告警驱动诊断落点环（POST /alert 写，GET /reports 读，ADR-0005）。
 	reports reportRing
 
@@ -53,16 +58,25 @@ func (h *Handler) SetAutoIngest(v bool) { h.autoIngest = v }
 // SetQueue 装配诊断任务入队实现（config queue.redis_addr，ADR-0006）。
 func (h *Handler) SetQueue(q AlertEnqueuer) { h.queue = q }
 
-// ProcessNotification 通知投递 worker 回调（ADR-0008）：N5 落实现，此占位
-// 使 handler 满足 queue.Handler 双方法接口、仓库随 N3 提交保持可编译。
-func (h *Handler) ProcessNotification(ctx context.Context, reportID string, report []byte) error {
-	return nil
-}
-
 // SetJudge 装配自评分配置（config judge.low_threshold，LLM 复用 openai 段）。
 func (h *Handler) SetJudge(llm config.OpenAIConfig, threshold int) {
 	h.judgeLLM = llm
 	h.judgeThreshold = threshold
+}
+
+// SetNotify 装配通知写回（ADR-0008）：url 空=关闭（不设 notifier 亦可）。
+func (h *Handler) SetNotify(url string, q NotifyEnqueuer) {
+	h.webhookURL = url
+	h.notifier = q
+}
+
+// ProcessNotification 通知投递 worker 回调（ADR-0008）：N5 落实现，此占位使
+// handler 满足 queue.Handler 双方法接口、N6 提交保持仓库可编译。
+func (h *Handler) ProcessNotification(ctx context.Context, reportID string, report []byte) error {
+	_ = ctx
+	_ = reportID
+	_ = report
+	return nil
 }
 
 func errJSON(msg string) map[string]string {
