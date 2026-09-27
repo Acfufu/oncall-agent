@@ -92,11 +92,19 @@
 
 主题：deploy_events 第四只读白名单工具——告警时间窗 × 最近变更并成诊断上下文。v0.4 调研「行业验证的最高价值 RCA 信号」顺延三期后立项。拷问拍板：源=GitHub API 只读（commits+deployments 合成时间线）；repo 从 config 读、工具不设参；配置门控注册（repo 空=白名单缩回三只读、提示词不出现）；MCP 暴露跟随白名单单一事实源（ADR-0007「只暴露三只读」字面松绑）；报告 additive 字段不算 citations（拒答/eval 语义不动）；三计数器观测；不加新 EVAL 门控（ADR-0009）。
 
-- [ ] tool deploy_events：GitHub commits+deployments 只读拉取，since/until 窗口（缺省 24h）+ 各 10 条截断 + 失败降级不挡链
-- [ ] config deploy 段（github_repo 门控注册，token 可选）+ ReAct 提示词门控注入
-- [ ] /reports deploy_events 观察字段 + console 渲染 + notify 载荷透传 + 三计数器（calls/errors/total）
-- [ ] MCP 暴露跟随白名单（/mcp 与 serve --mcp 配置了才带第四只）
-- [ ] 验收关：离线单测（窗口/截断/坏参/降级/未配置不注册）+ compose 真栈活验（指 Acfufu/oncall-agent 匿名：字段非空 + Tool.exec span + 计数器非零 + 降级一例）+ 既有回归全数同级
+- [x] tool deploy_events：GitHub commits+deployments 只读拉取，since/until 窗口（缺省 24h）+ 各 10 条截断 + 失败降级不挡链
+- [x] config deploy 段（github_repo 门控注册，token 可选）+ ReAct 提示词门控注入
+- [x] /reports deploy_events 观察字段 + console 渲染 + notify 载荷透传 + 三计数器（calls/errors/total）
+- [x] MCP 暴露跟随白名单（/mcp 与 serve --mcp 配置了才带第四只）
+- [x] 验收关：离线单测（窗口/截断/坏参/降级/未配置不注册）+ compose 真栈活验（指 Acfufu/oncall-agent 匿名：字段非空 + Tool.exec span + 计数器非零 + 降级一例）+ 既有回归全数同级
+
+> 验收关 (2026-09-28 全量活跑：LM Studio qwen3-vl-8b + nomic，compose 真栈 + GitHub 匿名 API 指 Acfufu/oncall-agent；zw 目标 v070-deploy-events，红绿双证+F 活验，终验 attestation 见 .lazyzcode/attestations/)。
+> - 报告富化：POST /alert（startsAt=now）→ GET /reports 条目带 deploy_events 10 条真实 commits（env/sha/message/time 倒序，取窗 [startsAt−24h, startsAt] 生效），deploy_events_calls_total=1。
+> - chat 链：tools 数组含 deploy_events；ReAct 实调 time_now→deploy_events，答复原样列出 10 条事件；Jaeger 查得 Tool.exec:deploy_events span（status ok）。
+> - 门控两态：repo 配置态 /mcp tools/list 四只；repo 置空重启 tools/list 缩回三只（基线二进制配了 repo 仍三只，作红半）。
+> - 降级一例：repo 指不存在仓库 → 报告仍 done + deploy_events 空数组 + deploy_events_errors_total=1 + slog 降级行。
+> - 离线单测：tool 12 例（窗口/截断/坏参/conn-refused/非2xx/门控两态/dispatch）+ handler 3 例（附字段/降级空数组形状稳定/未配置省略）全绿。
+> - 回归同级：recall@3=30/30、rerank 30/30 fallback_err=0、拒答生成层 2/2 gen_err=0、alert_recall@3=7/7，与 v0.6 验收全同数；gofmt/vet 净。
 
 ## v0.8+ 愿景
 
