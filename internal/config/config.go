@@ -18,6 +18,7 @@ type Config struct {
 	Queue      QueueConfig      `json:"queue"`
 	Judge      JudgeConfig      `json:"judge"`
 	Notify     NotifyConfig     `json:"notify"`
+	Deploy     DeployConfig     `json:"deploy"`
 }
 
 // QueueConfig 诊断队列旋钮（ADR-0006）：Redis 硬依赖，asynq 诊断队列地址。
@@ -37,6 +38,14 @@ type JudgeConfig struct {
 // POST 到的通用 webhook 地址。空 URL=通知关闭（零值即关，同 judge 阈值<=0 口径）。
 type NotifyConfig struct {
 	WebhookURL string `json:"webhook_url"`
+}
+
+// DeployConfig 变更富化旋钮（ADR-0009）：GitHub 只读变更源（commits+deployments）。
+// 空 repo=deploy_events 工具不注册——白名单缩回三只读、ReAct 提示词不出现、
+// MCP 不暴露（零值即关，同 notify 空 URL 口径）；token 可选，public 仓库匿名即可。
+type DeployConfig struct {
+	GitHubRepo  string `json:"github_repo"`
+	GitHubToken string `json:"github_token"`
 }
 
 // KnowledgeConfig 事件沉淀旋钮（ADR-0005）：auto_ingest 自动入库开关，
@@ -86,6 +95,7 @@ func Default() Config {
 		Queue:      QueueConfig{RedisAddr: "127.0.0.1:6379"},
 		Judge:      JudgeConfig{LowThreshold: 3},
 		Notify:     NotifyConfig{}, // webhook_url 空=关闭（ADR-0008）
+		Deploy:     DeployConfig{}, // github_repo 空=deploy_events 不注册（ADR-0009）
 	}
 }
 
