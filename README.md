@@ -164,6 +164,26 @@ Only `openai.api_key` is mandatory. Everything else runs on template defaults:
 | `knowledge` | `auto_ingest: true`, `incident_weight: 0.5` | Incident-note ingestion + retrieval down-weight (ADR-0005) |
 | `queue` | `redis_addr: 127.0.0.1:6379` | Diagnosis queue (Redis hard dependency, ADR-0006) |
 | `notify` | `webhook_url: ""` | Notification write-back; empty = off (ADR-0008) |
+| `deploy` | `github_repo: ""`, `github_token: ""` | Deploy enrichment source; empty repo = `deploy_events` not registered (ADR-0009) |
+
+### Deploy enrichment (v0.7, ADR-0009)
+
+Set `deploy.github_repo` to `owner/name` and a fourth read-only tool
+`deploy_events` joins the whitelist — ReAct prompt, `/chat` tools array, and
+the MCP surface (`/mcp`, `serve --mcp`) all follow the same single source.
+The tool synthesizes a timeline from GitHub commits (native `since`/`until`
+window filter) and deployments (client-side filtered; that endpoint has no
+window params), 10 events each, newest first; args are optional `since` /
+`until` (RFC3339, default last 24h). The repo is pinned by config — the tool
+takes no repo parameter, so it can never become an arbitrary repo probe.
+Alert-driven reports gain an observational `deploy_events` field (flat
+`env/sha/message/time` array) fetched over `[earliest startsAt − 24h,
+startsAt]` — changes precede alerts — and pass through to the notify payload
+additively. It is never part of `citations`: refusal semantics and eval
+assertions are untouched. Failure degrades to an empty array and a log line;
+counters: `deploy_events_calls_total` / `deploy_events_errors_total` /
+`deploy_events_total`. Still read-only — not remediation. Anonymous GitHub
+API allows 60 req/h; set `github_token` for private repos or heavier use.
 
 ### Notification write-back (v0.6, ADR-0008)
 

@@ -205,6 +205,13 @@ function doReports() {
         } else {
           var cites = (rep.citations || []).map(function (ct) { return '  引用【' + esc(ct.doc) + '】' + (ct.source ? '(source=' + esc(ct.source) + ') ' : '') + esc(String(ct.snippet || '').slice(0, 120)); }).join('\n');
           body = '\n' + esc(rep.diagnosis) + '\n' + cites;
+          // 变更富化观察字段（ADR-0009，旁证不算引用）：未配置字段缺省不渲染。
+          if (rep.deploy_events) {
+            var deps = rep.deploy_events.length
+              ? rep.deploy_events.map(function (ev) { return '  ' + esc(ev.time) + ' env=' + esc(ev.env || '-') + ' sha=' + esc(String(ev.sha || '').slice(0, 7)) + ' ' + esc(String(ev.message || '').slice(0, 80)); }).join('\n')
+              : '  无变更事件';
+            body += '\n  最近变更（旁证，不算引用）:\n' + deps;
+          }
         }
         if (low) head = '<span style="color:#e5484d;font-weight:bold">' + head + '</span>';
         return head + '\n' + body;

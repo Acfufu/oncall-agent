@@ -159,6 +159,23 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 | `knowledge` | `auto_ingest: true`，`incident_weight: 0.5` | 事件沉淀入库 + 检索降权（ADR-0005） |
 | `queue` | `redis_addr: 127.0.0.1:6379` | 诊断队列（Redis 硬依赖，ADR-0006） |
 | `notify` | `webhook_url: ""` | 通知写回；空 = 关闭（ADR-0008） |
+| `deploy` | `github_repo: ""`，`github_token: ""` | 变更富化源；repo 空 = `deploy_events` 不注册（ADR-0009） |
+
+### 变更富化（v0.7，ADR-0009）
+
+把 `deploy.github_repo` 配成 `owner/name` 后，第四只读工具 `deploy_events`
+进入白名单——ReAct 提示词、`/chat` tools 数组与 MCP 面（`/mcp`、
+`serve --mcp`）跟随同一单一事实源。工具从 GitHub commits（原生
+`since`/`until` 窗过滤）与 deployments（端点无窗参数，客户端过滤）合成
+时间线，两类各 10 条、按时间倒序；参数仅可选 `since`/`until`（RFC3339，
+缺省最近 24 小时）。仓库由配置锁定——工具不设 repo 参数，不会变成任意
+仓库探测器。告警驱动报告新增观察字段 `deploy_events`（env/sha/message/time
+扁平数组），按 `[最早 startsAt−24h, startsAt]` 取窗拉取——变更先于告警才
+构成根因线索——并 additive 透传进 notify 载荷。该字段不进 `citations`：
+拒答语义与 eval 断言不受搅动。失败降级为空数组加一行日志；三计数器
+`deploy_events_calls_total` / `deploy_events_errors_total` /
+`deploy_events_total`。仍是只读——不是 remediation。GitHub 匿名限额
+60 次/时；私有库或高频使用请配 `github_token`。
 
 ### 通知写回（v0.6，ADR-0008）
 

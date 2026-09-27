@@ -40,16 +40,20 @@ const (
 const reportRingCap = 20
 
 // Report 为一条告警驱动诊断的落点记录。Score=0 表示 judge 未评分（降级或关闭）。
+// DeployEvents 为变更富化观察字段（ADR-0009，与 score 同地位）：指针切片——
+// repo 未配置 nil（字段整体省略），配置态恒非 nil（成功零得/降级失败=空非 nil，
+// 接收端形状稳定）；纯观察值不算 citations。
 type Report struct {
-	ID         string       `json:"id"`
-	Status     string       `json:"status"`
-	ReceivedAt string       `json:"received_at"`
-	Alerts     []tool.Alert `json:"alerts"`
-	Diagnosis  string       `json:"diagnosis"`
-	Citations  []rag.Result `json:"citations"`
-	Ingested   int          `json:"ingested"`
-	Score      int          `json:"score"`
-	LowScore   bool         `json:"low_score"`
+	ID           string        `json:"id"`
+	Status       string        `json:"status"`
+	ReceivedAt   string        `json:"received_at"`
+	Alerts       []tool.Alert  `json:"alerts"`
+	Diagnosis    string        `json:"diagnosis"`
+	Citations    []rag.Result  `json:"citations"`
+	Ingested     int           `json:"ingested"`
+	Score        int           `json:"score"`
+	LowScore     bool          `json:"low_score"`
+	DeployEvents *[]tool.Event `json:"deploy_events,omitempty"`
 }
 
 // reportRing 并发安全的定长报告环，零值可用。
@@ -198,6 +202,18 @@ func (h *Handler) RunAlertDiagnosis(ctx context.Context, id string, alerts []too
 			if rep.LowScore {
 				observability.AddDiagnosisScoreLow(ctx)
 			}
+		}
+	}
+	// 变更富化（ADR-0009）：repo 配置时按最早 startsAt 取窗拉变更事件挂报告
+	// （变更先于告警才构成根因线索）；失败降级挂空切片不挡诊断主链。
+	if h.deploy.Repo != "" {
+		since, until := deployWindow(alerts)
+		if evs, derr := tool.FetchDeployEvents(ctx, h.deploy, since, until); derr != nil {
+			log.Printf("warn: deploy_events %s degraded: %v", id, derr)
+			empty := []tool.Event{}
+			rep.DeployEvents = &empty
+		} else {
+			rep.DeployEvents = &evs
 		}
 	}
 	if !h.reports.update(id, func(r *Report) { *r = rep }) {
@@ -354,6 +370,28 @@ func (h *Handler) ProcessNotification(ctx context.Context, reportID string, repo
 	observability.AddNotificationSent(ctx)
 	log.Printf("info: notify %s delivered", reportID)
 	return nil
+}
+
+// deployWindow 诊断取窗（ADR-0009）：[最早 startsAt−24h, startsAt]——变更
+// 先于告警才构成根因线索；startsAt 全缺/不可解析回退缺省窗 [now−24h, now]。
+func deployWindow(alerts []tool.Alert) (since, until string) {
+	now := time.Now().UTC()
+	sinceT, untilT := now.Add(-24*time.Hour), now
+	found := false
+	earliest := now
+	for _, a := range alerts {
+		t, err := time.Parse(time.RFC3339, a.StartsAt)
+		if err != nil {
+			continue
+		}
+		if !found || t.Before(earliest) {
+			earliest, found = t, true
+		}
+	}
+	if found {
+		sinceT, untilT = earliest.Add(-24*time.Hour), earliest
+	}
+	return sinceT.Format(time.RFC3339), untilT.Format(time.RFC3339)
 }
 
 // ingestIncident 事件沉淀（ADR-0005）：每告警名一篇（doc={name}.incident.md），
