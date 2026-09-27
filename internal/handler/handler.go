@@ -8,6 +8,7 @@ import (
 	"oncall-agent/internal/config"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/store"
+	"oncall-agent/internal/tool"
 )
 
 // Handler holds shared deps for all routes.
@@ -36,6 +37,10 @@ type Handler struct {
 	// 入队缝（生产实现 queue.Client，测试假实现）。
 	webhookURL string
 	notifier   NotifyEnqueuer
+
+	// deploy 变更富化报告链取数源（ADR-0009）：Repo 空=报告不带 deploy_events；
+	// BaseURL 缺省 api.github.com，测试可注入 stub。
+	deploy tool.DeploySource
 
 	// reports 告警驱动诊断落点环（POST /alert 写，GET /reports 读，ADR-0005）。
 	reports reportRing
@@ -67,6 +72,11 @@ func (h *Handler) SetJudge(llm config.OpenAIConfig, threshold int) {
 func (h *Handler) SetNotify(url string, q NotifyEnqueuer) {
 	h.webhookURL = url
 	h.notifier = q
+}
+
+// SetDeploy 装配变更富化报告链取数源（ADR-0009）：repo 空=报告不带 deploy_events。
+func (h *Handler) SetDeploy(src tool.DeploySource) {
+	h.deploy = src
 }
 
 func errJSON(msg string) map[string]string {

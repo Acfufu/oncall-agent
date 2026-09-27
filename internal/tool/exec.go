@@ -9,13 +9,15 @@ import (
 	"oncall-agent/internal/rag"
 )
 
-// Deps 注入三工具运行时依赖（不改 store/rag/config 结构，只读使用）。
+// Deps 注入只读工具运行时依赖（不改 store/rag/config 结构，只读使用）。
 // MCP 为远端会话缝：非空且已连接时 Exec 优先走远端，失联回退本地。
+// Deploy 为变更富化第四只读的配置门控源（v0.7 ADR-0009）：Repo 空=工具不注册。
 type Deps struct {
 	RAG     *RAGDeps
 	Prom    *PromDeps
 	PromURL string
 	MCP     *Client
+	Deploy  DeploySource
 }
 
 // NewDeps 由 RAG + Prometheus URL 构造依赖。MCP 默认未接（本地直调）。
@@ -30,6 +32,23 @@ func (d *Deps) WithMCP(c *Client) *Deps {
 	}
 	d.MCP = c
 	return d
+}
+
+// WithDeploy 织入变更源配置（ADR-0009），返回同一 Deps（main.go 接线缝用）。
+func (d *Deps) WithDeploy(src DeploySource) *Deps {
+	if d == nil {
+		return d
+	}
+	d.Deploy = src
+	return d
+}
+
+// deployRepo 门控读数：nil 安全。
+func (d *Deps) deployRepo() string {
+	if d == nil {
+		return ""
+	}
+	return d.Deploy.Repo
 }
 
 // Close 释放 MCP 会话（幂等，空会话无操作）。生命周期由 NewDeps 管理。
@@ -58,8 +77,8 @@ func (d *Deps) ExecWithContext(ctx context.Context, name, argsJSON string) (out 
 			observability.AddRagHits(ctx, int64(len(hits)))
 		}
 	}()
-	if !IsAllowed(name) {
-		return "", nil, errDeny(name)
+	if !IsAllowed(d.deployRepo(), name) {
+		return "", nil, errDeny(d.deployRepo(), name)
 	}
 	if o, h, ok := d.execRemote(name, argsJSON); ok {
 		return o, h, nil
@@ -123,7 +142,11 @@ func (d *Deps) execLocalWithContext(ctx context.Context, name, argsJSON string) 
 		}
 		out, err := p.PromQueryWithContext(ctx, argsJSON)
 		return out, nil, err
+	case "deploy_events":
+		src := d.Deploy
+		out, _, err := src.DeployEventsWithContext(ctx, argsJSON)
+		return out, nil, err
 	default:
-		return "", nil, errDeny(name)
+		return "", nil, errDeny(d.deployRepo(), name)
 	}
 }

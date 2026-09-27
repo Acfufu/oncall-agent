@@ -15,14 +15,15 @@ import (
 )
 
 // Version 随发版更新；MCP 客户端列表里可见。
-const Version = "v0.5.0"
+const Version = "v0.7.0"
 
-// New 装配 MCP server：tool.Definitions() 转 sdk Tool——InputSchema 必须
+// New 装配 MCP server：tool.DefinitionsFor(repo) 转 sdk Tool——InputSchema 必须
 // type:object（go-sdk 对缺失 schema 直接 panic），现有 Parameters 天然满足。
-func New(r *rag.RAG, promURL string) *sdkmcp.Server {
-	deps := tool.NewDeps(r, promURL)
+// 暴露清单跟随白名单单一事实源（ADR-0009）；repo 由装配方传入（main.go 接线）。
+func New(r *rag.RAG, promURL, deployRepo, deployToken string) *sdkmcp.Server {
+	deps := tool.NewDeps(r, promURL).WithDeploy(tool.DeploySource{Repo: deployRepo, Token: deployToken})
 	srv := sdkmcp.NewServer(&sdkmcp.Implementation{Name: "oncall-agent", Version: Version}, nil)
-	for _, d := range tool.Definitions() {
+	for _, d := range tool.DefinitionsFor(deployRepo) {
 		def := d
 		srv.AddTool(&sdkmcp.Tool{
 			Name:        def.Function.Name,

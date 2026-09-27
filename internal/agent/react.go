@@ -1,5 +1,6 @@
 // Package agent ReAct 只读闭环（v0.1）：最多 3 轮 LLM->tool->LLM。
-// 工具仅 time_now / rag_search / prometheus_query，白名单外拒绝。
+// 工具为 time_now / rag_search / prometheus_query，v0.7 起可按 config 门控
+// 追加 deploy_events（ADR-0009），白名单外拒绝。
 // 诊断必须带引用片段 {doc,snippet}，无匹配明示无匹配，不编造。
 package agent
 
@@ -71,9 +72,23 @@ type toolCallFunction struct {
 	Arguments string `json:"arguments"`
 }
 
+// systemPrompt 三只读基础提示词（deploy 关闭态；与 v0.6 逐字节同形，eval 同级可比）。
 const systemPrompt = `你是 oncall-agent 值班助手（只读）。可用工具仅 time_now / rag_search / prometheus_query，不可做任何写操作（确认/静默告警、改配置等一律拒绝）。
 流程：先用 rag_search 查知识库，必要时用 prometheus_query 查指标、time_now 取时间，最多 3 轮工具调用，然后给出诊断。
 诊断必须引用知识库原文片段；若 rag_search 无匹配、或检出的引用与问题不相关，必须明示“未找到相关匹配”，不得编造处置步骤，不得硬凑不相关引用作答。`
+
+// systemPromptDeploy 门控注入第四只读的提示词（ADR-0009：repo 配置态才出现）。
+const systemPromptDeploy = `你是 oncall-agent 值班助手（只读）。可用工具仅 time_now / rag_search / prometheus_query / deploy_events，不可做任何写操作（确认/静默告警、改配置等一律拒绝）。
+流程：先用 rag_search 查知识库，必要时用 prometheus_query 查指标、time_now 取时间，涉及「最近改了什么」可用 deploy_events 只读查看配置仓库最近提交与部署（since/until 可选，缺省最近 24 小时），最多 3 轮工具调用，然后给出诊断。
+诊断必须引用知识库原文片段；若 rag_search 无匹配、或检出的引用与问题不相关，必须明示“未找到相关匹配”，不得编造处置步骤，不得硬凑不相关引用作答。`
+
+// systemPromptFor 按 deploy 门控取提示词；toolsRepo 空=关闭态。
+func systemPromptFor(toolsRepo string) string {
+	if strings.TrimSpace(toolsRepo) == "" {
+		return systemPrompt
+	}
+	return systemPromptDeploy
+}
 
 // Run 执行一轮用户问答，返回 reply + citations。会话历史保存在内存 map。
 // OTel：Run 根 span 包全程；ChatModel/Tool 子 span 见 loop/chat/post/fallback。
@@ -124,8 +139,16 @@ func (r *ReAct) Run(ctx context.Context, sessionID, userMsg string) (reply strin
 	return final, cites, nil
 }
 
+// toolsRepo 门控读数：Tools 缺席按关闭态（与 exec 白名单门检同源，ADR-0009）。
+func (r *ReAct) toolsRepo() string {
+	if r == nil || r.Tools == nil {
+		return ""
+	}
+	return r.Tools.Deploy.Repo
+}
+
 func (r *ReAct) loop(ctx context.Context, hist []apiMsg, cites *[]Citation, seen map[string]bool) (string, error) {
-	msgs := append([]apiMsg{{Role: "system", Content: systemPrompt}}, hist...)
+	msgs := append([]apiMsg{{Role: "system", Content: systemPromptFor(r.toolsRepo())}}, hist...)
 	for i := 0; i < MaxRounds; i++ {
 		resp, err := r.chat(ctx, msgs)
 		if err != nil {
@@ -171,7 +194,7 @@ func (r *ReAct) chat(ctx context.Context, msgs []apiMsg) (*chatRespMsg, error) {
 	body, _ := json.Marshal(map[string]any{
 		"model":      r.Model,
 		"messages":   msgs,
-		"tools":      tool.Definitions(),
+		"tools":      tool.DefinitionsFor(r.toolsRepo()),
 		"max_tokens": 512,
 	})
 	return r.post(ctx, body)

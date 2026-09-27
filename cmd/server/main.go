@@ -75,10 +75,14 @@ func main() {
 	}
 
 	h := handler.New(s, r, "aiops-docs-demo")
-	handler.SetChatAgent(agent.NewReAct(cfg.OpenAI.APIBase, cfg.OpenAI.APIKey, cfg.OpenAI.Model, tool.NewDeps(r, cfg.Prometheus.URL)))
+	// 变更富化第四只读（ADR-0009）：repo 空=不注册，白名单缩回三只读。
+	chatDeps := tool.NewDeps(r, cfg.Prometheus.URL).
+		WithDeploy(tool.DeploySource{Repo: cfg.Deploy.GitHubRepo, Token: cfg.Deploy.GitHubToken})
+	handler.SetChatAgent(agent.NewReAct(cfg.OpenAI.APIBase, cfg.OpenAI.APIKey, cfg.OpenAI.Model, chatDeps))
 	h.Planner(tool.NewPromClient(cfg.Prometheus.URL), r)
 	h.SetAutoIngest(cfg.Knowledge.AutoIngest)
 	h.SetJudge(cfg.OpenAI, cfg.Judge.LowThreshold)
+	h.SetDeploy(chatDeps.Deploy)
 	if _, err := h.ReindexLoad(); err != nil {
 		log.Printf("warn: demo preload failed: %v", err)
 	}
@@ -138,8 +142,9 @@ func main() {
 	e.POST("/alert", h.Alert)
 	e.GET("/reports", h.Reports)
 	// /mcp（ADR-0007）：对外 MCP server StreamableHTTP 传输，与 serve --mcp
-	// STDIO 共享同一 server 实例；鉴权不新设（与 /chat 口径一致，README 已知局限）。
-	mcpSrv := mcpserver.New(r, cfg.Prometheus.URL)
+	// STDIO 共享同一 server 实例；暴露清单跟随白名单单一事实源（ADR-0009，
+	// repo 配置才带第四只）；鉴权不新设（与 /chat 口径一致，README 已知局限）。
+	mcpSrv := mcpserver.New(r, cfg.Prometheus.URL, cfg.Deploy.GitHubRepo, cfg.Deploy.GitHubToken)
 	e.POST("/mcp", gin.WrapH(mcpserver.StreamableHTTPHandler(mcpSrv)))
 	e.GET("/mcp", gin.WrapH(mcpserver.StreamableHTTPHandler(mcpSrv)))
 	e.POST("/upload", h.Upload)
@@ -186,10 +191,10 @@ func runMCPStdio() {
 	s := store.NewVectorFromHostPort(cfg.Qdrant.Host, httpPort, cfg.Qdrant.Collection)
 	emb := rag.SelectEmbedder(cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model)
 	r := rag.New(s, emb)
-	mcpSrv := mcpserver.New(r, cfg.Prometheus.URL)
+	mcpSrv := mcpserver.New(r, cfg.Prometheus.URL, cfg.Deploy.GitHubRepo, cfg.Deploy.GitHubToken)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	log.Printf("oncall-agent MCP server (stdio) starting: tools=time_now,rag_search,prometheus_query")
+	log.Printf("oncall-agent MCP server (stdio) starting: tools=%v", tool.AllowedFor(cfg.Deploy.GitHubRepo))
 	if err := mcpserver.RunStdio(mcpSrv, ctx); err != nil {
 		log.Fatalf("mcp server: %v", err)
 	}
