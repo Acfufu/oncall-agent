@@ -31,6 +31,18 @@ var NotificationSentTotal metric.Int64Counter
 // （ADR 0008，观察面不升级为状态机）。
 var NotificationFailedTotal metric.Int64Counter
 
+// DeployEventsCallsTotal backs `deploy_events_calls_total`: deploy_events 调用次数
+// （v0.7，ADR 0009）。
+var DeployEventsCallsTotal metric.Int64Counter
+
+// DeployEventsErrorsTotal backs `deploy_events_errors_total`: deploy_events 失败
+// 次数（ADR 0009，与 calls 成对——降级面可观测）。
+var DeployEventsErrorsTotal metric.Int64Counter
+
+// DeployEventsTotal backs `deploy_events_total`: deploy_events 成功返回的事件条数
+// （ADR 0009，Add 带值非恒 1）。
+var DeployEventsTotal metric.Int64Counter
+
 // InitMetrics installs a Prometheus exporter + MeterProvider on the same
 // process registry served by promhttp on /metrics, creates the counters,
 // and returns its shutdown func.
@@ -87,6 +99,27 @@ func InitMetrics(ctx context.Context) (ShutdownFunc, error) {
 		_ = mp.Shutdown(context.Background())
 		return nil, err
 	}
+	if DeployEventsCallsTotal, err = meter.Int64Counter(
+		"deploy_events_calls_total",
+		metric.WithDescription("Total deploy_events tool calls (ADR 0009)"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
+	if DeployEventsErrorsTotal, err = meter.Int64Counter(
+		"deploy_events_errors_total",
+		metric.WithDescription("Total deploy_events calls failed (degraded, ADR 0009)"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
+	if DeployEventsTotal, err = meter.Int64Counter(
+		"deploy_events_total",
+		metric.WithDescription("Total deploy events returned on success (ADR 0009)"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
 	return mp.Shutdown, nil
 }
 
@@ -137,4 +170,29 @@ func AddNotificationFailed(ctx context.Context) {
 		return
 	}
 	NotificationFailedTotal.Add(ctx, 1)
+}
+
+// AddDeployCalls records one deploy_events call (no-op before InitMetrics).
+func AddDeployCalls(ctx context.Context) {
+	if DeployEventsCallsTotal == nil {
+		return
+	}
+	DeployEventsCallsTotal.Add(ctx, 1)
+}
+
+// AddDeployErrors records one failed deploy_events call (no-op before InitMetrics).
+func AddDeployErrors(ctx context.Context) {
+	if DeployEventsErrorsTotal == nil {
+		return
+	}
+	DeployEventsErrorsTotal.Add(ctx, 1)
+}
+
+// AddDeployEvents records n deploy events returned on success (no-op before
+// InitMetrics).
+func AddDeployEvents(ctx context.Context, n int64) {
+	if DeployEventsTotal == nil {
+		return
+	}
+	DeployEventsTotal.Add(ctx, n)
 }
