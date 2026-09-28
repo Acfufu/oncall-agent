@@ -171,7 +171,10 @@ func TestFetchDeployEventsNon2xx(t *testing.T) {
 func TestDeployEventsToolTextShape(t *testing.T) {
 	srv := stubGitHub(t, stubCommit, stubDeployment, nil)
 	src := DeploySource{Repo: "o/r", BaseURL: srv.URL}
-	out, evs, err := src.DeployEventsWithContext(context.Background(), `{}`)
+	// 显式窗口覆盖 stub 日期：缺省窗 [now-24h,now] 会随时间流逝滤掉写死的
+	// stub 事件（时间炸弹，2026-09-29 审查 F01）。
+	out, evs, err := src.DeployEventsWithContext(context.Background(),
+		`{"since":"2026-09-26T00:00:00Z","until":"2026-09-28T00:00:00Z"}`)
 	if err != nil {
 		t.Fatalf("tool call: %v", err)
 	}
