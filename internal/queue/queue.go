@@ -65,10 +65,11 @@ func NewClient(redisAddr string) *Client {
 // Close 释放连接。
 func (c *Client) Close() error { return c.c.Close() }
 
-// EnqueueAlertDiagnosis 入队一条诊断任务。TaskID 取整个 alerts 数组 JSON 的
-// sha1 截断：兼容 AM 单 webhook 多告警，group_interval/repeat_interval 重投
-// 不重复入队；同 ID 在 pending 期间重入队返回 ErrTaskIDConflict（HTTP 侧转
-// 503，AM 退避后重试自愈）。
+// EnqueueAlertDiagnosis 入队一条诊断任务。TaskID 只取 alerts 数组 JSON 的
+// sha1 截断（report_id 不参与哈希）：兼容 AM 单 webhook 多告警，
+// group_interval/repeat_interval 重投换 report_id 命中同一 TaskID 不重复入队；
+// 同 ID 在 pending 期间重入队返回 ErrTaskIDConflict（HTTP 侧转 503，AM 退避
+// 后重试自愈）。
 func (c *Client) EnqueueAlertDiagnosis(reportID string, alerts []tool.Alert) error {
 	payload, err := json.Marshal(alertPayload{ReportID: reportID, Alerts: alerts})
 	if err != nil {
@@ -84,8 +85,16 @@ func (c *Client) EnqueueAlertDiagnosis(reportID string, alerts []tool.Alert) err
 	return err
 }
 
-// taskID sha1 截 16 字节 hex（asynq TaskID 上限 255 字符）。
+// taskID 只哈希 alerts 数组 JSON——report_id 不参与：AM 重投换 report_id 仍
+// 命中同一 TaskID（去重的根基，ADR-0006/F02）。unmarshal 失败回退哈希原文
+// （防御：调用方刚 marshal 过，不会走到）。
 func taskID(payload []byte) string {
+	var p alertPayload
+	if err := json.Unmarshal(payload, &p); err == nil {
+		if alerts, err := json.Marshal(p.Alerts); err == nil {
+			payload = alerts
+		}
+	}
 	sum := sha1.Sum(payload)
 	return hex.EncodeToString(sum[:16])
 }

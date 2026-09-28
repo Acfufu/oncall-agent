@@ -11,15 +11,28 @@ import (
 	"oncall-agent/internal/tool"
 )
 
-// taskID 对同一 payload 稳定、随 payload 变化——AM 重投去重的根基。
+// taskID 只哈希 alerts 数组——report_id 不参与（AM 重投去重的根基，F02）：
+// 同告警重投换 report_id 必须命中同一 TaskID；不同告警必须不同 TaskID；
+// 同 payload 稳定、长度 32（sha1 截 16 字节 hex）。
 func TestTaskIDStableAndSensitive(t *testing.T) {
-	p1 := []byte(`{"report_id":"a","alerts":[{"name":"X"}]}`)
-	p2 := []byte(`{"report_id":"b","alerts":[{"name":"X"}]}`)
-	if taskID(p1) != taskID(p1) {
-		t.Fatal("taskID must be deterministic")
+	alerts := []tool.Alert{{Name: "ContainerOOMKilled", Severity: "critical"}}
+	p1, err := json.Marshal(alertPayload{ReportID: "a", Alerts: alerts})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if taskID(p1) == taskID(p2) {
-		t.Fatal("taskID must differ across payloads")
+	p2, err := json.Marshal(alertPayload{ReportID: "b", Alerts: alerts})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if taskID(p1) != taskID(p2) {
+		t.Fatal("same alerts + different report_id must dedup to same taskID")
+	}
+	p3, err := json.Marshal(alertPayload{ReportID: "a", Alerts: []tool.Alert{{Name: "Other"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if taskID(p1) == taskID(p3) {
+		t.Fatal("different alerts must produce different taskID")
 	}
 	if len(taskID(p1)) != 32 {
 		t.Fatalf("taskID len = %d, want 32", len(taskID(p1)))
