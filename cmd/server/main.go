@@ -47,6 +47,35 @@ func main() {
 		cfg = &d
 	}
 
+	// OTel providers: trace via OTLP gRPC -> collector -> Jaeger;
+	// metrics via /metrics scraped directly by Prometheus (ADR 0004).
+	// 先于 store 装配与队列 worker 启动：启动期 EnsureCollection/embedder 探测
+	// 的降级与 demo 预载 span 才可观测，包级计数器亦无并发初始化窗口（F03）。
+	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if shutdownTracer, err := observability.InitTracer(sigCtx); err != nil {
+		log.Printf("warn: init tracer failed: %v", err)
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := shutdownTracer(ctx); err != nil {
+				log.Printf("warn: tracer shutdown failed: %v", err)
+			}
+		}()
+	}
+	if shutdownMeter, err := observability.InitMetrics(sigCtx); err != nil {
+		log.Printf("warn: init metrics failed: %v", err)
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := shutdownMeter(ctx); err != nil {
+				log.Printf("warn: meter shutdown failed: %v", err)
+			}
+		}()
+	}
+
 	// Qdrant HTTP 默认 6333；template 6334 为 gRPC 端口，HTTP 探测失败时 store 自动降级内存。
 	httpPort := cfg.Qdrant.Port
 	if httpPort == 6334 {
@@ -99,33 +128,6 @@ func main() {
 			log.Printf("warn: diagnosis queue server exited: %v", err)
 		}
 	}()
-
-	// OTel providers: trace via OTLP gRPC -> collector -> Jaeger;
-	// metrics via /metrics scraped directly by Prometheus (ADR 0004).
-	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-	if shutdownTracer, err := observability.InitTracer(sigCtx); err != nil {
-		log.Printf("warn: init tracer failed: %v", err)
-	} else {
-		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := shutdownTracer(ctx); err != nil {
-				log.Printf("warn: tracer shutdown failed: %v", err)
-			}
-		}()
-	}
-	if shutdownMeter, err := observability.InitMetrics(sigCtx); err != nil {
-		log.Printf("warn: init metrics failed: %v", err)
-	} else {
-		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := shutdownMeter(ctx); err != nil {
-				log.Printf("warn: meter shutdown failed: %v", err)
-			}
-		}()
-	}
 
 	gin.SetMode(gin.ReleaseMode)
 	e := gin.New()
