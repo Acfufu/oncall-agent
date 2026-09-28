@@ -9,9 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET /ping -> {"status":"ok"}
+// GET /ping -> {"status":"ok","memonly":bool}
+// memonly 为向量库内存降级位（F04）：true 即检索已退化进程内存，重启恢复。
 func (h *Handler) Ping(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "memonly": h.Store.IsMemOnly()})
 }
 
 type uploadReq struct {

@@ -43,6 +43,14 @@ var DeployEventsErrorsTotal metric.Int64Counter
 // （ADR 0009，Add 带值非恒 1）。
 var DeployEventsTotal metric.Int64Counter
 
+// StoreFallbackTotal backs `store_fallback_total`: 向量库降级内存模式的转移次数
+// （F04：memOnly 闩锁可观测）。
+var StoreFallbackTotal metric.Int64Counter
+
+// EmbedFallbackTotal backs `embed_fallback_total`: embedding 调用降级 hash 的次数
+// （F04：embedder 静默回退可观测）。
+var EmbedFallbackTotal metric.Int64Counter
+
 // InitMetrics installs a Prometheus exporter + MeterProvider on the same
 // process registry served by promhttp on /metrics, creates the counters,
 // and returns its shutdown func.
@@ -116,6 +124,20 @@ func InitMetrics(ctx context.Context) (ShutdownFunc, error) {
 	if DeployEventsTotal, err = meter.Int64Counter(
 		"deploy_events_total",
 		metric.WithDescription("Total deploy events returned on success (ADR 0009)"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
+	if StoreFallbackTotal, err = meter.Int64Counter(
+		"store_fallback_total",
+		metric.WithDescription("Total vector-store fallback transitions to memory mode (F04)"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
+	if EmbedFallbackTotal, err = meter.Int64Counter(
+		"embed_fallback_total",
+		metric.WithDescription("Total embedding calls degraded to hash fallback (F04)"),
 	); err != nil {
 		_ = mp.Shutdown(context.Background())
 		return nil, err
@@ -195,4 +217,21 @@ func AddDeployEvents(ctx context.Context, n int64) {
 		return
 	}
 	DeployEventsTotal.Add(ctx, n)
+}
+
+// AddStoreFallback records one memory-mode fallback transition (no-op before
+// InitMetrics).
+func AddStoreFallback(ctx context.Context) {
+	if StoreFallbackTotal == nil {
+		return
+	}
+	StoreFallbackTotal.Add(ctx, 1)
+}
+
+// AddEmbedFallback records one hash-embed degradation (no-op before InitMetrics).
+func AddEmbedFallback(ctx context.Context) {
+	if EmbedFallbackTotal == nil {
+		return
+	}
+	EmbedFallbackTotal.Add(ctx, 1)
 }

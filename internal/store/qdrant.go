@@ -4,15 +4,19 @@ package store
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"oncall-agent/internal/observability"
 )
 
 // DefaultCollection 与 config_template.json 保持一致。
@@ -83,10 +87,17 @@ func (s *VectorStore) IsMemOnly() bool {
 	return s.memOnly
 }
 
+// fallback 降级内存模式并打点：首次转移才记日志与计数（F04——此前降级全程
+// 无声，memOnly 闩锁后检索退化无从察觉）。转移后不自动回切，重启进程恢复。
 func (s *VectorStore) fallback() {
 	s.mu.Lock()
+	first := !s.memOnly
 	s.memOnly = true
 	s.mu.Unlock()
+	if first {
+		log.Printf("warn: qdrant unreachable, degraded to memory store (memonly; restart to recover)")
+		observability.AddStoreFallback(context.Background())
+	}
 }
 
 func (s *VectorStore) doJSON(method, path string, body any, out any) error {

@@ -4,6 +4,7 @@ package rag
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"hash/fnv"
@@ -12,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"oncall-agent/internal/observability"
 )
 
 // Dim 为占位向量维度，store.EnsureCollection 用同一值。
@@ -40,12 +43,14 @@ func NewOllamaEmbedder(baseURL, model string) *OllamaEmbedder {
 	return &OllamaEmbedder{BaseURL: strings.TrimRight(baseURL, "/"), Model: model, Client: &http.Client{Timeout: 10 * time.Second}}
 }
 
-// Embed 优先调 Ollama，失败回退 HashEmbed（保证离线可跑）。
+// Embed 优先调 Ollama，失败回退 HashEmbed（保证离线可跑）；降级计数可观测
+// （F04——稠密召回静默失效的信号面）。
 func (o *OllamaEmbedder) Embed(text string) ([]float32, error) {
 	vec, err := o.embedRemote(text)
 	if err == nil && len(vec) > 0 {
 		return vec, nil
 	}
+	observability.AddEmbedFallback(context.Background())
 	return HashEmbed(text), nil
 }
 
