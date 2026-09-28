@@ -106,6 +106,28 @@
 > - 离线单测：tool 12 例（窗口/截断/坏参/conn-refused/非2xx/门控两态/dispatch）+ handler 3 例（附字段/降级空数组形状稳定/未配置省略）全绿。
 > - 回归同级：recall@3=30/30、rerank 30/30 fallback_err=0、拒答生成层 2/2 gen_err=0、alert_recall@3=7/7，与 v0.6 验收全同数；gofmt/vet 净。
 
+## v0.7.1 修复批次 (2026-09-29，五轮双审驱动)
+
+全项目五轮双审（架构/约定/降级并发/安全/可观测运维/文档测试，10 评审轴 + 交叉验证，46 项发现）产出修复清单。本批修 F01-F06+F08 八项（F07 指标口径与 F09/F15/F35 拍板项留后续批次）：
+
+- [x] F01 测试时间炸弹：deploy_events 工具形状测试 stub 日期写死×缺省窗耦合，每天 10:00Z 后必红（-count=1 才现形）——改传显式窗口（850eb87）
+- [x] F02 诊断去重死代码：taskID 哈希掺随机 report_id，ADR-0006「重投不重复入队」永不可达且旧测试锁死错误断言——taskID 只哈希 alerts，断言反转（a2b10cf）
+- [x] F03 启动序竞争：worker goroutine 先于 InitTracer/InitMetrics——Init 块前移至 store 装配前，启动期降级/预载 span 随之可观测（572c802）
+- [x] F08 /reindex 抹 upload 注册表——sources 旁表+合并语义，demo 按目录重建、upload 保留（031a78e/cf54ff2）
+- [x] F04 静默降级可见性：memOnly 闩锁与 embed hash 回退零观测——store_fallback_total/embed_fallback_total+首次转移 warn+/ping memonly 位（a64c620）
+- [x] F05 绑定面收敛回环：config 默认 host 127.0.0.1+compose 六服务端口发布前缀+双语 README Linux 差异说明（4c3810a）
+- [x] F06 Linux 观测半瘫：prometheus 补 extra_hosts host-gateway（2d8ee03）；.gitignore 清障同行
+- [x] 行为变更记录：默认绑定从 0.0.0.0 收敛 127.0.0.1 是有意收紧（无鉴权 API 与全接口暴露不相容）；容器回访宿主在 Linux 需显式开 0.0.0.0（README 已知局限）
+
+> 验收关 (2026-09-29；zw 目标 v071-hotfix-review-findings，红绿双证+F 活验，终验 attestation 见 .lazyzcode/attestations/)。
+> - 离线全绿：go test ./... -count=1 六包全 ok（红半：修前 internal/tool FAIL deploy_events_test.go:179）。
+> - 去重复活：新断言「同 alerts 异 report_id → 同 taskID」修前 FAIL 修后 PASS（红半 n51）。
+> - 启动序：InitTracer:56/InitMetrics:67 均先于 worker:126 与 store:84（红半：修前 107/118 > 97 断言 FAIL）。
+> - 降级可见性活验：沙盒死端口起服 → /ping 带 memonly=true、/metrics 出 store_fallback_total=1 与 embed_fallback_total=1、boot warn 降级行可见（红半：修前 /ping 无字段、零序列、无声）。
+> - 绑定面活验：lsof 127.0.0.1:8819（红半 *:8819）；docker compose config 六服务全带 127.0.0.1 前缀 + prometheus 含 extra_hosts（红半：无前缀/无该键）。
+> - KU#1 证真：容器内 curl host.docker.internal:8819/ping 实通（Docker Desktop 回环可达），Linux 差异已文档化。
+> - 回归：gofmt/vet 净、go test -race handler/queue/tool 全绿。
+
 ## v0.8+ 愿景
 
 - [ ] /reports 持久化（重启丢历史+环驱逐；v0.6 通知载荷自包含后刺已钝，重开需 ADR）
