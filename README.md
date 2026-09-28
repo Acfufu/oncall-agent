@@ -220,6 +220,12 @@ read-only (no acknowledge, no silence).
   evict a `queued` entry before its worker finishes. Notification payloads
   are self-contained, so eviction or a restart never drops an in-flight
   notification (ADR-0008).
+- Default binding is loopback-only: `server.host` defaults to `127.0.0.1` and
+  compose publishes every port on `127.0.0.1`. Containers reach the app via
+  `host.docker.internal`, which resolves to host loopback on Docker Desktop.
+  On Linux `host-gateway` maps to the bridge gateway, where a loopback-bound
+  app is unreachable from containers — set `server.host` to `0.0.0.0`
+  explicitly and protect it at the network layer.
 - The MCP surface (`/mcp`, `serve --mcp`) is unauthenticated by design — same
   posture as the rest of the read-only HTTP API; protect it at the network
   layer.

@@ -206,6 +206,10 @@ POST 到 `notify.webhook_url`。投递跑独立 asynq 队列：at-least-once、�
   重启后重投；事件沉淀同题覆盖保证重跑幂等。环容量 20——积压大时
   `queued` 条目可能在 worker 完成前被驱逐。通知载荷自包含，驱逐或重启
   不会丢在途通知（ADR-0008）。
+- 默认仅绑回环：`server.host` 缺省 `127.0.0.1`，compose 全部端口发布在
+  `127.0.0.1`。容器经 `host.docker.internal` 访问宿主 App——Docker Desktop
+  下该名字解析到宿主回环；Linux 上 `host-gateway` 解析到网桥网关，回环绑定
+  对容器不可达——需显式把 `server.host` 改 `0.0.0.0` 并自行做网络层防护。
 - MCP 面（`/mcp`、`serve --mcp`）按设计不设鉴权——与其余只读 HTTP API
   同一口径，请在网络层做好防护。
 

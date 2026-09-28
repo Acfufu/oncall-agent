@@ -82,11 +82,12 @@ type PrometheusConfig struct {
 	URL string `json:"url"`
 }
 
-// Default returns v0.1 local defaults (ports 8819/6334/11434/:9090).
+// Default returns local defaults (ports 8819/6334/11434/:9090)。Host 仅绑
+// 回环：无鉴权 API 与全接口暴露不相容（F05），对外服务需显式改 host。
 // OpenAI key/model intentionally empty: caller must supply via file or env.
 func Default() Config {
 	return Config{
-		Server:     ServerConfig{Host: "0.0.0.0", Port: 8819},
+		Server:     ServerConfig{Host: "127.0.0.1", Port: 8819},
 		OpenAI:     OpenAIConfig{APIBase: "https://api.openai.com/v1"},
 		Qdrant:     QdrantConfig{Host: "127.0.0.1", Port: 6334, Collection: "oncallagent"},
 		Embedder:   EmbedderConfig{Host: "127.0.0.1", Port: 11434, Model: "nomic-embed-text"},
