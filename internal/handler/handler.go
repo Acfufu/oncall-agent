@@ -48,12 +48,17 @@ type Handler struct {
 	// autoIngest 事件沉淀自动入库开关（ADR-0005，默认开）。
 	autoIngest bool
 
-	mu     sync.RWMutex
-	titles map[string]string
+	mu      sync.RWMutex
+	titles  map[string]string
+	sources map[string]string // 标题→来源（demo/upload）：reindex 合并语义的依据（F08）
 }
 
 func New(s *store.VectorStore, r *rag.RAG, demoDir string) *Handler {
-	return &Handler{Store: s, RAG: r, DemoDir: demoDir, autoIngest: true, titles: make(map[string]string)}
+	return &Handler{
+		Store: s, RAG: r, DemoDir: demoDir, autoIngest: true,
+		titles:  make(map[string]string),
+		sources: make(map[string]string),
+	}
 }
 
 // SetAutoIngest 设置事件沉淀自动入库开关（config knowledge.auto_ingest）。
@@ -87,6 +92,7 @@ func (h *Handler) saveTitle(title, content string) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.titles[title] = content
+	h.sources[title] = "upload"
 	return len(h.titles)
 }
 
@@ -97,6 +103,7 @@ func (h *Handler) removeTitle(title string) (int, bool) {
 		return len(h.titles), false
 	}
 	delete(h.titles, title)
+	delete(h.sources, title)
 	return len(h.titles), true
 }
 
@@ -118,9 +125,23 @@ func (h *Handler) listTitles() []string {
 	return out
 }
 
+// resetTitles demo 重载的合并语义（F08）：source=demo 的旧条目按目录现状重建
+// （目录已消失的文档随之摘除），非 demo（upload）条目保留在册；撞名时 fresh
+// 覆盖内容且 source 归 demo。
 func (h *Handler) resetTitles(m map[string]string) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.titles = m
+	merged := make(map[string]string, len(m)+len(h.titles))
+	for t, c := range h.titles {
+		if h.sources[t] == "demo" {
+			continue
+		}
+		merged[t] = c
+	}
+	for t, c := range m {
+		merged[t] = c
+		h.sources[t] = "demo"
+	}
+	h.titles = merged
 	return len(h.titles)
 }
