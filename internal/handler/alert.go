@@ -285,15 +285,16 @@ var runChain = (*Handler).RunAlertDiagnosis
 // ProcessAlertDiagnosis 队列 worker 回调（ADR-0006）：回填 running 后走共用链
 // 回填终态；终态为 low_score 或 failed 时入队通知（ADR-0008 触发器只挂 worker
 // 终态，手动 /chat 本人在场不通知）。链内 panic 在此收口：落 failed 终态 +
-// 通知 + error 上抛交 asynq 退避重试——不恢复的现状是报告永停 running（ADR-0008
-// 所指黑洞）。
+// 通知 + SkipRetry 上抛归档不重试（F09：panic 是代码缺陷非瞬态故障，退避重试
+// 大概率复发且复发即重发 failed 通知，恢复成功则 failed 通知与 done 终态矛盾
+// ——通知与终态一致性优先）。不恢复的现状是报告永停 running（ADR-0008 黑洞）。
 func (h *Handler) ProcessAlertDiagnosis(ctx context.Context, reportID string, alerts []tool.Alert) (err error) {
 	h.reports.update(reportID, func(r *Report) { r.Status = StatusRunning })
 	defer func() {
 		if rec := recover(); rec != nil {
 			rep := h.markFailed(reportID, rec)
 			h.maybeNotify(ctx, rep)
-			err = fmt.Errorf("alert diagnosis %s panic: %v", reportID, rec)
+			err = fmt.Errorf("alert diagnosis %s panic: %v: %w", reportID, rec, asynq.SkipRetry)
 		}
 	}()
 	rep := runChain(h, ctx, reportID, alerts)
@@ -322,7 +323,7 @@ func (h *Handler) markFailed(reportID string, rec any) Report {
 // maybeNotify 通知触发器（ADR-0008）：low_score（沿用 v0.5 布尔——未评分
 // score=0 是「无分」不是低分）或 failed 终态才入队；载荷=报告整体 JSON（与
 // GET /reports 条目同形状，自包含）。入队失败仅告警不挡诊断主链；同报告
-// TaskID 冲突是 worker 重试期复发场景，记 info 即去重。
+// TaskID 冲突记 info 即去重（防御分支，F09 后诊断任务无重试复发面）。
 func (h *Handler) maybeNotify(ctx context.Context, rep Report) {
 	if h.webhookURL == "" || h.notifier == nil || !(rep.LowScore || rep.Status == StatusFailed) {
 		return

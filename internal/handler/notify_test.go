@@ -3,9 +3,12 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hibiken/asynq"
 
 	"oncall-agent/internal/tool"
 )
@@ -114,5 +117,29 @@ func TestNotifyOnPanicMarkFailed(t *testing.T) {
 	}
 	if got.Status != StatusFailed || got.ID != "r-panic" {
 		t.Fatalf("notify payload mismatch: %s", n.calls[0].report)
+	}
+}
+
+// F09（panic 即终态）：panic 是代码缺陷非瞬态故障——asynq 退避重试大概率
+// 复发且复发即重发 failed 通知，重试恢复成功则 webhook 已收 failed 而报告
+// 终态 done，通知与终态不一致。拍板：panic 落 failed + 通知后 SkipRetry
+// 上抛，asynq 直接归档不重试。
+func TestPanicSkipsRetry(t *testing.T) {
+	h := newTestHandler(t)
+	h.SetQueue(&fakeQueue{})
+	h.reports.add(Report{ID: "r-panic-skip", Status: StatusQueued})
+
+	old := runChain
+	runChain = func(*Handler, context.Context, string, []tool.Alert) Report {
+		panic("boom: fatal defect")
+	}
+	defer func() { runChain = old }()
+
+	err := h.ProcessAlertDiagnosis(context.Background(), "r-panic-skip", parseAM(t))
+	if err == nil {
+		t.Fatal("want panic surfaced as error")
+	}
+	if !errors.Is(err, asynq.SkipRetry) {
+		t.Fatalf("err must wrap asynq.SkipRetry (panic 即终态不重试), got %v", err)
 	}
 }

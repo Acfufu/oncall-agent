@@ -100,8 +100,9 @@ func taskID(payload []byte) string {
 }
 
 // EnqueueNotification 入队一条通知任务（ADR-0008）：TaskID 取 "notify:"+reportID，
-// 同报告重入队即 ErrTaskIDConflict 天然去重（worker 重试期 panic 复发重通知场景
-// 不重复投）；at-least-once 语义由接收端按 report id 幂等去重兜底。
+// 同报告重入队即 ErrTaskIDConflict 天然去重；at-least-once 语义由接收端按
+// report id 幂等去重兜底（诊断任务 panic 已即终态不重试，v0.7.2/F09，
+// 复发重通知场景不再存在，TaskID 去重保留作防御）。
 func (c *Client) EnqueueNotification(reportID string, reportJSON []byte) error {
 	payload, err := json.Marshal(notifyPayload{ReportID: reportID, Report: reportJSON})
 	if err != nil {
