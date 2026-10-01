@@ -20,7 +20,7 @@ go run ./cmd/server
 ```
 
 ```text
-oncall-agent v0.7.3 listening on 127.0.0.1:8819 (memonly=false with Qdrant up)
+oncall-agent v0.8.1 listening on 127.0.0.1:8819 (memonly=false with Qdrant up)
 ```
 
 ## Quickstart (10 minutes)
@@ -83,7 +83,7 @@ An empty citation list means the library had no match.
 | `POST` | `/chat` | ReAct dialogue over read-only tools, cited reply |
 | `GET` | `/plan` | Plan-Execute: firing alerts → retrieval → cited report |
 | `POST` | `/alert` | Alertmanager webhook: pushed alerts → `202 {id, status:"queued"}`, worker completes the diagnosis (async, ADR-0006) |
-| `GET` | `/reports` | Recent alert-driven diagnoses (in-memory ring, last 20) |
+| `GET` | `/reports` | Recent alert-driven diagnoses (persistent ring, last 20, survives restart) |
 | `POST` | `/upload` | Ingest one Markdown runbook |
 | `GET` | `/list` | List ingested titles |
 | `DELETE` | `/delete` | Remove a title from the registry |
@@ -217,12 +217,13 @@ read-only (no acknowledge, no silence).
   `202 {id, status:"queued"}` and results arrive via `GET /reports`; v0.4
   clients reading the sync body must migrate. The queue runs on Redis
   (compose presets it); with the queue unwired `/alert` answers `503`.
-- The `/reports` ring is in-memory: history is lost on restart. Queued tasks
-  survive in Redis and are re-delivered after a restart; same-name incident
-  overwrite keeps re-runs idempotent. Ring cap is 20 — a heavy backlog can
-  evict a `queued` entry before its worker finishes. Notification payloads
-  are self-contained, so eviction or a restart never drops an in-flight
-  notification (ADR-0008).
+- The `/reports` ring survives restarts via a JSON snapshot
+  (`reports.persist_path`, ADR-0010, reloaded at boot; the snapshot is not
+  fsynced — see above). Queued tasks survive in Redis and are re-delivered
+  after a restart; same-name incident overwrite keeps re-runs idempotent.
+  Ring cap is 20 — a heavy backlog can evict a `queued` entry before its
+  worker finishes. Notification payloads are self-contained, so eviction or
+  a restart never drops an in-flight notification (ADR-0008).
 - Default binding is loopback-only: `server.host` defaults to `127.0.0.1` and
   compose publishes every port on `127.0.0.1`. Containers reach the app via
   `host.docker.internal`, which resolves to host loopback on Docker Desktop.

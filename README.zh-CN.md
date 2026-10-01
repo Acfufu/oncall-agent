@@ -19,7 +19,7 @@ go run ./cmd/server
 ```
 
 ```text
-oncall-agent v0.7.3 listening on 127.0.0.1:8819 (memonly=false, Qdrant 正常时)
+oncall-agent v0.8.1 listening on 127.0.0.1:8819 (memonly=false, Qdrant 正常时)
 ```
 
 ## 快速开始（10 分钟）
@@ -80,7 +80,7 @@ curl -s -X POST http://localhost:8819/chat \
 | `POST` | `/chat` | ReAct 多轮对话，只读工具，回答带引用 |
 | `GET` | `/plan` | Plan-Execute：拉告警 → 检索 → 带引用的报告 |
 | `POST` | `/alert` | Alertmanager webhook：推入告警 → `202 {id, status:"queued"}`，worker 完成诊断（异步，ADR-0006） |
-| `GET` | `/reports` | 最近告警驱动诊断（内存环，近 20 条） |
+| `GET` | `/reports` | 最近告警驱动诊断（持久化环，近 20 条，重启存活） |
 | `POST` | `/upload` | 入库一篇 Markdown runbook |
 | `GET` | `/list` | 列出已入库标题 |
 | `DELETE` | `/delete` | 从注册表删除标题 |
@@ -205,7 +205,8 @@ POST 到 `notify.webhook_url`。投递跑独立 asynq 队列：at-least-once、�
   `202 {id, status:"queued"}`，结果经 `GET /reports` 获取；读 v0.4 同步
   返回体的客户端需迁移。队列跑在 Redis 上（compose 预置）；队列未装配时
   `/alert` 返回 `503`。
-- `/reports` 环为内存态：重启丢历史报告。排队中的任务在 Redis 里存活、
+- `/reports` 环经 JSON 快照跨重启存活（`reports.persist_path`，ADR-0010，
+  启动时加载；快照无 fsync——见上）。排队中的任务在 Redis 里存活、
   重启后重投；事件沉淀同题覆盖保证重跑幂等。环容量 20——积压大时
   `queued` 条目可能在 worker 完成前被驱逐。通知载荷自包含，驱逐或重启
   不会丢在途通知（ADR-0008）。

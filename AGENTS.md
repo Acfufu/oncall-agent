@@ -1,4 +1,4 @@
-# AGENTS.md — oncall-agent（v0.7 变更富化：deploy_events 第四只读工具）
+# AGENTS.md — oncall-agent（v0.8 /reports 持久化）
 
 Go 1.25 + Gin + CloudWeGo Eino. OpenAI兼容 + Qdrant + Prometheus + OTel. 只读闭环优先。
 
@@ -32,6 +32,7 @@ make check  # curl /ping
 - API：`GET /ping` `POST /upload` `POST /chat` `GET /plan` `POST /alert` `GET /reports` `GET /list` `DELETE /delete` `DELETE /session` `POST /reindex` `GET /metrics` `/mcp`(MCP StreamableHTTP)。全小写JSON，错误`{"error":"..."}`。
 - Agent：ReAct（time_now/rag_search/prometheus_query 三只读 + deploy_events 第四只读——config deploy.github_repo 配置门控，ADR-0009；白名单外一律拒绝）+ Plan-Execute（拉告警→检索→报告）；POST /alert 推送入口同链（ADR-0005），v0.5 起异步入队秒回 202、诊断落 /reports 带状态（ADR-0006）。
 - 诊断队列+自评分：asynq 硬依赖 Redis，无进程内回退；judge 1-5 分纯观察值挂 /reports，失败降级无分不挡链；低分仅布尔标记+console 高亮。
+- 报告持久化（ADR-0010）：/reports 环 JSON 快照变更即落盘（tmp+rename 原子写）、boot 加载；`reports.persist_path` 空=关；快照无 fsync，断电可丢尾条。
 - 通知写回（ADR-0008）：低分（low_score）或 failed 终态入 asynq 通知 task，报告同形状 JSON POST 到 `notify.webhook_url`（空=关）；at-least-once、MaxRetry 3 指数退避，接收端按 report id 幂等；耗尽记 notification_failed_total 不加 /reports 状态字段；通知失败不挡诊断主链。通知不是 remediation——不确认不静默不处置。
 - 事件沉淀：告警驱动诊断报告自动入库 source=incident，同题覆盖、auto_ingest 可关、检索降权；是管线后置写入，不是 agent 工具。
 - 变更富化（ADR-0009）：deploy_events 只读拉 GitHub commits+deployments 合成时间线；repo 从 config 读、工具不设参，repo 空=不注册、白名单缩回三只读；报告独立字段 deploy_events 观察值不算 citations；三计数器 calls/errors/total；失败降级不挡诊断主链。仍是只读，不是 remediation。
