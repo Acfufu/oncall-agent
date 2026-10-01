@@ -128,6 +128,17 @@
 > - KU#1 证真：容器内 curl host.docker.internal:8819/ping 实通（Docker Desktop 回环可达），Linux 差异已文档化。
 > - 回归：gofmt/vet 净、go test -race handler/queue/tool 全绿。
 
+## v0.7.2 清债批次 (2026-10-02 立项)
+
+主题：收掉 v0.7.1 遗留的 F07/F09/F15/F35 四项（五轮双审 46 项发现在档部分随 v0.7.1 修复，余项清单失传——本批顺带快扫重建）。拷问拍板：F07 rag_hits_total 按 caller 维度拆分（tool=工具面 / alert=诊断主链，主链补打点，指标序列形状变化在案；evalbaseline 离线 CLI 无 /metrics 面不打点）；F09 panic 即终态 SkipRetry（panic 是代码缺陷非瞬态故障，重试大概率复发——failed 通知与终态从此一致，代价是丢瞬态恢复机会）；F35 删除零接线 MCP client 缝并修订 ADR-0004（WithMCP/execRemote/main 从未接线，YAGNI，MCP 能力收敛对外 server 双传输 ADR-0007）；F15 rag_search 工具输出透传 source 信任级。
+
+- [ ] F35：删 mcp.go/mcp_transport.go client 缝 + exec.go WithMCP/execRemote/Close 死面，ADR-0004 修订注记
+- [ ] F15：rag_search 工具 JSON 输出增 source 字段（demo/upload vs incident），远端解析缝同步
+- [ ] F07：rag_hits_total 增 caller 维度（tool/alert），planner.diagnose 主链补打点
+- [ ] F09：ProcessAlertDiagnosis panic 落 failed+通知后 SkipRetry 上抛，不再退避重试
+- [ ] 快扫重建 F10-F22 遗留清单落档 docs/research/
+- [ ] 验收关：TDD 红绿逐项 + 回归门（gofmt/vet/test -race）+ 收口写回
+
 ## v0.8+ 愿景
 
 - [ ] /reports 持久化（重启丢历史+环驱逐；v0.6 通知载荷自包含后刺已钝，重开需 ADR）
