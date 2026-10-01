@@ -336,6 +336,11 @@ func (s *VectorStore) searchMem(query []float32, topK int) []ScoredPoint {
 	}
 	scored := make([]ScoredPoint, 0, len(s.mem))
 	for _, p := range s.mem {
+		// R01：混维度守卫——embedder 降级/恢复过渡期内存镜像可能 64/768 混存，
+		// cosine 截断到 min(len) 会产出假分数；维度不符的点直接跳过。
+		if len(p.Embedding) != len(query) {
+			continue
+		}
 		sim := cosine(query, p.Embedding)
 		if sim <= 0 || math.IsNaN(float64(sim)) {
 			continue

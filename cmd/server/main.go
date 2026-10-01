@@ -83,12 +83,19 @@ func main() {
 	}
 	s := store.NewVectorFromHostPort(cfg.Qdrant.Host, httpPort, cfg.Qdrant.Collection)
 	var emb rag.Embedder = rag.SelectEmbedder(cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model)
-	// 探测真实向量维度；Hash 回退恒为 rag.Dim(64)，此时跳过重建避免误判。
+	// 探测真实向量维度；Hash 回退恒为 rag.Dim(64)。探测降级时绝不建/重建
+	// collection（R01）：64 维持久集合是毒丸——embedder 恢复后真实 768 写入全被
+	// Qdrant 400 拒 → memOnly 闩锁到人工删库。跳过建库，首个写入经 fallback 进
+	// 内存模式（离线可跑，store_fallback_total 可见），重启且探测恢复后重建。
 	dim := rag.Dim
+	probeReal := false
 	if v, err := emb.Embed("dim-probe"); err == nil && len(v) != rag.Dim {
 		dim = len(v)
+		probeReal = true
 	}
-	if cur, err := s.VectorSize(); err == nil && cur > 0 && cur != dim && dim != rag.Dim {
+	if !probeReal {
+		log.Printf("warn: embedder probe degraded to hash %d-dim; skip collection ensure (memonly until embedder recovers and restart)", rag.Dim)
+	} else if cur, err := s.VectorSize(); err == nil && cur > 0 && cur != dim {
 		log.Printf("vector size mismatch (collection=%d, embedder=%d); recreating collection", cur, dim)
 		if err := s.RecreateCollection(dim); err != nil {
 			log.Printf("warn: recreate collection failed: %v", err)
