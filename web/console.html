@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>oncall-agent v0.7.3 控制台</title>
+<title>oncall-agent 控制台</title>
 <style>body{font-family:system-ui,sans-serif;max-width:900px;margin:24px auto;padding:0 16px}nav button{margin:4px 4px 4px 0}section{border:1px solid #ddd;padding:12px;margin:12px 0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #ccc;padding:6px;text-align:left}input,textarea{width:100%;margin:4px 0;box-sizing:border-box}textarea{min-height:80px}button{margin:4px 4px 4px 0}pre{background:#f4f4f4;padding:8px;white-space:pre-wrap;word-break:break-word}.err{color:#c00}.muted{color:#666;font-size:13px}</style>
 </head>
 <body>
-<h1>oncall-agent v0.7.3 控制台</h1>
+<h1>oncall-agent 控制台</h1>
 <nav>
 <button id="tKb">知识库</button>
 <button id="tSearch">检索预览</button>
@@ -40,6 +40,7 @@
 <div>
 <button id="bChat">问答 /chat</button>
 <button id="bPlan">诊断 /plan</button>
+<button id="bSession">清空会话 /session</button>
 </div>
 <h3>回答</h3>
 <pre id="ans">(回答区)</pre>
@@ -176,6 +177,16 @@ document.getElementById('bPlan').onclick = function () {
       refs.textContent = pickCites(d).join('\n---\n') || '(无引用：知识库无匹配，不编造)';
     });
   }).catch(function (e) { showErr('请求失败: ' + e); ans.textContent = ''; });
+};
+document.getElementById('bSession').onclick = function () {
+  showErr('');
+  fetch('/session', {method: 'DELETE'}).then(function (r) {
+    return r.json().then(function (d) {
+      if (!r.ok) { showErr(d.error || ('请求失败: ' + r.status)); return; }
+      if (d.error) { showErr(d.error); return; }
+      ans.textContent = '已清空 ' + d.cleared + ' 个会话（服务端对话历史）';
+    });
+  }).catch(function (e) { showErr('请求失败: ' + e); });
 };
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
