@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -11,6 +12,7 @@ import (
 
 // RagHitsTotal is the OTel counter backing the `rag_hits_total` series
 // scraped by Prometheus from /metrics (ADR 0004 acceptance).
+// caller 维度（F07）：tool=工具面 Exec，alert=告警驱动诊断主链 PlanPushed。
 var RagHitsTotal metric.Int64Counter
 
 // AlertDiagnosesTotal backs `alert_diagnoses_total`: POST /alert 告警驱动诊断次数。
@@ -145,12 +147,13 @@ func InitMetrics(ctx context.Context) (ShutdownFunc, error) {
 	return mp.Shutdown, nil
 }
 
-// AddRagHits records n hits with the ambient context (no-op before InitMetrics).
-func AddRagHits(ctx context.Context, n int64) {
+// AddRagHits records n hits tagged with the caller dimension (F07：tool/alert；
+// no-op before InitMetrics).
+func AddRagHits(ctx context.Context, n int64, caller string) {
 	if RagHitsTotal == nil {
 		return
 	}
-	RagHitsTotal.Add(ctx, n)
+	RagHitsTotal.Add(ctx, n, metric.WithAttributes(attribute.String("caller", caller)))
 }
 
 // AddAlertDiagnosis records one alert-driven diagnosis (no-op before InitMetrics).

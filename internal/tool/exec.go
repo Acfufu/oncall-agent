@@ -53,8 +53,9 @@ func (d *Deps) ExecWithContext(ctx context.Context, name, argsJSON string) (out 
 	defer func() {
 		endToolSpan(s, err)
 		// ADR-0004 验收指标：rag_hits_total 经 /metrics 给 Prometheus 直抓。
+		// caller=tool 标工具面（F07：与 alert 主链 caller 维度拆分）。
 		if name == "rag_search" {
-			observability.AddRagHits(ctx, int64(len(hits)))
+			observability.AddRagHits(ctx, int64(len(hits)), "tool")
 		}
 	}()
 	if !IsAllowed(d.deployRepo(), name) {

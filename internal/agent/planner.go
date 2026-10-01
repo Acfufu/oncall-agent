@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"oncall-agent/internal/observability"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/tool"
 )
@@ -84,6 +85,9 @@ func (p *Planner) diagnose(ctx context.Context, alerts []tool.Alert) (string, []
 			if rerr == nil {
 				hits = h
 			}
+			// F07：主链检索命中计入 rag_hits_total{caller="alert"}——此前该
+			// 指标只有工具面（caller="tool"），告警驱动诊断是指标盲区。
+			observability.AddRagHits(ctx, int64(len(hits)), "alert")
 		}
 		if len(hits) == 0 {
 			sb.WriteString("   无匹配知识：知识库中未找到相关 runbook，请人工研判。\n")
