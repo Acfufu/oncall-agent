@@ -173,6 +173,15 @@
 > - 回归门：`gofmt -l .` 空、`go vet ./...` 过、`go test ./... -count=1` 八包 ok、`go test -race -count=1 ./...` 八包 ok。
 > - R 清单余项：R06（PlannerAgent 懒构造）/R07（请求体上限+Server 超时）/R08（会话表无界）留后续批次，见 docs/research/2026-10-02-v072-review-findings.md。
 
+## v0.7.4 尾批 (2026-10-02 立项)
+
+主题：R 清单归零——快扫余下三项 P3（R06/R07/R08）。拷问拍板：R08 会话治理=加 `DELETE /session` 清空端点（CONTEXT 词条「可清空」兑现，AGENTS API 约定面同步）+ LRU 上限 256；v0.8 /reports 持久化方向拍板=JSON 快照（零新依赖，立项时另补 ADR 详设）。
+
+- [ ] R06：PlannerAgent 懒构造 check-then-act 消除——改局部构造不回写共享字段，-race 并发测试红绿
+- [ ] R07：/alert /upload /chat 请求体 2MB 上限 + http.Server ReadHeaderTimeout/ReadTimeout（WriteTimeout 有意不设：同步 /chat 经 LLM 可达分钟级，写死会杀在途对话，回环绑定下文档化）
+- [ ] R08：ReAct 会话 LRU 上限 256 + DELETE /session 清空端点 + AGENTS/CONTEXT 同步
+- [ ] 验收关：TDD 红绿逐项 + 回归门 + 收口写回
+
 ## v0.8+ 愿景
 
 - [ ] /reports 持久化（重启丢历史+环驱逐；v0.6 通知载荷自包含后刺已钝，重开需 ADR）
