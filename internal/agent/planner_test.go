@@ -66,3 +66,17 @@ func linesWith(s, sub string) string {
 	}
 	return strings.Join(keep, "\n")
 }
+
+// R02：Prom 源不可达不得吞成「无告警」假阴性——planner 明示区分，
+// 值班员看到「源不可达请检查 Prometheus」而不是「当前无 firing 告警」。
+func TestPlanPromUnreachableNotSilent(t *testing.T) {
+	prom := tool.NewPromClient("http://127.0.0.1:1") // 死端口
+	p := New(prom, nil)
+	_, diagnosis, _ := p.Plan()
+	if strings.Contains(diagnosis, "当前无 firing 告警") {
+		t.Fatalf("prom unreachable swallowed as no-alerts false negative: %s", diagnosis)
+	}
+	if !strings.Contains(diagnosis, "不可达") {
+		t.Fatalf("diagnosis must say source unreachable, got: %s", diagnosis)
+	}
+}

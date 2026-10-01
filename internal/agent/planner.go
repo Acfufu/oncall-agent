@@ -38,7 +38,11 @@ func (p *Planner) PlanWithContext(ctx context.Context) (alerts []tool.Alert, dia
 		fctx := StartFiringSpan(ctx)
 		got, ferr := p.Prom.FiringWithContext(fctx)
 		EndCallbackSpan(fctx, ferr, 0, 0)
-		if ferr == nil && got != nil {
+		if ferr != nil {
+			// R02：源不可达与「无告警」明示区分，不出假阴性。
+			return []tool.Alert{}, fmt.Sprintf("告警源不可达（Prometheus 查询失败: %v），请人工检查 Prometheus 服务，本轮未做诊断。", ferr), []rag.Result{}
+		}
+		if got != nil {
 			alerts = got
 		}
 	}

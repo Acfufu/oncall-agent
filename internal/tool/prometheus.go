@@ -70,15 +70,17 @@ func (p *PromClient) FiringWithContext(ctx context.Context) (firing []Alert, err
 	}()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.BaseURL+"/api/v1/alerts", nil)
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("prom build request: %w", err)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, nil
+		// R02：不可达显式报错（span 记 error），不再吞成空列表假阴性——
+		// 调用方据此区分「无告警」与「源不可达」。
+		return nil, fmt.Errorf("prom unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		return nil, nil
+		return nil, fmt.Errorf("prom alerts query: HTTP %d", resp.StatusCode)
 	}
 	var out struct {
 		Status string `json:"status"`
