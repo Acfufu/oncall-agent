@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -242,6 +243,21 @@ func (r *ReAct) post(ctx context.Context, body []byte) (out *chatRespMsg, err er
 		return nil, err
 	}
 	defer resp.Body.Close()
+	// R12：先查状态码再 decode——网关 502 HTML / 429 空 body 的 decode 失败
+	// 会掩盖真实 HTTP 状态，把排障方向带偏。JSON error.message 优先，原文兜底。
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		msg := strings.TrimSpace(string(body))
+		var e struct {
+			Error struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(body, &e) == nil && e.Error.Message != "" {
+			msg = e.Error.Message
+		}
+		return nil, fmt.Errorf("llm %d: %s", resp.StatusCode, msg)
+	}
 	var decoded struct {
 		Choices []struct {
 			Message struct {
@@ -255,13 +271,6 @@ func (r *ReAct) post(ctx context.Context, body []byte) (out *chatRespMsg, err er
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		return nil, fmt.Errorf("decode llm resp: %w", err)
-	}
-	if resp.StatusCode >= 300 {
-		msg := ""
-		if decoded.Error != nil {
-			msg = decoded.Error.Message
-		}
-		return nil, fmt.Errorf("llm %d: %s", resp.StatusCode, msg)
 	}
 	if len(decoded.Choices) == 0 {
 		return nil, fmt.Errorf("llm: empty choices")

@@ -132,7 +132,7 @@ func (a amAlert) toAlert() tool.Alert {
 
 // parseAlertPayload 兼容三种形状：AM webhook（alerts[]）、单条 amAlert、
 // tool.Alert（name 直填）。只收 firing（status 空按 firing），无可用告警报错。
-func parseAlertPayload(raw []byte) ([]tool.Alert, error) {
+func parseAlertPayload(raw []byte) []tool.Alert {
 	var payload struct {
 		Alerts []amAlert `json:"alerts"`
 	}
@@ -144,20 +144,20 @@ func parseAlertPayload(raw []byte) ([]tool.Alert, error) {
 			}
 			alerts = append(alerts, a.toAlert())
 		}
-		return alerts, nil
+		return alerts
 	}
 	var one amAlert
 	if err := json.Unmarshal(raw, &one); err == nil && one.Labels != nil {
 		if one.Status == "" || one.Status == "firing" {
 			alerts = append(alerts, one.toAlert())
 		}
-		return alerts, nil
+		return alerts
 	}
 	var direct tool.Alert
 	if err := json.Unmarshal(raw, &direct); err == nil && direct.Name != "" {
 		alerts = append(alerts, direct)
 	}
-	return alerts, nil
+	return alerts
 }
 
 // AlertEnqueuer 诊断任务入队缝（ADR-0006）：生产实现 internal/queue.Client，
@@ -232,11 +232,7 @@ func (h *Handler) Alert(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errJSON("empty payload"))
 		return
 	}
-	alerts, perr := parseAlertPayload(raw)
-	if perr != nil {
-		c.JSON(http.StatusBadRequest, errJSON("bad payload: "+perr.Error()))
-		return
-	}
+	alerts := parseAlertPayload(raw)
 	if len(alerts) == 0 {
 		c.JSON(http.StatusBadRequest, errJSON("payload 无可用 firing 告警（需 alertname）"))
 		return

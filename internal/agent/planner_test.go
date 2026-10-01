@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"fmt"
+
 	"net/http"
 	"sync"
 
@@ -130,4 +132,27 @@ func TestChatFallbackObservable(t *testing.T) {
 		}
 	}
 	t.Fatalf("metrics missing chat_fallback_total=1 after LLM failure; body tail:\n%s", linesWith(rec.Body.String(), "chat_fallback"))
+}
+
+// R12：LLM 非 JSON 错误体（网关 502 HTML / 429 空 body）不得掩盖真实 HTTP
+// 状态——先查状态码再 decode，排障方向不被 "decode llm resp" 带偏。
+func TestChatNonJSONErrorSurfacesStatus(t *testing.T) {
+	gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprint(w, "<html>502 Bad Gateway</html>")
+	}))
+	defer gw.Close()
+	ra := NewReAct(gw.URL, "", "test-model", tool.NewDeps(nil, ""))
+	cites := []Citation{}
+	_, err := ra.loop(context.Background(), []apiMsg{{Role: "user", Content: "q"}}, &cites, map[string]bool{})
+	if err == nil {
+		t.Fatal("want error from llm call")
+	}
+	if strings.Contains(err.Error(), "decode llm resp") {
+		t.Fatalf("decode error masks real status: %v", err)
+	}
+	if !strings.Contains(err.Error(), "502") {
+		t.Fatalf("error must surface HTTP 502, got: %v", err)
+	}
 }

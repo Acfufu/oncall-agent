@@ -71,9 +71,9 @@ const amPayload = `{
 // parseAM 解析 fixture 告警，供直驱 worker 回调使用。
 func parseAM(t *testing.T) []tool.Alert {
 	t.Helper()
-	alerts, err := parseAlertPayload([]byte(amPayload))
-	if err != nil || len(alerts) == 0 {
-		t.Fatalf("parse fixture: %v alerts=%d", err, len(alerts))
+	alerts := parseAlertPayload([]byte(amPayload))
+	if len(alerts) == 0 {
+		t.Fatalf("parse fixture: alerts=%d", len(alerts))
 	}
 	return alerts
 }
