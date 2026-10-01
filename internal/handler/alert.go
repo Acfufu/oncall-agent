@@ -176,10 +176,13 @@ type NotifyEnqueuer interface {
 // PlanPushed → 事件沉淀 → 落环（命中已有 ID 条目则就地回填，否则新增）→ 指标。
 // id 由调用方生成：HTTP 同步路径现生成现用；异步路径在入队时生成并随任务透传。
 func (h *Handler) RunAlertDiagnosis(ctx context.Context, id string, alerts []tool.Alert) Report {
-	if h.PlannerAgent == nil {
-		h.PlannerAgent = agent.New(nil, h.RAG)
+	// R06：懒构造只落局部变量不回写共享字段（与 Plan 同因——check-then-act
+	// 并发首调即 data race）。
+	planner := h.PlannerAgent
+	if planner == nil {
+		planner = agent.New(nil, h.RAG)
 	}
-	diagnosis, citations := h.PlannerAgent.PlanPushed(ctx, alerts)
+	diagnosis, citations := planner.PlanPushed(ctx, alerts)
 	rep := Report{
 		ID:         id,
 		Status:     StatusDone,

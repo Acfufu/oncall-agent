@@ -18,10 +18,13 @@ func (h *Handler) Planner(prom *tool.PromClient, r *rag.RAG) {
 
 // GET /plan -> {alerts,diagnosis,citations} 全小写 JSON，只读。
 func (h *Handler) Plan(c *gin.Context) {
-	if h.PlannerAgent == nil {
-		h.PlannerAgent = agent.New(nil, h.RAG)
+	// R06：懒构造只落局部变量不回写共享字段——回写是 h.mu 保护外的
+	// check-then-act，并发首调即 data race（-race 实证）。
+	planner := h.PlannerAgent
+	if planner == nil {
+		planner = agent.New(nil, h.RAG)
 	}
-	alerts, diagnosis, citations := h.PlannerAgent.Plan()
+	alerts, diagnosis, citations := planner.Plan()
 	if alerts == nil {
 		alerts = []tool.Alert{}
 	}
