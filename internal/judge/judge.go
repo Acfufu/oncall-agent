@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"oncall-agent/internal/config"
 	"oncall-agent/internal/rag"
@@ -20,6 +21,11 @@ import (
 // scoreRe 从回复中取「分数: N」；模型不守格式时退而取首个 1-5 数字。
 var scoreRe = regexp.MustCompile(`分数[:：]\s*([1-5])`)
 var anyDigitRe = regexp.MustCompile(`[1-5]`)
+
+// judgeHTTPClient 出站共享 client（R04）：30s 超时——此前裸用 http.DefaultClient
+// 零超时，LLM 挂起可吃满 asynq 任务预算（10 分钟）拖死并发 2 的 worker 槽位；
+// 与 notify 出站共享 client 姿态对齐，测试可换装短超时。
+var judgeHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 // Score 给诊断打 1-5 分，返回 (分数, 一句理由, error)。引用忠实度与处置
 // 可用性合并为一分：5=引用充分支撑且步骤可直接执行，3=大体可用但依据
@@ -54,7 +60,7 @@ func Score(ctx context.Context, cfg config.OpenAIConfig, diagnosis string, citat
 	if strings.TrimSpace(cfg.APIKey) != "" {
 		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(cfg.APIKey))
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := judgeHTTPClient.Do(req)
 	if err != nil {
 		return 0, "", fmt.Errorf("judge LLM call: %w", err)
 	}
