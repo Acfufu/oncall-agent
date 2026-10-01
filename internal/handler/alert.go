@@ -10,6 +10,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -56,10 +58,12 @@ type Report struct {
 	DeployEvents *[]tool.Event `json:"deploy_events,omitempty"`
 }
 
-// reportRing 并发安全的定长报告环，零值可用。
+// reportRing 并发安全的定长报告环，零值可用。persistPath 非空时每次变更
+// 同步原子写快照（v0.8/ADR-0010）——锁内写以微小 IO 换写序正确，环为低频路径。
 type reportRing struct {
-	mu    sync.Mutex
-	items []Report
+	mu          sync.Mutex
+	items       []Report
+	persistPath string
 }
 
 func (r *reportRing) add(rep Report) {
@@ -69,6 +73,7 @@ func (r *reportRing) add(rep Report) {
 	if len(r.items) > reportRingCap {
 		r.items = r.items[len(r.items)-reportRingCap:]
 	}
+	r.persistLocked()
 }
 
 // snapshot 返回副本，新→旧排列。
@@ -90,10 +95,80 @@ func (r *reportRing) update(id string, mut func(*Report)) bool {
 	for i := range r.items {
 		if r.items[i].ID == id {
 			mut(&r.items[i])
+			r.persistLocked()
 			return true
 		}
 	}
 	return false
+}
+
+// SetReportsPersist 启用报告环快照持久化（v0.8/ADR-0010，main 接线缝）。
+func (h *Handler) SetReportsPersist(path string) error { return h.reports.SetPersist(path) }
+
+// LoadReports boot 加载快照注入环（v0.8/ADR-0010，main 接线缝）。
+func (h *Handler) LoadReports() error { return h.reports.LoadPersist() }
+
+// SetPersist 启用报告环快照持久化（v0.8/ADR-0010）：path 空=关闭；目录不存在
+// 自动创建，创建失败报错由调用方降级内存模式（文档化：无 fsync，断电可丢尾条）。
+func (r *reportRing) SetPersist(path string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if strings.TrimSpace(path) == "" {
+		r.persistPath = ""
+		return nil
+	}
+	if dir := filepath.Dir(path); dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create reports persist dir: %w", err)
+		}
+	}
+	r.persistPath = path
+	return nil
+}
+
+// LoadPersist boot 加载快照注入环：文件不存在=no-op；损坏文件告警按空启动
+// （自愈：下次变更覆盖写）；超容量截尾。
+func (r *reportRing) LoadPersist() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.persistPath == "" {
+		return nil
+	}
+	raw, err := os.ReadFile(r.persistPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read reports snapshot: %w", err)
+	}
+	var items []Report
+	if err := json.Unmarshal(raw, &items); err != nil {
+		log.Printf("warn: reports snapshot corrupt (%v), starting empty (self-heal on next write)", err)
+		return nil
+	}
+	if len(items) > reportRingCap {
+		items = items[len(items)-reportRingCap:]
+	}
+	r.items = items
+	return nil
+}
+
+// persistLocked 原子写快照（tmp+rename），调用方持锁。失败 warn+计数不挡链。
+func (r *reportRing) persistLocked() {
+	if r.persistPath == "" {
+		return
+	}
+	raw, err := json.Marshal(r.items)
+	if err == nil {
+		tmp := r.persistPath + ".tmp"
+		if err = os.WriteFile(tmp, raw, 0o644); err == nil {
+			err = os.Rename(tmp, r.persistPath)
+		}
+	}
+	if err != nil {
+		log.Printf("warn: reports snapshot write failed: %v", err)
+		observability.AddReportsPersistError(context.Background())
+	}
 }
 
 // newReportID 报告 ID：8 字节随机 hex。

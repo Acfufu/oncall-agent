@@ -159,6 +159,7 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 | `knowledge` | `auto_ingest: true`，`incident_weight: 0.5` | 事件沉淀入库 + 检索降权（ADR-0005） |
 | `queue` | `redis_addr: 127.0.0.1:6379` | 诊断队列（Redis 硬依赖，ADR-0006） |
 | `notify` | `webhook_url: ""` | 通知写回；空 = 关闭（ADR-0008） |
+| `reports` | `persist_path: data/reports.json` | `/reports` 环持久化跨重启保留；空串=仅内存（ADR-0010） |
 | `deploy` | `github_repo: ""`，`github_token: ""` | 变更富化源；repo 空 = `deploy_events` 不注册（ADR-0009） |
 
 ### 变更富化（v0.7，ADR-0009）
@@ -194,6 +195,8 @@ POST 到 `notify.webhook_url`。投递跑独立 asynq 队列：at-least-once、�
 只读（不确认、不静默）。
 
 ## 已知局限
+
+- `/reports` 持久化（ADR-0010）在环每次变更时原子写快照（tmp+rename），**不做 fsync**——断电可能丢最后一条；设 `reports.persist_path` 为 `""` 可回纯内存。
 
 - 检索层拒答 0/2 属预期：拒答验收挂生成层（`EVAL_GEN=1` 实测 2/2 明示
   “未找到相关匹配”）；余弦 floor 旋钮默认保持关。

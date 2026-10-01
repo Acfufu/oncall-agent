@@ -57,6 +57,10 @@ var EmbedFallbackTotal metric.Int64Counter
 // rag-direct 次数（R03：降级可见，key 失效/限流/超时根因不再只能翻 Jaeger）。
 var ChatFallbackTotal metric.Int64Counter
 
+// ReportsPersistErrorsTotal backs `reports_persist_errors_total`: /reports
+// 快照写失败次数（v0.8/ADR-0010，降级可观测不挡链）。
+var ReportsPersistErrorsTotal metric.Int64Counter
+
 // InitMetrics installs a Prometheus exporter + MeterProvider on the same
 // process registry served by promhttp on /metrics, creates the counters,
 // and returns its shutdown func.
@@ -151,6 +155,13 @@ func InitMetrics(ctx context.Context) (ShutdownFunc, error) {
 	if ChatFallbackTotal, err = meter.Int64Counter(
 		"chat_fallback_total",
 		metric.WithDescription("Total chat LLM failures degraded to rag-direct fallback (R03)"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
+	if ReportsPersistErrorsTotal, err = meter.Int64Counter(
+		"reports_persist_errors_total",
+		metric.WithDescription("Total /reports snapshot write failures (v0.8 ADR 0010)"),
 	); err != nil {
 		_ = mp.Shutdown(context.Background())
 		return nil, err
@@ -257,4 +268,13 @@ func AddChatFallback(ctx context.Context) {
 		return
 	}
 	ChatFallbackTotal.Add(ctx, 1)
+}
+
+// AddReportsPersistError records one /reports snapshot write failure
+// (no-op before InitMetrics).
+func AddReportsPersistError(ctx context.Context) {
+	if ReportsPersistErrorsTotal == nil {
+		return
+	}
+	ReportsPersistErrorsTotal.Add(ctx, 1)
 }

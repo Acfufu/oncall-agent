@@ -164,6 +164,7 @@ Only `openai.api_key` is mandatory. Everything else runs on template defaults:
 | `knowledge` | `auto_ingest: true`, `incident_weight: 0.5` | Incident-note ingestion + retrieval down-weight (ADR-0005) |
 | `queue` | `redis_addr: 127.0.0.1:6379` | Diagnosis queue (Redis hard dependency, ADR-0006) |
 | `notify` | `webhook_url: ""` | Notification write-back; empty = off (ADR-0008) |
+| `reports` | `persist_path: data/reports.json` | `/reports` ring persistence across restarts; empty string = memory-only (ADR-0010) |
 | `deploy` | `github_repo: ""`, `github_token: ""` | Deploy enrichment source; empty repo = `deploy_events` not registered (ADR-0009) |
 
 ### Deploy enrichment (v0.7, ADR-0009)
@@ -205,6 +206,8 @@ Never commit `config/config.json` — it is git-ignored. MCP tool routing
 read-only (no acknowledge, no silence).
 
 ## Known limitations
+
+- `/reports` persistence (ADR-0010) writes an atomic tmp+rename snapshot on every ring change but does **not fsync** — a power loss may lose the last entry. Set `reports.persist_path` to `""` for memory-only.
 
 - Retrieval-layer refusal stays 0/2 by design: refusal is asserted at the
   generation layer (eval shows 2/2 "no relevant match" with `EVAL_GEN=1`);

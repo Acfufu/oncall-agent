@@ -129,6 +129,13 @@ func main() {
 	h.SetAutoIngest(cfg.Knowledge.AutoIngest)
 	h.SetJudge(cfg.OpenAI, cfg.Judge.LowThreshold)
 	h.SetDeploy(chatDeps.Deploy)
+	// 报告环持久化（v0.8/ADR-0010）：persist_path 空=关闭；boot 先加载历史再
+	// 预载 demo（快照含沉淀前报告，装载序无关）。目录不可建降级内存模式。
+	if err := h.SetReportsPersist(cfg.Reports.PersistPath); err != nil {
+		log.Printf("warn: reports persistence disabled (%v); /reports is memory-only", err)
+	} else if err := h.LoadReports(); err != nil {
+		log.Printf("warn: reports snapshot load failed: %v", err)
+	}
 	if _, err := h.ReindexLoad(); err != nil {
 		log.Printf("warn: demo preload failed: %v", err)
 	}

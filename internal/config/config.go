@@ -19,6 +19,13 @@ type Config struct {
 	Judge      JudgeConfig      `json:"judge"`
 	Notify     NotifyConfig     `json:"notify"`
 	Deploy     DeployConfig     `json:"deploy"`
+	Reports    ReportsConfig    `json:"reports"`
+}
+
+// ReportsConfig 报告环持久化旋钮（v0.8/ADR-0010）：persist_path 空=关闭，
+// 默认 data/reports.json。
+type ReportsConfig struct {
+	PersistPath string `json:"persist_path"`
 }
 
 // QueueConfig 诊断队列旋钮（ADR-0006）：Redis 硬依赖，asynq 诊断队列地址。
@@ -95,8 +102,9 @@ func Default() Config {
 		Knowledge:  KnowledgeConfig{AutoIngest: true, IncidentWeight: 0.5},
 		Queue:      QueueConfig{RedisAddr: "127.0.0.1:6379"},
 		Judge:      JudgeConfig{LowThreshold: 3},
-		Notify:     NotifyConfig{}, // webhook_url 空=关闭（ADR-0008）
-		Deploy:     DeployConfig{}, // github_repo 空=deploy_events 不注册（ADR-0009）
+		Notify:     NotifyConfig{},                                  // webhook_url 空=关闭（ADR-0008）
+		Deploy:     DeployConfig{},                                  // github_repo 空=deploy_events 不注册（ADR-0009）
+		Reports:    ReportsConfig{PersistPath: "data/reports.json"}, // 空串=关闭（ADR-0010）
 	}
 }
 

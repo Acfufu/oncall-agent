@@ -12,5 +12,8 @@
   "queue": { "redis_addr": "127.0.0.1:6379" },
   "judge": { "low_threshold": 3 },
   "notify": { "webhook_url": "" },
-  "deploy": { "github_repo": "", "github_token": "" }
+  "deploy": { "github_repo": "", "github_token": "" },
+  "reports": {
+    "persist_path": "data/reports.json"
+  }
 }
