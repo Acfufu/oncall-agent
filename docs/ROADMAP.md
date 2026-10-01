@@ -151,15 +151,27 @@
 
 主题：清 v0.7.2 快扫清单（docs/research/2026-10-02-v072-review-findings.md R01-R12）的降级路径可信主题——降级要么如实报错、要么可见可测，不许静默。R01/R02/R03/R04/R05 同属「降级要么报错要么可见」，R10/R12 小修捎带，R09/R11 文档漂移顺手清。R06/R07/R08 留后续批次。
 
-- [ ] R01：embed 维度错配级联拆弹——boot 探测诚实化（降级时拒建 64 维 collection）+ 混维度内存搜索守卫
-- [ ] R02：Prom 不可达分型——Firing 吞错改显式错误，/plan 输出「告警源不可达」不再假阴性
-- [ ] R03：chat LLM fallback 观测——触发日志 + chat_fallback_total 计数器 + InitMetrics 幂等化
-- [ ] R04：judge 出站 HTTP client 超时注入（默认 30s）
-- [ ] R12：LLM 响应先查状态码再 decode + parseAlertPayload 死分支清理
-- [ ] R10：ProcessNotification 无任务上下文（ok=false）独立分支，不污染 notification_failed_total
-- [ ] R05：store 降级状态机测试补齐（store 包首测）
-- [ ] R09+R11：.env 死变量清障 + README 配置表 127.0.0.1 + 版本串统一 v0.7.3
-- [ ] 验收关：TDD 红绿逐项 + 回归门（gofmt/vet/test -race 全量）+ 收口写回
+- [x] R01：embed 维度错配级联拆弹——boot 探测诚实化（降级时拒建 64 维 collection）+ 混维度内存搜索守卫
+- [x] R02：Prom 不可达分型——Firing 吞错改显式错误，/plan 输出「告警源不可达」不再假阴性
+- [x] R03：chat LLM fallback 观测——触发日志 + chat_fallback_total 计数器（InitMetrics 幂等化改为测试包共享 once-helper，语义不变更轻）
+- [x] R04：judge 出站 HTTP client 超时注入（默认 30s）
+- [x] R12：LLM 响应先查状态码再 decode + parseAlertPayload 死分支清理
+- [x] R10：ProcessNotification 无任务上下文（ok=false）独立分支，不污染 notification_failed_total
+- [x] R05：store 降级状态机测试补齐（store 包首测）
+- [x] R09+R11：.env 死变量清障 + README 配置表 127.0.0.1 + 版本串统一 v0.7.3
+- [x] 验收关：TDD 红绿逐项 + 回归门（gofmt/vet/test -race 全量）+ 收口写回
+
+> 验收关 (2026-10-02 八项 TDD 红绿 + 全量 -race 回归；commit 7a7aa27/e94d07e/f6a3c47/7bb21af/c4aa11c/c43ff3e/7ea4c90/83202c9)。
+> - R01：红半「8 维点以假分 1.0 混入 4 维查询」（store 包首测）→ 绿：维度不符点跳过；boot 机械断言 probeReal×3（修前 0）——探测降级拒建/重建 collection，warn 明示 memonly 待重启恢复。语义变更在档：离线 boot 不再产出 64 维毒丸 collection，embedder 恢复+重启后自动重建。
+> - R02：红半「死端口 Prom 诊断文案=无告警假阴性」→ 绿：Firing 三分支显式错误（span 记 error），planner 输出「告警源不可达请人工检查」。
+> - R03：红半「LLM 500 后 metrics 无 chat_fallback_total」→ 绿：fallback warn 带原始 loop 错误 + 计数器=1；agent 包测试共享 initTestMetrics 防重复注册。
+> - R04：红半机械断言（judge.go DefaultClient×1/零超时 client）→ 绿：30s 共享 client + 换装 50ms 打 300ms 慢端点实得超时错误 + 正常路径回归。
+> - R12：红半「502 HTML 报 decode llm resp 掩盖状态」→ 绿：先查状态码（JSON error.message 优先原文兜底）；parseAlertPayload 死错误分支清理（机械红 perr×2→0，签名收窄）。
+> - R10：红半「无任务上下文投递失败污染 notification_failed_total=1」→ 绿：ok=false 独立分支仅告警不计数，注释与代码对齐。
+> - R05：store 降级状态机锁定——死库建库/首写闩锁 memOnly、读己之写、删除如实清内存、单实例不回切。
+> - R09+R11：.env.example 仅 OPENAI_API_KEY（死变量清障）；README 双语配置表/启动示例 127.0.0.1；版本串四处（v0.1/v0.3.0/v0.7.0/v0.4）统一 observability.ServiceVersion=v0.7.3。
+> - 回归门：`gofmt -l .` 空、`go vet ./...` 过、`go test ./... -count=1` 八包 ok、`go test -race -count=1 ./...` 八包 ok。
+> - R 清单余项：R06（PlannerAgent 懒构造）/R07（请求体上限+Server 超时）/R08（会话表无界）留后续批次，见 docs/research/2026-10-02-v072-review-findings.md。
 
 ## v0.8+ 愿景
 
