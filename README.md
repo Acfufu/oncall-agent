@@ -20,7 +20,7 @@ go run ./cmd/server
 ```
 
 ```text
-oncall-agent v0.1 listening on 0.0.0.0:8819 (memonly=false with Qdrant up)
+oncall-agent v0.7.3 listening on 127.0.0.1:8819 (memonly=false with Qdrant up)
 ```
 
 ## Quickstart (10 minutes)
@@ -156,7 +156,7 @@ Only `openai.api_key` is mandatory. Everything else runs on template defaults:
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `server` | `0.0.0.0:8819` | App address |
+| `server` | `127.0.0.1:8819` | App address |
 | `openai.api_base` + `model` + `api_key` | OpenAI-compatible | Any compatible endpoint works |
 | `qdrant` | `127.0.0.1:6334`, collection `oncallagent` | HTTP probed on `:6333`; falls back to memory |
 | `embedder` | `127.0.0.1:11434`, `nomic-embed-text` | Dimension auto-probed at boot |

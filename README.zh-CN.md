@@ -19,7 +19,7 @@ go run ./cmd/server
 ```
 
 ```text
-oncall-agent v0.1 listening on 0.0.0.0:8819 (memonly=false, Qdrant 正常时)
+oncall-agent v0.7.3 listening on 127.0.0.1:8819 (memonly=false, Qdrant 正常时)
 ```
 
 ## 快速开始（10 分钟）
@@ -151,7 +151,7 @@ app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM
 
 | 键 | 默认值 | 说明 |
 | --- | --- | --- |
-| `server` | `0.0.0.0:8819` | 服务地址 |
+| `server` | `127.0.0.1:8819` | 服务地址 |
 | `openai.api_base` + `model` + `api_key` | OpenAI 兼容 | 任何兼容端点可用 |
 | `qdrant` | `127.0.0.1:6334`，collection `oncallagent` | HTTP 探测 `:6333`；失败回退内存 |
 | `embedder` | `127.0.0.1:11434`，`nomic-embed-text` | 启动时自动探测向量维度 |

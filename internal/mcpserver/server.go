@@ -10,12 +10,14 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"oncall-agent/internal/observability"
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/tool"
 )
 
-// Version 随发版更新；MCP 客户端列表里可见。
-const Version = "v0.7.0"
+// Version 单一事实源在 observability.ServiceVersion（R11：随发版统一更新）；
+// MCP 客户端列表里可见。
+var Version = observability.ServiceVersion
 
 // New 装配 MCP server：tool.DefinitionsFor(repo) 转 sdk Tool——InputSchema 必须
 // type:object（go-sdk 对缺失 schema 直接 panic），现有 Parameters 天然满足。

@@ -165,7 +165,7 @@ func main() {
 	e.StaticFile("/v01", "web/index.html")
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	log.Printf("oncall-agent v0.1 listening on %s (memonly=%v)", addr, s.IsMemOnly())
+	log.Printf("oncall-agent %s listening on %s (memonly=%v)", observability.ServiceVersion, addr, s.IsMemOnly())
 	srv := &http.Server{Addr: addr, Handler: e}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

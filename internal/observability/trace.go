@@ -18,7 +18,7 @@ import (
 // Service identity shared by trace resource and otelgin span.
 const (
 	ServiceName    = "oncall-agent"
-	ServiceVersion = "v0.3.0"
+	ServiceVersion = "v0.7.3"
 	// OTLPEndpoint is the local collector gRPC endpoint (ADR 0004).
 	OTLPEndpoint = "localhost:4317"
 )
