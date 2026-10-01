@@ -209,10 +209,17 @@
 
 主题：v0.8 收口后残留兑现。三件：console 会话清空按钮（v0.7.4 验收关预留「可选后续，API 已是契约」）、版本串升位（R11 单一事实源 observability.ServiceVersion 注明「随发版统一更新」，v0.7.4/v0.8 两批漏升仍 v0.7.3）、愿景清单清障（已完成项误挂愿景在册）。纯收尾无架构决策，不需要 ADR。
 
-- [ ] console 检索预览区加「清空会话」按钮消费 DELETE /session（cleared:n 回显）
-- [ ] console 标题去硬编码版本串（消除漂移源）+ ServiceVersion v0.7.3→v0.8.1
-- [ ] ROADMAP 愿景清单清障：/reports 持久化（v0.8 已做）、rerank live（v0.3 已验）打勾归位
-- [ ] 验收关：真栈活验（按钮真点 + DELETE /session 两态 + 绑定面）+ 回归门 + 收口写回
+- [x] console 检索预览区加「清空会话」按钮消费 DELETE /session（cleared:n 回显）
+- [x] console 标题去硬编码版本串（消除漂移源）+ ServiceVersion v0.7.3→v0.8.1
+- [x] ROADMAP 愿景清单清障：/reports 持久化（v0.8 已做）、rerank live（v0.3 已验）打勾归位
+- [x] 验收关：真栈活验（按钮真点 + DELETE /session 两态 + 绑定面）+ 回归门 + 收口写回
+
+> 验收关 (2026-10-02 compose 真栈活跑；commit 8772bc4 立项 + 5628740 console + e0d9af6 版本串)。
+> - 按钮真点：重建服务（杀 v0.8 活验残留 8819 进程后 `go run` 当前代码）→ 启动日志 `oncall-agent v0.8.1 listening`（版本串升位实证）；POST /chat 造 default 会话（真栈引用 demo「磁盘空间满处置」）→ 浏览器真点「清空会话 /session」回答区「已清空 1 个会话（服务端对话历史）」→ 再点「已清空 0 个会话」（幂等，服务端真实交互非前端假文案）。
+> - DELETE /session 两态：带 id 单清 `{"cleared":1}`、不存在 id `{"cleared":0}`、缺 id 清全部同缝（R08 端点既有活验口径复验）。
+> - 绑定面疑点排查：v0.8 活验残留进程与重建服务均绑 `*:8819`——根因是本地 config/config.json（不入库）server.host 显式 "0.0.0.0"（v0.8 现场 AM 容器回访所需），F05 默认收敛实现在位（config.Default 127.0.0.1、Unmarshal 缺键不丢默认），**非回归**，环境选择在档。
+> - console 标题去版本号：浏览器 title/h1 均「oncall-agent 控制台」。
+> - 回归门：`gofmt -l .` 空、`go vet ./...` 过、`go test -race -count=1 ./...` 九包全 ok。
 
 ## v0.8+ 愿景
 
