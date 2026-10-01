@@ -177,10 +177,17 @@
 
 主题：R 清单归零——快扫余下三项 P3（R06/R07/R08）。拷问拍板：R08 会话治理=加 `DELETE /session` 清空端点（CONTEXT 词条「可清空」兑现，AGENTS API 约定面同步）+ LRU 上限 256；v0.8 /reports 持久化方向拍板=JSON 快照（零新依赖，立项时另补 ADR 详设）。
 
-- [ ] R06：PlannerAgent 懒构造 check-then-act 消除——改局部构造不回写共享字段，-race 并发测试红绿
-- [ ] R07：/alert /upload /chat 请求体 2MB 上限 + http.Server ReadHeaderTimeout/ReadTimeout（WriteTimeout 有意不设：同步 /chat 经 LLM 可达分钟级，写死会杀在途对话，回环绑定下文档化）
-- [ ] R08：ReAct 会话 LRU 上限 256 + DELETE /session 清空端点 + AGENTS/CONTEXT 同步
-- [ ] 验收关：TDD 红绿逐项 + 回归门 + 收口写回
+- [x] R06：PlannerAgent 懒构造 check-then-act 消除——改局部构造不回写共享字段，-race 并发测试红绿
+- [x] R07：/alert /upload /chat 请求体 2MB 上限 + http.Server ReadHeaderTimeout/ReadTimeout（WriteTimeout 有意不设：同步 /chat 经 LLM 可达分钟级，写死会杀在途对话，回环绑定下文档化）
+- [x] R08：ReAct 会话 LRU 上限 256 + DELETE /session 清空端点 + AGENTS/CONTEXT 同步
+- [x] 验收关：TDD 红绿逐项 + 回归门 + 收口写回
+
+> 验收关 (2026-10-02 三项红绿 + 全量 -race 回归；commit 5eecc8f/a326562/2190125)。
+> - R06：红半「-race+启动屏障 DATA RACE on PlannerAgent」（16 goroutine 同踩 nil 检查；测试先踩 newTestHandler 预装配坑、显式置 nil 逼出懒路径）→ 绿：Plan/RunAlertDiagnosis 局部构造不回写，同测试 -race 干净。
+> - R07：红半「3MB 体打 /alert 得 202 收下」→ 绿：四端点统一 2MB 封顶超限 413（bind.go bindJSON 统一缝）；http.Server 补 ReadHeaderTimeout 10s/ReadTimeout 60s，WriteTimeout 有意不设已在代码注释与 ROADMAP 双处记录。
+> - R08：红半「301 会话 sessions map 全留」→ 绿：LRU 上限 256、触达刷新新近度（s044 触达后 s045 先被逐）；DELETE /session?id=xxx 清单会话、缺 id 清全部（cleared:n）；CONTEXT 词条兑现 + AGENTS API 行同步。console 未加清空按钮（可选后续，API 已是契约）。
+> - 回归门：`gofmt -l .` 空、`go vet ./...` 过、`go test -race -count=1 ./...` 八包全 ok。
+> - **R 清单（R01-R12）就此归零**。下一步 v0.8 /reports 持久化：方向已拍板 JSON 快照（零新依赖），立项时补 ADR 详设（落盘时机/原子写/启动加载/环大小配置化/与通知载荷自包含的关系）。
 
 ## v0.8+ 愿景
 
