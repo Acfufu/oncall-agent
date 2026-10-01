@@ -71,7 +71,9 @@ func (d *RAGDeps) RagSearchWithContext(ctx context.Context, argsJSON string) (ou
 	}
 	items := make([]map[string]any, 0, len(hits))
 	for _, h := range hits {
-		items = append(items, map[string]any{"doc": h.Doc, "snippet": h.Snippet, "score": h.Score})
+		// F15：source 透传信任级（demo/upload=人工审定，incident=AI 沉淀），
+		// agent 据此分辨证据可信度；与报告 citations 侧同字段。
+		items = append(items, map[string]any{"doc": h.Doc, "snippet": h.Snippet, "score": h.Score, "source": h.Source})
 	}
 	raw, _ := json.Marshal(items)
 	return string(raw), hits, nil
