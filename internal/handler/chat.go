@@ -24,8 +24,7 @@ type chatReq struct {
 // 全小写 JSON；错误形如 {"error":"..."}。
 func (h *Handler) Chat(c *gin.Context) {
 	var req chatReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, errJSON("invalid json"))
+	if !bindJSON(c, &req) {
 		return
 	}
 	req.Message = strings.TrimSpace(req.Message)

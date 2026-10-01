@@ -289,3 +289,16 @@ func TestAlertAutoIngestIncident(t *testing.T) {
 		t.Fatalf("ingest should be off, got %d", reps[0].Ingested)
 	}
 }
+
+// R07：请求体 2MB 上限——超大 payload 拒 413，不再无界读入内存
+// （回环绑定缓解外暴露，但不该连回环用户一起放行）。
+func TestAlertBodySizeLimit(t *testing.T) {
+	h := newTestHandler(t)
+	h.SetQueue(&fakeQueue{})
+	junk := strings.Repeat("x", 3<<20)
+	body := `{"junk":"` + junk + `","alerts":[{"status":"firing","labels":{"alertname":"X","severity":"critical"},"annotations":{"description":"d"},"startsAt":"2026-10-02T00:00:00Z"}]}`
+	w := postAlert(t, h, body)
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized body: want 413, got %d body=%.80s", w.Code, w.Body.String())
+	}
+}

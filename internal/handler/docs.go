@@ -23,8 +23,7 @@ type uploadReq struct {
 // POST /upload {title,content} -> {"title":...,"count":n}
 func (h *Handler) Upload(c *gin.Context) {
 	var req uploadReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, errJSON("invalid json"))
+	if !bindJSON(c, &req) {
 		return
 	}
 	req.Title = strings.TrimSpace(req.Title)
@@ -61,6 +60,8 @@ func (h *Handler) Delete(c *gin.Context) {
 	title := strings.TrimSpace(c.Query("title"))
 	if title == "" {
 		var req deleteReq
+		// R07：可选 JSON 体同样 2MB 封顶（超限即绑定失败，title 缺失走 400）。
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBodyBytes)
 		if err := c.ShouldBindJSON(&req); err == nil {
 			title = strings.TrimSpace(req.Title)
 		}

@@ -230,8 +230,17 @@ func (h *Handler) RunAlertDiagnosis(ctx context.Context, id string, alerts []too
 // 语义，BREAKING）。诊断由 worker 消费执行，结果落 /reports；队列未装配或同
 // payload 任务在队返回 503（AM 退避后重试自愈）。
 func (h *Handler) Alert(c *gin.Context) {
-	raw, err := io.ReadAll(c.Request.Body)
-	if err != nil || len(raw) == 0 {
+	raw, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, maxBodyBytes))
+	if err != nil {
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			c.JSON(http.StatusRequestEntityTooLarge, errJSON("payload too large (2MB limit)"))
+			return
+		}
+		c.JSON(http.StatusBadRequest, errJSON("empty payload"))
+		return
+	}
+	if len(raw) == 0 {
 		c.JSON(http.StatusBadRequest, errJSON("empty payload"))
 		return
 	}

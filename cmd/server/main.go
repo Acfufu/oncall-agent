@@ -166,7 +166,14 @@ func main() {
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	log.Printf("oncall-agent %s listening on %s (memonly=%v)", observability.ServiceVersion, addr, s.IsMemOnly())
-	srv := &http.Server{Addr: addr, Handler: e}
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: e,
+		// R07：读面超时（slowloris/慢连接防护）。WriteTimeout 有意不设——
+		// 同步 /chat 经 LLM 可达分钟级，写死会杀在途对话；暴露面已收敛回环（F05）。
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+	}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
