@@ -132,12 +132,20 @@
 
 主题：收掉 v0.7.1 遗留的 F07/F09/F15/F35 四项（五轮双审 46 项发现在档部分随 v0.7.1 修复，余项清单失传——本批顺带快扫重建）。拷问拍板：F07 rag_hits_total 按 caller 维度拆分（tool=工具面 / alert=诊断主链，主链补打点，指标序列形状变化在案；evalbaseline 离线 CLI 无 /metrics 面不打点）；F09 panic 即终态 SkipRetry（panic 是代码缺陷非瞬态故障，重试大概率复发——failed 通知与终态从此一致，代价是丢瞬态恢复机会）；F35 删除零接线 MCP client 缝并修订 ADR-0004（WithMCP/execRemote/main 从未接线，YAGNI，MCP 能力收敛对外 server 双传输 ADR-0007）；F15 rag_search 工具输出透传 source 信任级。
 
-- [ ] F35：删 mcp.go/mcp_transport.go client 缝 + exec.go WithMCP/execRemote/Close 死面，ADR-0004 修订注记
-- [ ] F15：rag_search 工具 JSON 输出增 source 字段（demo/upload vs incident），远端解析缝同步
-- [ ] F07：rag_hits_total 增 caller 维度（tool/alert），planner.diagnose 主链补打点
-- [ ] F09：ProcessAlertDiagnosis panic 落 failed+通知后 SkipRetry 上抛，不再退避重试
-- [ ] 快扫重建 F10-F22 遗留清单落档 docs/research/
-- [ ] 验收关：TDD 红绿逐项 + 回归门（gofmt/vet/test -race）+ 收口写回
+- [x] F35：删 mcp.go/mcp_transport.go client 缝 + exec.go WithMCP/execRemote/Close 死面，ADR-0004 修订注记
+- [x] F15：rag_search 工具 JSON 输出增 source 字段（demo/upload vs incident），远端解析缝同步
+- [x] F07：rag_hits_total 增 caller 维度（tool/alert），planner.diagnose 主链补打点
+- [x] F09：ProcessAlertDiagnosis panic 落 failed+通知后 SkipRetry 上抛，不再退避重试
+- [x] 快扫重建遗留清单落档 docs/research/2026-10-02-v072-review-findings.md（原 F10-F22 详情失传，重建清单改 R 前缀编号：R01-R12，抽查 3 项 file:line 实证）
+- [x] 验收关：TDD 红绿逐项 + 回归门（gofmt/vet/test -race）+ 收口写回
+
+> 验收关 (2026-10-02 四项 TDD 红绿 + 全量回归；commit 7914c67/3255088/d2919cc/ce1d9cd)。
+> - F35：mcp.go/mcp_transport.go 整删，`go build ./...` 过，全套件 -count=1 绿；ADR-0004 Amended 注记 + AGENTS.md 同步；仓内零 `MCPConfig|WithMCP|NewMCPClient` 残留引用。
+> - F15：红半「item missing source field」（rag_tool_test.go:44）→ 绿：工具 JSON 四字段含 source，demo+upload 双源断言。
+> - F07：红半「主链检索后 metrics 零 rag_hits 序列」→ 绿：promhttp 实抓 `rag_hits_total{caller="alert"} 3`；exec 面同参改传 caller="tool"。指标序列形状变化（增 caller 标签）在档。
+> - F09：红半「err 不含 SkipRetry」→ 绿：`errors.Is(err, asynq.SkipRetry)`；既有 TestNotifyOnPanicMarkFailed（failed 落态+通知）不破；queue/maybeNotify 过时注释同步。
+> - 回归门：`gofmt -l .` 空、`go vet ./...` 过、`go test ./... -count=1` 七包 ok、`go test -race -count=1` handler/queue/tool/agent 四包 ok。
+> - 快扫重建：R01-R12 落档（P1 一项：embed 维度错配级联；P2 四项；P3 七项），三项重灾发现 file:line 抽查核实，确认干净面同档。
 
 ## v0.8+ 愿景
 
