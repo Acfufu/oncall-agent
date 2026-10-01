@@ -193,10 +193,17 @@
 
 主题：重启丢历史治理。活验实锤（v0.7.4 活验现场：boot 1 的 AM 自动诊断重启后消失）。ADR-0010 拍板：JSON 快照（零新依赖，`reports.persist_path` 默认 `data/reports.json`，空串=关；变更即原子写 tmp+rename；boot 加载；写失败 warn+计数不挡链；不做 fsync/容量配置化）。
 
-- [ ] ADR-0010 落档 + config reports 段（模板同步）+ .gitignore data/
-- [ ] reportRing 持久化：setPersist/loadPersist/原子写/损坏自愈 + reports_persist_errors_total 计数器（TDD）
-- [ ] main 接线 + README 用法与已知局限（fsync 缺口）
-- [ ] 验收关：TDD 红绿 + 活验（报告落盘→重启→/reports 存活）+ 回归门 + 收口写回
+- [x] ADR-0010 落档 + config reports 段（模板同步）+ .gitignore data/
+- [x] reportRing 持久化：setPersist/loadPersist/原子写/损坏自愈 + reports_persist_errors_total 计数器（TDD）
+- [x] main 接线 + README 用法与已知局限（fsync 缺口）
+- [x] 验收关：TDD 红绿 + 活验（报告落盘→重启→/reports 存活）+ 回归门 + 收口写回
+
+> 验收关 (2026-10-02 compose 真栈活跑：LM Studio qwen3-vl-8b + nomic，全栈六容器；commit 2a909d6 立项 + b974299 实现)。
+> - TDD：四例红绿——roundtrip（add/update 落盘重载序正确）、损坏自愈（坏 JSON 告警空启动、下次写覆盖）、容量截断（30 条载入留 20）、关态（空串零写盘）；`go test -race ./...` 八包绿。
+> - 活验闭环：POST /alert（DiskSpaceFilling）→ done + judge 1 分（低分路径真实触发）→ data/reports.json 两条与 /reports 同形 → **重启进程 → /reports 历史原样复活**（对照 v0.7.4 活验现场：boot1 AM 诊断重启即失）。
+> - 同场 v0.7.2-4 活验全绿：MCP tools/call rag_search 输出四字段带 `source:"upload"`（F15）；`rag_hits_total{caller="tool"}=5` 与 `caller="alert"}=3` 双序列（F07）；DELETE /session cleared 1→0（R08）；3MB 体 413（R07）；沙盒全死端口 boot——探测 3 次重试后降级 warn、demo 预载如实报错、/chat 后 `chat_fallback_total=1`+`store_fallback_total=1`+`memonly:true`（R01/R03/F04 全链）。
+> - 活验现场发现并修两处：R01 探测冷启动假阳性（LM Studio JIT 加载超时误判降级——补 3 次重试，65c225f）；**双 worker 竞争事故**（沙盒服务器 pkill 模式未命中 cmdline `./server` 未死，与主服务器共用 redis 队列，任务被沙盒吃走致主环停在 queued——按 lsof 端口杀进程后复现即绿）。
+> - 已知局限：快照无 fsync（断电可丢尾条，README 双语在档）。
 
 ## v0.8+ 愿景
 
