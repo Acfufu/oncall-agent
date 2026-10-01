@@ -352,14 +352,19 @@ func (h *Handler) ProcessNotification(ctx context.Context, reportID string, repo
 		return fmt.Errorf("notify disabled but task queued: %w", asynq.SkipRetry)
 	}
 	if err := notify.Post(ctx, h.webhookURL, report); err != nil {
-		// 终次尝试判定（ADR-0008 KN#1，评审实证）：GetRetryCount/GetMaxRetry
-		// 双值返回，ok=false 即无任务上下文（如单测），按未耗尽处理走重试。
-		retried, _ := asynq.GetRetryCount(ctx)
-		maxRetry, _ := asynq.GetMaxRetry(ctx)
-		if retried >= maxRetry {
+		// 终次尝试判定（ADR-0008 KN#1）：GetRetryCount/GetMaxRetry 双值返回；
+		// ok=false 即无任务上下文（如单测直调）——独立分支仅告警不计数
+		// （R10：修前 (0,0) 落 `0>=0` 误判耗尽污染 notification_failed_total，
+		// 注释「按未耗尽处理」与代码相反）。
+		retried, okR := asynq.GetRetryCount(ctx)
+		maxRetry, okM := asynq.GetMaxRetry(ctx)
+		switch {
+		case !okR || !okM:
+			log.Printf("warn: notify %s failed without task context (no retry accounting): %v", reportID, err)
+		case retried >= maxRetry:
 			observability.AddNotificationFailed(ctx)
 			log.Printf("error: notify %s dropped after retry exhaustion: %v", reportID, err)
-		} else {
+		default:
 			log.Printf("warn: notify %s attempt %d/%d failed: %v", reportID, retried+1, maxRetry+1, err)
 		}
 		return err
