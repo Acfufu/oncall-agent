@@ -189,6 +189,15 @@
 > - 回归门：`gofmt -l .` 空、`go vet ./...` 过、`go test -race -count=1 ./...` 八包全 ok。
 > - **R 清单（R01-R12）就此归零**。下一步 v0.8 /reports 持久化：方向已拍板 JSON 快照（零新依赖），立项时补 ADR 详设（落盘时机/原子写/启动加载/环大小配置化/与通知载荷自包含的关系）。
 
+## v0.8 /reports 持久化 (2026-10-02 立项)
+
+主题：重启丢历史治理。活验实锤（v0.7.4 活验现场：boot 1 的 AM 自动诊断重启后消失）。ADR-0010 拍板：JSON 快照（零新依赖，`reports.persist_path` 默认 `data/reports.json`，空串=关；变更即原子写 tmp+rename；boot 加载；写失败 warn+计数不挡链；不做 fsync/容量配置化）。
+
+- [ ] ADR-0010 落档 + config reports 段（模板同步）+ .gitignore data/
+- [ ] reportRing 持久化：setPersist/loadPersist/原子写/损坏自愈 + reports_persist_errors_total 计数器（TDD）
+- [ ] main 接线 + README 用法与已知局限（fsync 缺口）
+- [ ] 验收关：TDD 红绿 + 活验（报告落盘→重启→/reports 存活）+ 回归门 + 收口写回
+
 ## v0.8+ 愿景
 
 - [ ] /reports 持久化（重启丢历史+环驱逐；v0.6 通知载荷自包含后刺已钝，重开需 ADR）
