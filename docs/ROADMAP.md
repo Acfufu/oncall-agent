@@ -147,6 +147,20 @@
 > - 回归门：`gofmt -l .` 空、`go vet ./...` 过、`go test ./... -count=1` 七包 ok、`go test -race -count=1` handler/queue/tool/agent 四包 ok。
 > - 快扫重建：R01-R12 落档（P1 一项：embed 维度错配级联；P2 四项；P3 七项），三项重灾发现 file:line 抽查核实，确认干净面同档。
 
+## v0.7.3 降级治理批次 (2026-10-02 立项)
+
+主题：清 v0.7.2 快扫清单（docs/research/2026-10-02-v072-review-findings.md R01-R12）的降级路径可信主题——降级要么如实报错、要么可见可测，不许静默。R01/R02/R03/R04/R05 同属「降级要么报错要么可见」，R10/R12 小修捎带，R09/R11 文档漂移顺手清。R06/R07/R08 留后续批次。
+
+- [ ] R01：embed 维度错配级联拆弹——boot 探测诚实化（降级时拒建 64 维 collection）+ 混维度内存搜索守卫
+- [ ] R02：Prom 不可达分型——Firing 吞错改显式错误，/plan 输出「告警源不可达」不再假阴性
+- [ ] R03：chat LLM fallback 观测——触发日志 + chat_fallback_total 计数器 + InitMetrics 幂等化
+- [ ] R04：judge 出站 HTTP client 超时注入（默认 30s）
+- [ ] R12：LLM 响应先查状态码再 decode + parseAlertPayload 死分支清理
+- [ ] R10：ProcessNotification 无任务上下文（ok=false）独立分支，不污染 notification_failed_total
+- [ ] R05：store 降级状态机测试补齐（store 包首测）
+- [ ] R09+R11：.env 死变量清障 + README 配置表 127.0.0.1 + 版本串统一 v0.7.3
+- [ ] 验收关：TDD 红绿逐项 + 回归门（gofmt/vet/test -race 全量）+ 收口写回
+
 ## v0.8+ 愿景
 
 - [ ] /reports 持久化（重启丢历史+环驱逐；v0.6 通知载荷自包含后刺已钝，重开需 ADR）
