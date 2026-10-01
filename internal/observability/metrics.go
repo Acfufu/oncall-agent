@@ -53,6 +53,10 @@ var StoreFallbackTotal metric.Int64Counter
 // （F04：embedder 静默回退可观测）。
 var EmbedFallbackTotal metric.Int64Counter
 
+// ChatFallbackTotal backs `chat_fallback_total`: /chat 的 LLM loop 失败降级
+// rag-direct 次数（R03：降级可见，key 失效/限流/超时根因不再只能翻 Jaeger）。
+var ChatFallbackTotal metric.Int64Counter
+
 // InitMetrics installs a Prometheus exporter + MeterProvider on the same
 // process registry served by promhttp on /metrics, creates the counters,
 // and returns its shutdown func.
@@ -140,6 +144,13 @@ func InitMetrics(ctx context.Context) (ShutdownFunc, error) {
 	if EmbedFallbackTotal, err = meter.Int64Counter(
 		"embed_fallback_total",
 		metric.WithDescription("Total embedding calls degraded to hash fallback (F04)"),
+	); err != nil {
+		_ = mp.Shutdown(context.Background())
+		return nil, err
+	}
+	if ChatFallbackTotal, err = meter.Int64Counter(
+		"chat_fallback_total",
+		metric.WithDescription("Total chat LLM failures degraded to rag-direct fallback (R03)"),
 	); err != nil {
 		_ = mp.Shutdown(context.Background())
 		return nil, err
@@ -237,4 +248,13 @@ func AddEmbedFallback(ctx context.Context) {
 		return
 	}
 	EmbedFallbackTotal.Add(ctx, 1)
+}
+
+// AddChatFallback records one chat LLM-failure fallback to rag-direct
+// (no-op before InitMetrics).
+func AddChatFallback(ctx context.Context) {
+	if ChatFallbackTotal == nil {
+		return
+	}
+	ChatFallbackTotal.Add(ctx, 1)
 }

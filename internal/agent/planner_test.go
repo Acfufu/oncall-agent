@@ -1,6 +1,9 @@
 package agent
 
 import (
+	"net/http"
+	"sync"
+
 	"context"
 	"net/http/httptest"
 	"strings"
@@ -79,4 +82,52 @@ func TestPlanPromUnreachableNotSilent(t *testing.T) {
 	if !strings.Contains(diagnosis, "不可达") {
 		t.Fatalf("diagnosis must say source unreachable, got: %s", diagnosis)
 	}
+}
+
+// initTestMetrics 包内共享一次 InitMetrics（不 shutdown，进程退出即清理）；
+// 多测试各自 InitMetrics 会在同一 prometheus 注册表重复注册 collector。
+var testMetricsOnce sync.Once
+
+func initTestMetrics(t *testing.T) {
+	t.Helper()
+	var err error
+	testMetricsOnce.Do(func() {
+		_, err = observability.InitMetrics(context.Background())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// R03：chat LLM 故障降级必须可见——fallback 触发时打 chat_fallback_total
+// 且日志带原始 loop 错误；此前降级零观测，根因只能去 Jaeger 猜。
+func TestChatFallbackObservable(t *testing.T) {
+	initTestMetrics(t)
+	llm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, `{"error":{"message":"boom"}}`, http.StatusInternalServerError)
+	}))
+	defer llm.Close()
+
+	s := store.NewMemoryVector()
+	r := rag.New(s, nil)
+	md := "# CPU 高负载处置\n## 现象\nCPU 使用率持续大于 90%\n## 处置\n限流扩容排查热点"
+	if err := r.AddDoc("cpu_high_usage.md", md, "demo"); err != nil {
+		t.Fatal(err)
+	}
+	ra := NewReAct(llm.URL, "", "test-model", tool.NewDeps(r, ""))
+	reply, _, err := ra.Run(context.Background(), "s-fallback", "CPU 使用率高怎么办")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(reply, "根据知识库匹配到以下内容") {
+		t.Fatalf("fallback should return rag-direct reply, got: %s", reply)
+	}
+	rec := httptest.NewRecorder()
+	promhttp.Handler().ServeHTTP(rec, httptest.NewRequest("GET", "/metrics", nil))
+	for _, ln := range strings.Split(rec.Body.String(), "\n") {
+		if strings.HasPrefix(ln, "chat_fallback_total") && strings.Contains(ln, " 1") {
+			return
+		}
+	}
+	t.Fatalf("metrics missing chat_fallback_total=1 after LLM failure; body tail:\n%s", linesWith(rec.Body.String(), "chat_fallback"))
 }

@@ -9,11 +9,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"oncall-agent/internal/observability"
 	"oncall-agent/internal/tool"
 )
 
@@ -110,9 +112,13 @@ func (r *ReAct) Run(ctx context.Context, sessionID, userMsg string) (reply strin
 	cites = []Citation{}
 	seen := map[string]bool{}
 
-	final, err := r.loop(ctx, hist, &cites, seen)
-	if err != nil {
+	final, lerr := r.loop(ctx, hist, &cites, seen)
+	if lerr != nil {
 		// LLM 不可用时降级：直接只读检索 + 模板回复，保证入库→检索链可用。
+		// R03：降级必须可见——warn 带原始 loop 错误（key 失效/限流/超时根因
+		// 不再只能翻 Jaeger）+ chat_fallback_total 计数器。
+		log.Printf("warn: chat LLM loop failed, degraded to rag-direct fallback: %v", lerr)
+		observability.AddChatFallback(ctx)
 		return r.fallback(ctx, userMsg)
 	}
 
