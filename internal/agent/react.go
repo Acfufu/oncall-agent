@@ -23,13 +23,17 @@ import (
 // MaxRounds 为 ReAct 上限。
 const MaxRounds = 3
 
+// MaxSessions 为会话表 LRU 上限（R08）：此前 map 只增不减，唯一 session_id
+// 永久占内存；触达刷新新近度，超限逐最旧。
+const MaxSessions = 256
+
 // Citation 为引用片段 {doc,snippet}。
 type Citation struct {
 	Doc     string `json:"doc"`
 	Snippet string `json:"snippet"`
 }
 
-// ReAct 持有 OpenAI 兼容配置 + 只读工具 + 会话内存。
+// ReAct 持有 OpenAI 兼容配置 + 只读工具 + 会话内存（LRU 上限 MaxSessions）。
 type ReAct struct {
 	APIBase string
 	APIKey  string
@@ -39,6 +43,7 @@ type ReAct struct {
 
 	mu       sync.Mutex
 	sessions map[string][]apiMsg
+	order    []string // LRU 序：front=最旧
 }
 
 // NewReAct 构造 ReAct。apiBase 形如 https://api.openai.com/v1。
@@ -108,6 +113,7 @@ func (r *ReAct) Run(ctx context.Context, sessionID, userMsg string) (reply strin
 
 	r.mu.Lock()
 	hist := append(append([]apiMsg(nil), r.sessions[sessionID]...), apiMsg{Role: "user", Content: userMsg})
+	touchSessionLocked(r.sessions, &r.order, sessionID)
 	r.mu.Unlock()
 
 	cites = []Citation{}
@@ -138,12 +144,55 @@ func (r *ReAct) Run(ctx context.Context, sessionID, userMsg string) (reply strin
 		nh = nh[len(nh)-20:]
 	}
 	r.sessions[sessionID] = nh
+	touchSessionLocked(r.sessions, &r.order, sessionID)
 	r.mu.Unlock()
 
 	if cites == nil {
 		cites = []Citation{}
 	}
 	return final, cites, nil
+}
+
+// touchSessionLocked 刷新 LRU 新近度并淘汰超限最旧会话（调用方持 r.mu）。
+func touchSessionLocked(sessions map[string][]apiMsg, order *[]string, id string) {
+	o := *order
+	for i, s := range o {
+		if s == id {
+			o = append(o[:i], o[i+1:]...)
+			break
+		}
+	}
+	o = append(o, id)
+	for len(o) > MaxSessions {
+		old := o[0]
+		o = o[1:]
+		delete(sessions, old)
+	}
+	*order = o
+}
+
+// ClearSessions 清空会话（R08，CONTEXT「可清空」兑现）：id 空=清全部，
+// 返回清除的会话数。
+func (r *ReAct) ClearSessions(sessionID string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if strings.TrimSpace(sessionID) == "" {
+		n := len(r.sessions)
+		r.sessions = make(map[string][]apiMsg)
+		r.order = nil
+		return n
+	}
+	if _, ok := r.sessions[sessionID]; !ok {
+		return 0
+	}
+	delete(r.sessions, sessionID)
+	for i, s := range r.order {
+		if s == sessionID {
+			r.order = append(r.order[:i], r.order[i+1:]...)
+			break
+		}
+	}
+	return 1
 }
 
 // toolsRepo 门控读数：Tools 缺席按关闭态（与 exec 白名单门检同源，ADR-0009）。

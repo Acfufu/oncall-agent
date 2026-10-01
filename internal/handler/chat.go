@@ -49,3 +49,13 @@ func (h *Handler) Chat(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"reply": reply, "citations": cites})
 }
+
+// DELETE /session?id=xxx 清空指定会话，缺 id 清空全部 -> {"cleared":n}
+// （R08，CONTEXT「会话可清空」兑现；会话表另有 LRU 上限自动淘汰）。
+func (h *Handler) SessionClear(c *gin.Context) {
+	if chatAgent == nil {
+		c.JSON(http.StatusServiceUnavailable, errJSON("chat not configured (llm key required)"))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"cleared": chatAgent.ClearSessions(c.Query("id"))})
+}

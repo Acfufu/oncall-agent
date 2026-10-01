@@ -160,6 +160,7 @@ func main() {
 	e.POST("/chat", h.Chat)
 	e.GET("/list", h.List)
 	e.DELETE("/delete", h.Delete)
+	e.DELETE("/session", h.SessionClear)
 	e.POST("/reindex", h.Reindex)
 	e.StaticFile("/", "web/console.html")
 	e.StaticFile("/v01", "web/index.html")
