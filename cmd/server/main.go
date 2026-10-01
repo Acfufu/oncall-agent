@@ -87,14 +87,24 @@ func main() {
 	// collection（R01）：64 维持久集合是毒丸——embedder 恢复后真实 768 写入全被
 	// Qdrant 400 拒 → memOnly 闩锁到人工删库。跳过建库，首个写入经 fallback 进
 	// 内存模式（离线可跑，store_fallback_total 可见），重启且探测恢复后重建。
+	// 探测带重试（活验补强）：LM Studio 冷启动首次 embeddings 可超时（模型
+	// JIT 加载 >15s），单发探测会假阳性误判降级。
 	dim := rag.Dim
 	probeReal := false
-	if v, err := emb.Embed("dim-probe"); err == nil && len(v) != rag.Dim {
-		dim = len(v)
-		probeReal = true
+	for attempt := 1; attempt <= 3; attempt++ {
+		v, err := emb.Embed("dim-probe")
+		if err == nil && len(v) != rag.Dim {
+			dim = len(v)
+			probeReal = true
+			break
+		}
+		if attempt < 3 {
+			log.Printf("warn: embedder probe attempt %d/3 failed (err=%v vec=%d); retrying", attempt, err, len(v))
+			time.Sleep(2 * time.Second)
+		}
 	}
 	if !probeReal {
-		log.Printf("warn: embedder probe degraded to hash %d-dim; skip collection ensure (memonly until embedder recovers and restart)", rag.Dim)
+		log.Printf("warn: embedder probe degraded to hash %d-dim after 3 attempts; skip collection ensure (memonly until embedder recovers and restart)", rag.Dim)
 	} else if cur, err := s.VectorSize(); err == nil && cur > 0 && cur != dim {
 		log.Printf("vector size mismatch (collection=%d, embedder=%d); recreating collection", cur, dim)
 		if err := s.RecreateCollection(dim); err != nil {
