@@ -2,36 +2,25 @@ package tool
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
 	"oncall-agent/internal/observability"
 	"oncall-agent/internal/rag"
 )
 
 // Deps 注入只读工具运行时依赖（不改 store/rag/config 结构，只读使用）。
-// MCP 为远端会话缝：非空且已连接时 Exec 优先走远端，失联回退本地。
 // Deploy 为变更富化第四只读的配置门控源（v0.7 ADR-0009）：Repo 空=工具不注册。
+// MCP client 缝已删（v0.7.2/F35，ADR-0004 修订）：白名单本地直调是唯一执行路径，
+// 对外 MCP server 见 internal/mcpserver（ADR-0007）。
 type Deps struct {
 	RAG     *RAGDeps
 	Prom    *PromDeps
 	PromURL string
-	MCP     *Client
 	Deploy  DeploySource
 }
 
-// NewDeps 由 RAG + Prometheus URL 构造依赖。MCP 默认未接（本地直调）。
+// NewDeps 由 RAG + Prometheus URL 构造依赖。
 func NewDeps(r *rag.RAG, promURL string) *Deps {
 	return &Deps{RAG: &RAGDeps{RAG: r}, Prom: &PromDeps{URL: promURL}, PromURL: promURL}
-}
-
-// WithMCP 织入远端会话，返回同一 Deps（main.go NewDeps 织入点用）。
-func (d *Deps) WithMCP(c *Client) *Deps {
-	if d == nil {
-		return d
-	}
-	d.MCP = c
-	return d
 }
 
 // WithDeploy 织入变更源配置（ADR-0009），返回同一 Deps（main.go 接线缝用）。
@@ -51,18 +40,9 @@ func (d *Deps) deployRepo() string {
 	return d.Deploy.Repo
 }
 
-// Close 释放 MCP 会话（幂等，空会话无操作）。生命周期由 NewDeps 管理。
-func (d *Deps) Close() error {
-	if d == nil || d.MCP == nil {
-		return nil
-	}
-	return d.MCP.Close()
-}
-
 // Exec 分发白名单工具调用，白名单外拒绝。返回工具结果文本。
-// 鉴权/熔断层：白名单校验在先；远端成功用远端，远端失联原样回退本地不炸。
-// ragHits 非空时为本次 rag_search 命中（调用方收集引用）。
-// OTel：开 Tool.exec:<name> 子 span（name+args 摘要属性），ctx 透传本地分支。
+// 鉴权/熔断层：白名单校验在先。ragHits 非空时为本次 rag_search 命中（调用方
+// 收集引用）。OTel：开 Tool.exec:<name> 子 span（name+args 摘要属性）。
 func (d *Deps) Exec(name, argsJSON string) (string, []rag.Result, error) {
 	return d.ExecWithContext(context.Background(), name, argsJSON)
 }
@@ -80,46 +60,10 @@ func (d *Deps) ExecWithContext(ctx context.Context, name, argsJSON string) (out 
 	if !IsAllowed(d.deployRepo(), name) {
 		return "", nil, errDeny(d.deployRepo(), name)
 	}
-	if o, h, ok := d.execRemote(name, argsJSON); ok {
-		return o, h, nil
-	}
 	return d.execLocalWithContext(ctx, name, argsJSON)
 }
 
-// execRemote 经 MCP 会话调远端。ok=false 时调用方回退本地。
-func (d *Deps) execRemote(name, argsJSON string) (string, []rag.Result, bool) {
-	if d == nil || d.MCP == nil || !d.MCP.Connected() {
-		return "", nil, false
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-	defer cancel()
-	out, err := d.MCP.CallTool(ctx, name, argsJSON)
-	if err != nil {
-		return "", nil, false
-	}
-	if name == "rag_search" {
-		return out, parseRagHits(out), true
-	}
-	return out, nil, true
-}
-
-func parseRagHits(raw string) []rag.Result {
-	var arr []struct {
-		Doc     string  `json:"doc"`
-		Snippet string  `json:"snippet"`
-		Score   float32 `json:"score"`
-	}
-	if err := json.Unmarshal([]byte(raw), &arr); err != nil || len(arr) == 0 {
-		return nil
-	}
-	hits := make([]rag.Result, 0, len(arr))
-	for _, a := range arr {
-		hits = append(hits, rag.Result{Doc: a.Doc, Snippet: a.Snippet, Score: a.Score})
-	}
-	return hits
-}
-
-// execLocal 本地实现（fallback，永不删除）。无 ctx 版走 Background。
+// execLocal 本地实现（唯一执行路径，F35 后无远端分支）。无 ctx 版走 Background。
 func (d *Deps) execLocal(name, argsJSON string) (string, []rag.Result, error) {
 	return d.execLocalWithContext(context.Background(), name, argsJSON)
 }

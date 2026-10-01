@@ -2,6 +2,7 @@
 
 - Date: 2026-09-22
 - Status: Accepted（2026-09-26 验收实测通过：16686 chat→rag→tool 六span树；9090 `http.server.request.duration`(/chat) + `rag_hits_total` 双指标在抓）
+- Amended (2026-10-02, v0.7.2/F35)：**MCP client 侧收缩**。原 Decision「三只读全走MCP client」与 Consequences「MCP client+Exec切流」从未接线（WithMCP/execRemote 零调用方，main 从未构造）——经拍板删除 mcp.go/mcp_transport.go 客户端缝。MCP 能力收敛为**对外 server 双传输**（/mcp + serve --mcp，ADR-0007），自研 Exec 白名单本地直调是唯一执行路径。本文其余（OTel 埋点/指标）不变。
 
 ## Context
 
