@@ -1,0 +1,2 @@
+$ go vet ./internal/auth ./internal/mcpserver
+exit_code=0

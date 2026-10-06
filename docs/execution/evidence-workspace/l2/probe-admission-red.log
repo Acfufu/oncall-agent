@@ -1,0 +1,16 @@
+=== RUN   TestWorkspaceL2
+asynq: pid=76415 2026/10/06 15:14:30.564742 INFO: Starting processing
+asynq: pid=76415 2026/10/06 15:14:30.564765 INFO: Starting processing
+    workspace_l2_test.go:159: 503 map[code:source_unavailable error:依赖服务未就绪 request_id:req_3d02a85ab9cfda81 retryable:true]
+asynq: pid=76415 2026/10/06 15:14:30.572592 INFO: Starting graceful shutdown
+asynq: pid=76415 2026/10/06 15:14:31.976908 INFO: Waiting for all workers to finish...
+asynq: pid=76415 2026/10/06 15:14:31.977008 INFO: All workers have finished
+asynq: pid=76415 2026/10/06 15:14:31.980411 INFO: Exiting
+asynq: pid=76415 2026/10/06 15:14:31.980426 INFO: Starting graceful shutdown
+asynq: pid=76415 2026/10/06 15:14:32.284389 INFO: Waiting for all workers to finish...
+asynq: pid=76415 2026/10/06 15:14:32.284428 INFO: All workers have finished
+asynq: pid=76415 2026/10/06 15:14:32.286767 INFO: Exiting
+--- FAIL: TestWorkspaceL2 (1.74s)
+FAIL
+FAIL	oncall-agent/internal/handler	3.230s
+FAIL

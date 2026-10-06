@@ -1,0 +1,15 @@
+.git
+.codegraph
+.omo
+handoff
+config/config.json
+.env
+.env.*
+!.env.example
+data
+web/app/node_modules
+web/app/test-results
+web/app/playwright-report
+web/dist
+server
+docs/execution/evidence-workspace/logs

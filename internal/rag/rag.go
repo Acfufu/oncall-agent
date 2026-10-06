@@ -2,10 +2,12 @@
 package rag
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"oncall-agent/internal/store"
 )
@@ -27,10 +29,17 @@ type Chunk struct {
 // Result 为检索返回：{doc,snippet,score,source}。source 标证据来源
 // （demo/upload=人工审定知识，incident=AI 事件沉淀），供引用侧分辨信任级。
 type Result struct {
-	Doc     string  `json:"doc"`
-	Snippet string  `json:"snippet"`
-	Score   float32 `json:"score"`
-	Source  string  `json:"source,omitempty"`
+	Environment string   `json:"environment,omitempty"`
+	Doc         string   `json:"doc"`
+	Snippet     string   `json:"snippet"`
+	Score       float32  `json:"score"`
+	Source      string   `json:"source,omitempty"`
+	ChunkID     string   `json:"chunk_id,omitempty"`
+	VersionID   string   `json:"version_id,omitempty"`
+	DocID       string   `json:"doc_id,omitempty"`
+	DenseScore  *float32 `json:"dense_score"`
+	BM25Score   *float64 `json:"bm25_score"`
+	RRFScore    float64  `json:"rrf_score"`
 }
 
 // DefaultFloor 为稠密余弦下限默认（0=关闭；校准值由服务显式设置）。
@@ -38,9 +47,15 @@ const DefaultFloor float32 = 0
 
 // RAG 组合 vector store + embedder + 内存 BM25 镜像，对外提供 AddDoc / Search。
 type RAG struct {
-	store *store.VectorStore
-	embed Embedder
-	bm    *bm25Index
+	store        *store.VectorStore
+	embed        Embedder
+	bm           *bm25Index
+	projectionMu sync.RWMutex
+	chunks       map[string]VersionChunk
+	active       map[string]ActiveVersion
+	versioned    bool
+	spaceID      string
+	dimension    int
 	// Floor 为融合后 Score 下限；低于者丢弃（真拒答）。0 关闭。
 	Floor float32
 	// IncidentWeight 事件沉淀降权乘子：source=incident 命中 score*=权重。
@@ -48,12 +63,12 @@ type RAG struct {
 	IncidentWeight float32
 }
 
-// New 构造 RAG，embed 为 nil 时用离线 HashEmbedder。
+// New only permits the legacy nil test embedder with an explicit memory store.
 func New(s *store.VectorStore, e Embedder) *RAG {
-	if e == nil {
+	if e == nil && s.IsMemOnly() {
 		e = HashEmbedder{}
 	}
-	return &RAG{store: s, embed: e, bm: newBM25Index(), IncidentWeight: DefaultIncidentWeight}
+	return &RAG{store: s, embed: e, bm: newBM25Index(), IncidentWeight: DefaultIncidentWeight, chunks: make(map[string]VersionChunk), active: make(map[string]ActiveVersion)}
 }
 
 // ChunkMarkdown 按 md 标题切分：一级标题为文档标题（故障名），
@@ -152,16 +167,18 @@ func TitleBoost(score float32, query, title string) float32 {
 // AddDoc 切分 md 并写入 store（source 标记 demo/upload，reindex 只清 demo），
 // point id 为 doc+序号 hash；同步镜像 chunk 到内存 BM25（同 ID 键覆盖）。
 func (r *RAG) AddDoc(doc, md, source string) error {
+	return r.AddDocWithContext(context.Background(), doc, md, source)
+}
+func (r *RAG) AddDocWithContext(ctx context.Context, doc, md, source string) error {
 	chunks := ChunkMarkdown(doc, md)
 	for i, c := range chunks {
-		vec, err := r.embed.Embed(c.Title + "\n" + c.Snippet)
+		vec, err := EmbedContext(ctx, r.embed, c.Title+"\n"+c.Snippet)
 		if err != nil {
 			return err
 		}
 		sum := md5.Sum([]byte(fmt.Sprintf("%s#%d#%s", doc, i, c.Snippet)))
 		id := fmt.Sprintf("%x", sum)
-		r.bm.upsert(id, doc, c.Title, c.Snippet, source)
-		if err := r.store.Upsert(store.Point{
+		if err := r.store.UpsertWithContext(ctx, store.Point{
 			ID:        id,
 			Title:     c.Title,
 			Content:   "【" + doc + "】" + c.Snippet,
@@ -171,6 +188,7 @@ func (r *RAG) AddDoc(doc, md, source string) error {
 		}); err != nil {
 			return err
 		}
+		r.bm.upsert(id, doc, c.Title, c.Snippet, source)
 	}
 	return nil
 }
@@ -223,14 +241,22 @@ func (r *RAG) SearchPool(query string, poolN int) ([]Result, error) {
 
 // searchFused 融合检索内核：各路取 fetchK，融合加权后截 outK。
 func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
+	return r.searchFusedContext(context.Background(), query, fetchK, outK)
+}
+func (r *RAG) searchFusedContext(ctx context.Context, query string, fetchK, outK int) ([]Result, error) {
+	r.projectionMu.RLock()
+	defer r.projectionMu.RUnlock()
 	if strings.TrimSpace(query) == "" {
 		return nil, nil
 	}
-	qv, err := r.embed.Embed(query)
+	qv, err := EmbedContext(ctx, r.embed, query)
+	if err == nil {
+		err = r.validateSpace(r.spaceID, len(qv))
+	}
 	if err != nil {
 		return nil, err
 	}
-	hits, err := r.store.Search(qv, fetchK)
+	hits, err := r.store.SearchFiltered(ctx, qv, fetchK, r.currentFilter())
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +265,7 @@ func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 	if r.Floor > 0 && (len(hits) == 0 || hits[0].Score < r.Floor) {
 		return nil, nil
 	}
-	bhits := r.bm.search(query, fetchK)
+	bhits := r.bm.searchFiltered(query, fetchK, func(id string, d *bm25Doc) bool { return r.eligible(id, d.Source) })
 	if len(hits) == 0 && len(bhits) == 0 {
 		return nil, nil
 	}
@@ -249,10 +275,13 @@ func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 		snippet string
 		source  string
 	}
+	denseScores := map[string]float32{}
+	bmScores := map[string]float64{}
 	cands := make(map[string]cand, len(hits)+len(bhits))
 	denseIDs := make([]string, 0, len(hits))
 	for _, h := range hits {
 		denseIDs = append(denseIDs, h.Point.ID)
+		denseScores[h.Point.ID] = h.Score
 		cands[h.Point.ID] = cand{
 			doc:     docOf(h.Point.Content),
 			title:   h.Point.Title,
@@ -264,6 +293,7 @@ func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 	r.bm.mu.RLock()
 	for _, b := range bhits {
 		bmIDs = append(bmIDs, b.ID)
+		bmScores[b.ID] = b.Score
 		if _, ok := cands[b.ID]; !ok {
 			if d, ok := r.bm.docs[b.ID]; ok {
 				cands[b.ID] = cand{
@@ -287,7 +317,17 @@ func (r *RAG) searchFused(query string, fetchK, outK int) ([]Result, error) {
 		if c.source == "incident" && r.IncidentWeight > 0 && r.IncidentWeight < 1 {
 			score *= r.IncidentWeight
 		}
+		var ds *float32
+		var bs *float64
+		if v, ok := denseScores[id]; ok {
+			ds = &v
+		}
+		if v, ok := bmScores[id]; ok {
+			bs = &v
+		}
+		vc := r.chunks[id]
 		out = append(out, Result{
+			Environment: vc.Environment, ChunkID: id, VersionID: vc.VersionID, DocID: vc.DocID, DenseScore: ds, BM25Score: bs, RRFScore: fs,
 			Doc:     c.doc,
 			Snippet: c.snippet,
 			Score:   score,

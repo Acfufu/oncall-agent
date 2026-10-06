@@ -1,0 +1,46 @@
+=== RUN   TestM2TopologyBoundedCycleAndPotentialImpact
+--- PASS: TestM2TopologyBoundedCycleAndPotentialImpact (0.00s)
+=== RUN   TestM2TopologyRejectsInvalidDeclarations
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/cross_environment
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/unknown_service
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/missing_source
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/ambiguous_namespace
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/invalid_time
+--- PASS: TestM2TopologyRejectsInvalidDeclarations (0.00s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/cross_environment (0.00s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/unknown_service (0.00s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/missing_source (0.00s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/ambiguous_namespace (0.00s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/invalid_time (0.00s)
+=== RUN   TestM2TopologyVersionsStayImmutableAndRespectValidity
+--- PASS: TestM2TopologyVersionsStayImmutableAndRespectValidity (0.01s)
+PASS
+ok  	oncall-agent/internal/workspace	2.161s
+=== RUN   TestM2MetricsGapNonFiniteAndTemplateScope
+--- PASS: TestM2MetricsGapNonFiniteAndTemplateScope (0.01s)
+=== RUN   TestM2MetricsRejectsBudgetsAndArbitraryInputs
+--- PASS: TestM2MetricsRejectsBudgetsAndArbitraryInputs (0.01s)
+=== RUN   TestM2MetricsUpstreamLimitsAndFailureTypes
+=== RUN   TestM2MetricsUpstreamLimitsAndFailureTypes/histogram
+=== RUN   TestM2MetricsUpstreamLimitsAndFailureTypes/malformed
+=== RUN   TestM2MetricsUpstreamLimitsAndFailureTypes/http_failure
+=== RUN   TestM2MetricsUpstreamLimitsAndFailureTypes/empty
+=== RUN   TestM2MetricsUpstreamLimitsAndFailureTypes/series
+=== RUN   TestM2MetricsUpstreamLimitsAndFailureTypes/points
+=== RUN   TestM2MetricsUpstreamLimitsAndFailureTypes/body
+--- PASS: TestM2MetricsUpstreamLimitsAndFailureTypes (0.09s)
+    --- PASS: TestM2MetricsUpstreamLimitsAndFailureTypes/histogram (0.01s)
+    --- PASS: TestM2MetricsUpstreamLimitsAndFailureTypes/malformed (0.01s)
+    --- PASS: TestM2MetricsUpstreamLimitsAndFailureTypes/http_failure (0.01s)
+    --- PASS: TestM2MetricsUpstreamLimitsAndFailureTypes/empty (0.01s)
+    --- PASS: TestM2MetricsUpstreamLimitsAndFailureTypes/series (0.01s)
+    --- PASS: TestM2MetricsUpstreamLimitsAndFailureTypes/points (0.03s)
+    --- PASS: TestM2MetricsUpstreamLimitsAndFailureTypes/body (0.03s)
+=== RUN   TestM2MetricCancellationAndTimeout
+--- PASS: TestM2MetricCancellationAndTimeout (0.03s)
+=== RUN   TestM2ConfigurationDisabledAndTopologyHTTP
+--- PASS: TestM2ConfigurationDisabledAndTopologyHTTP (0.01s)
+=== RUN   TestM2TopologyReferencesResolveToImmutableEvidence
+--- PASS: TestM2TopologyReferencesResolveToImmutableEvidence (0.01s)
+PASS
+ok  	oncall-agent/internal/handler	2.976s

@@ -1,0 +1,11 @@
+{
+  "head": "d7a1fa65a91d46835a412b713abfa4145f36fa3b",
+  "captured_at": "2026-10-06T14:29:45.015353+00:00",
+  "files": {
+    "internal/agent/react.go": "1d90484eeca14a2ea2890fc52f41a5c6edcc49093559ce7626d5c2af20785d70",
+    "internal/agent/planner.go": "109ced11c73322376b6b58b8e5a34096d32953b07f1625f78f2ea709b22193ce",
+    "internal/agent/planner_test.go": "cb2114197773239afcf52c62605a4e71ed2a1201484fb8c24949459c836fbcd0",
+    "internal/agent/evidence.go": "0be4d8ff7eebc1988a866dbe878ea212aa9227072514ae66f2a5b096ae4425f6",
+    "internal/agent/evidence_guard_test.go": "5f40c69bd02f85043463525fb77970fc7a59227aa13d389a21a296d19185adbd"
+  }
+}

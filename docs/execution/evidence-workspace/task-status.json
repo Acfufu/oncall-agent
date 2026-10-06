@@ -1,0 +1,622 @@
+{
+  "schema_version": "1.0",
+  "target_repository": "Acfufu/oncall-agent",
+  "baseline_commit": "2e97742aae610b52535999a9851683320c349c6e",
+  "default_milestones": [
+    "M0",
+    "M1",
+    "M2"
+  ],
+  "deferred_milestones": [
+    "M3"
+  ],
+  "tasks": [
+    {
+      "id": "T00",
+      "milestone": "M0",
+      "title": "记录基线与重核R01–R15",
+      "depends_on": [],
+      "acceptance_ids": [
+        "QA-01"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "baseline.md",
+        "logs/baseline-test.log"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T01",
+      "milestone": "M0",
+      "title": "ADR/路线图/契约冻结",
+      "depends_on": [
+        "T00"
+      ],
+      "acceptance_ids": [
+        "API-01"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "docs/adr/0011-evidence-workspace-foundation.md",
+        "docs/adr/0012-visual-workspace-api.md",
+        "docs/api/workspace.openapi.yaml"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T02",
+      "milestone": "M0",
+      "title": "禁止自动删库、隔离评测、关闭自动沉淀",
+      "depends_on": [
+        "T01"
+      ],
+      "acceptance_ids": [
+        "REL-05",
+        "REL-06",
+        "EVD-03"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "cmd/evalbaseline/isolation.go",
+        "internal/rag/versions.go",
+        "config/config_template.json"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T03",
+      "milestone": "M0",
+      "title": "SQLite事实持久层与migrations",
+      "depends_on": [
+        "T02"
+      ],
+      "acceptance_ids": [
+        "DATA-02",
+        "DATA-03",
+        "OPS-01"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/workspace/database.go",
+        "internal/workspace/migration.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T04",
+      "milestone": "M0",
+      "title": "文档版本和检索投影生命周期",
+      "depends_on": [
+        "T03"
+      ],
+      "acceptance_ids": [
+        "REL-02",
+        "REL-03"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/workspace/knowledge.go",
+        "internal/rag/versions.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T05",
+      "milestone": "M0",
+      "title": "Embedding/Qdrant错误空间与取消",
+      "depends_on": [
+        "T02"
+      ],
+      "acceptance_ids": [
+        "REL-04",
+        "REL-10"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/rag/embed.go",
+        "internal/store/qdrant.go",
+        "internal/workspace/readiness.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T06",
+      "milestone": "M0",
+      "title": "鉴权会话限流与无状态聊天",
+      "depends_on": [
+        "T01"
+      ],
+      "acceptance_ids": [
+        "SEC-01",
+        "SEC-02",
+        "SEC-03",
+        "REL-10"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/auth",
+        "internal/handler/chat.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T07",
+      "milestone": "M0",
+      "title": "告警admission、幂等与outbox",
+      "depends_on": [
+        "T03",
+        "T06"
+      ],
+      "acceptance_ids": [
+        "REL-01",
+        "DATA-03"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/workspace/admission.go",
+        "internal/workspace/service.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T08",
+      "milestone": "M0",
+      "title": "真实run事件、attempt和逐告警引用",
+      "depends_on": [
+        "T07",
+        "T05"
+      ],
+      "acceptance_ids": [
+        "REL-07",
+        "EVD-02",
+        "DATA-01",
+        "DATA-03"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/workspace/diagnosis.go",
+        "internal/workspace/database.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T09",
+      "milestone": "M0",
+      "title": "实际业务链证据门控",
+      "depends_on": [
+        "T04",
+        "T08"
+      ],
+      "acceptance_ids": [
+        "EVD-01",
+        "EVD-02",
+        "EVD-03",
+        "QA-01"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/agent/evidence.go",
+        "internal/handler/chat_qualification_test.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T10",
+      "milestone": "M0",
+      "title": "通知可靠性与独立消费者",
+      "depends_on": [
+        "T08"
+      ],
+      "acceptance_ids": [
+        "REL-08",
+        "VIS-01"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/workspace/service.go",
+        "internal/queue/queue.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T11",
+      "milestone": "M0",
+      "title": "MCP transport共享与认证",
+      "depends_on": [
+        "T06"
+      ],
+      "acceptance_ids": [
+        "REL-09"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/mcpserver/transport_test.go",
+        "cmd/server/main.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T12",
+      "milestone": "M0",
+      "title": "M0隔离集成回归",
+      "depends_on": [
+        "T04",
+        "T05",
+        "T09",
+        "T10",
+        "T11"
+      ],
+      "acceptance_ids": [
+        "API-01",
+        "QA-01"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2",
+      "files": [
+        "internal/handler/workspace_l2_test.go",
+        "scripts/workspace-l2.sh"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T13",
+      "milestone": "M1",
+      "title": "七页参考图公共shell、导航/能力状态与显式demo",
+      "depends_on": [
+        "T01"
+      ],
+      "acceptance_ids": [
+        "UI-01",
+        "UI-02",
+        "UI-03",
+        "UI-05"
+      ],
+      "status": "verified",
+      "reference_screen_ids": [
+        "UI-S01",
+        "UI-S02",
+        "UI-S03",
+        "UI-S04",
+        "UI-S05",
+        "UI-S06",
+        "UI-S07"
+      ],
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "web/app/src/App.tsx",
+        "web/app/src/style.css"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T14",
+      "milestone": "M1",
+      "title": "工作台只读API/快照/分页",
+      "depends_on": [
+        "T03",
+        "T08",
+        "T09"
+      ],
+      "acceptance_ids": [
+        "API-01",
+        "DATA-02",
+        "EVD-02"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "internal/handler/workspace.go",
+        "web/app/src/useResource.ts"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T15",
+      "milestone": "M1",
+      "title": "图、来源检查器与可访问列表",
+      "depends_on": [
+        "T13",
+        "T14"
+      ],
+      "acceptance_ids": [
+        "EVD-02",
+        "UI-01",
+        "UI-03",
+        "UI-04"
+      ],
+      "status": "verified",
+      "reference_screen_ids": [
+        "UI-S02",
+        "UI-S03"
+      ],
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "web/app/src/Graph.tsx",
+        "web/app/src/Workspace.tsx"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T16",
+      "milestone": "M1",
+      "title": "真实时间线与重试/通知状态",
+      "depends_on": [
+        "T13",
+        "T14",
+        "T10"
+      ],
+      "acceptance_ids": [
+        "VIS-01",
+        "UI-04"
+      ],
+      "status": "verified",
+      "reference_screen_ids": [
+        "UI-S02"
+      ],
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "web/app/src/Workspace.tsx"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T17",
+      "milestone": "M1",
+      "title": "知识文档/版本管理UI",
+      "depends_on": [
+        "T04",
+        "T06",
+        "T13"
+      ],
+      "acceptance_ids": [
+        "REL-02",
+        "REL-03",
+        "UI-02"
+      ],
+      "status": "verified",
+      "reference_screen_ids": [
+        "UI-S05"
+      ],
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "web/app/src/Knowledge.tsx"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T18",
+      "milestone": "M1",
+      "title": "M1真实闭环、七页范围与视觉回归",
+      "depends_on": [
+        "T12",
+        "T15",
+        "T16",
+        "T17"
+      ],
+      "acceptance_ids": [
+        "UI-01",
+        "UI-02",
+        "UI-03",
+        "UI-04",
+        "OPS-01",
+        "UI-05"
+      ],
+      "status": "verified",
+      "reference_screen_ids": [
+        "UI-S01",
+        "UI-S02",
+        "UI-S03",
+        "UI-S05",
+        "UI-S06",
+        "UI-S07"
+      ],
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "web/app/tests/workspace.spec.ts",
+        "web/app/tests/pagination.spec.ts"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T19",
+      "milestone": "M2",
+      "title": "有来源的声明式服务拓扑",
+      "depends_on": [
+        "T18"
+      ],
+      "acceptance_ids": [
+        "M2-01"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "internal/workspace/topology.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T20",
+      "milestone": "M2",
+      "title": "受限Prometheus时序查询",
+      "depends_on": [
+        "T18"
+      ],
+      "acceptance_ids": [
+        "M2-02",
+        "SEC-02"
+      ],
+      "status": "verified",
+      "reference_screen_ids": [
+        "UI-S04"
+      ],
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "internal/handler/workspace_metrics.go",
+        "config/metric_templates.json"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T21",
+      "milestone": "M2",
+      "title": "拓扑指标联动与真实摘要趋势",
+      "depends_on": [
+        "T19",
+        "T20"
+      ],
+      "acceptance_ids": [
+        "M2-01",
+        "M2-02",
+        "UI-02"
+      ],
+      "status": "verified",
+      "reference_screen_ids": [
+        "UI-S01",
+        "UI-S04"
+      ],
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "web/app/src/Metrics.tsx",
+        "internal/workspace/readmodel.go"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T22",
+      "milestone": "M2",
+      "title": "最终故障安全窄屏性能验收",
+      "depends_on": [
+        "T21"
+      ],
+      "acceptance_ids": [
+        "PERF-01",
+        "SEC-01",
+        "UI-03",
+        "QA-01",
+        "UI-05"
+      ],
+      "status": "verified",
+      "reference_screen_ids": [
+        "UI-S01",
+        "UI-S04",
+        "UI-S06",
+        "UI-S07"
+      ],
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "web/app/tests/performance.spec.ts",
+        "web/app/tests/workspace.spec.ts"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    },
+    {
+      "id": "T23",
+      "milestone": "M2",
+      "title": "迁移回滚演练和交付记录",
+      "depends_on": [
+        "T18",
+        "T22"
+      ],
+      "acceptance_ids": [
+        "OPS-01"
+      ],
+      "status": "verified",
+      "implementation_status": "implemented",
+      "verification_status": "verified_L0_L1_L2_L3_with_documented_limits",
+      "files": [
+        "cmd/workspacectl",
+        "Dockerfile",
+        "operations.md",
+        "README.zh-CN.md"
+      ],
+      "commit": null,
+      "evidence": "verification.md"
+    }
+  ],
+  "handoff_version": "1.1",
+  "screen_manifest": "design/screens.json",
+  "head": "d7a1fa65a91d46835a412b713abfa4145f36fa3b",
+  "committed": false,
+  "updated_at": "2026-10-06T16:25:26.601658+00:00",
+  "M3": "deferred; planning only",
+  "status_note": "M0–M2 T00–T23 implemented and verified with documented evidence-level limits; final independent architect PASS. M3 deferred; L4 not run. No commit/push/deployment, business data reset or user config/handoff overwrite.",
+  "evidence_levels": {
+    "L0": "static/contracts",
+    "L1": "actual Go/worker paths with explicit test providers",
+    "L2": "actual isolated Redis/Qdrant/Prometheus/Alertmanager, HashEmbedder explicitly controlled",
+    "L3": "actual browser controlled API regression and isolated L1 UI",
+    "L4": "not_run; real external model quality"
+  },
+  "source_tree_sha256": "d81d021573eb3eac5e4628de7a9edc6725e35a537fe5b41d53ffb42651e7d477",
+  "independent_review": {
+    "status": "PASS",
+    "artifact": "review-fixes/architect-final-review.md",
+    "source_tree_sha256": "d81d021573eb3eac5e4628de7a9edc6725e35a537fe5b41d53ffb42651e7d477",
+    "read_only": true,
+    "reviewer_reran_tests": false
+  },
+  "unverified": [
+    "L4 real external model/embedding quality",
+    "multi-instance/multi-tenant operation",
+    "production throughput/leak endurance"
+  ]
+}

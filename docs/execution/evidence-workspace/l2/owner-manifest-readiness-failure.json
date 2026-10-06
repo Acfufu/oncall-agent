@@ -1,0 +1,23 @@
+{
+  "owner": "oncall-l2-56d8d37a5b4647c4bd95759a15cfad2e",
+  "containers": {
+    "redis": {
+      "id": "45f600ccc34ef30810845e2d3e276e1b4238a15b91f09674d2db59ea1ac5456f",
+      "port": "57135"
+    },
+    "qdrant": {
+      "id": "6ae0a232836b814b0ab983e438badfcb2926d2f3cddf29951d1c69ef39ed8117",
+      "port": "57137"
+    },
+    "prom": {
+      "id": "87338dcb41df7ea99f4e1ce8b82f7a6fed190b1ad4e018048dd9a57f4e9408ff",
+      "port": "57142"
+    }
+  },
+  "profile": "real Redis/Qdrant/Prometheus; test HashEmbedder; no LLM",
+  "cleanup": {
+    "redis": "removed matching owner ID",
+    "qdrant": "removed matching owner ID",
+    "prom": "removed matching owner ID"
+  }
+}

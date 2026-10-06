@@ -1,0 +1,60 @@
+{
+  "owner": "oncall-smoke-67d785f15bba4e6cb78e155b8bb5a1ad",
+  "image": "test_oncall_workspace:20261006",
+  "checks": [
+    {
+      "path": "/",
+      "method": "GET",
+      "status": 200,
+      "body": "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Oncall Evidence Workspace</title>  <script type=\"module\" crossorigin src=\"/assets/index-DKGKaCbd.js\"></script>\n  <link rel=\"stylesheet\" crossorigin href=\"/assets/index-B_e5oTuO.css\">\n</head><body><div id=\"root\"></div></body></html>\n"
+    },
+    {
+      "path": "/legacy",
+      "method": "GET",
+      "status": 200,
+      "body": "HTML served"
+    },
+    {
+      "path": "/ready",
+      "method": "GET",
+      "status": 503,
+      "body": "{\"ready\":false}"
+    },
+    {
+      "path": "/api/v1/documents",
+      "method": "GET",
+      "status": 401,
+      "body": "{\"code\":\"unauthorized\",\"error\":\"authentication required\",\"request_id\":\"81e5333c69f986f476b1f62731f5e9c0b93df7cbe4843386f72b64e84b17bd5d\",\"retryable\":false}"
+    },
+    {
+      "path": "/mcp",
+      "method": "GET",
+      "status": 401,
+      "body": "{\"code\":\"unauthorized\",\"error\":\"authentication required\",\"request_id\":\"fe6b270b1cc6edaf986cdabdcb2d4351dc8dc5c29e9c5e8ab7963820ecec6749\",\"retryable\":false}"
+    },
+    {
+      "path": "/api/v1/documents",
+      "method": "GET",
+      "status": 200,
+      "body": "{\"data\":[],\"meta\":{\"as_of\":\"2026-10-06T15:49:27.388014959Z\",\"data_state\":\"fresh\",\"has_more\":false,\"mode\":\"live\",\"next_cursor\":null,\"request_id\":\"req_d5ee952416d484ed\",\"revision\":1,\"truncated\":false}}"
+    },
+    {
+      "path": "/api/v1/system/status",
+      "method": "GET",
+      "status": 200,
+      "body": "{\"data\":{\"auto_ingest\":false,\"capabilities\":{\"global_graph\":\"deferred\",\"knowledge\":\"available\",\"metrics\":\"available\",\"topology\":\"not_configured\",\"workspace\":\"available\"},\"chat_history\":\"stateless\",\"config_fingerprint\":\"e205c63aaf9ca281778d91ea18339fa7538f8f3a69d9e0bcf8bf0f82cd99ba15\",\"dependencies\":{\"prometheus\":{\"data_state\":\"unavailable\",\"last_success_at\":null},\"queue\":{\"data_state\":\"unavailable\",\"last_success_at\":null},\"retrieval\":{\"data_state\":\"unavailable\",\"last_checked_at\":\"2026-10-06T15:49:27.258078626Z\",\"last_success_at\":null},\"sqlite\":{\"data_state\":\"fresh\",\"last_success_at\":\"2026-10-06T15:49:27.463267459Z\"}}},\"meta\":{\"as_of\":\"2026-10-06T15:49:27.463275334Z\",\"data_state\":\"fresh\",\"mode\":\"live\",\"next_cursor\":null,\"request_id\":\"req_529567eb2f462959\",\"revision\":1,\"truncated\":false}}"
+    },
+    {
+      "path": "/upload",
+      "method": "POST",
+      "status": 503,
+      "body": "{\"code\":\"source_unavailable\",\"error\":\"依赖服务未就绪\",\"request_id\":\"req_e49b4753503278a9\",\"retryable\":true}"
+    }
+  ],
+  "container_id": "9b988f683c3a94dc1416c0586552a07075a8b4b0d861b6bf3befd0e9f00fb79a",
+  "image_id": "sha256:b109e750fd11a095db70153acda90f7bcf7a6c0527906913c2872d24308b386f",
+  "host_binding": "http://127.0.0.1:62806",
+  "login": "PASS: actual Docker loopback session, HttpOnly/SameSite=Strict; cookie value not recorded",
+  "sqlite_mode_uid": "600 10001",
+  "cleanup": "removed exact matching owner container; no volume used"
+}

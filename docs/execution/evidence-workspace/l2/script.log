@@ -1,0 +1,3 @@
+COMMAND: ONCALL_L2=1 scripts/workspace-l2.sh
+EXIT: 0 (owner-manifest confirms real test and owned cleanup)
+STDOUT/STDERR: no diagnostics

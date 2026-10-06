@@ -79,7 +79,8 @@ func parseAM(t *testing.T) []tool.Alert {
 }
 
 // ADR-0006 异步契约：入队即回 202 {id,status:queued}，环先落 queued 条目，
-// worker 回调走共用链回填 done（诊断命中 demo 知识）。
+// Legacy fixture has unversioned documents, so completion must return the deterministic safe report.
+// Production SQL-backed qualified citations are exercised by workspace HTTP tests.
 func TestAlertAsyncEnqueueAndWorkerCompletes(t *testing.T) {
 	h := newTestHandler(t)
 	h.SetQueue(&fakeQueue{})
@@ -114,11 +115,11 @@ func TestAlertAsyncEnqueueAndWorkerCompletes(t *testing.T) {
 	if done.Status != StatusDone || done.ID != resp.ID {
 		t.Fatalf("status=%s id=%s", done.Status, done.ID)
 	}
-	if !strings.Contains(done.Diagnosis, "CPUHighUsage") {
-		t.Fatalf("diagnosis missing alertname: %s", done.Diagnosis)
+	if done.Diagnosis != agent.SafeReport {
+		t.Fatalf("unversioned legacy fixture must produce safe report: %s", done.Diagnosis)
 	}
-	if len(done.Citations) == 0 || done.Citations[0].Doc != "cpu_high_usage.md" {
-		t.Fatalf("citations not hitting demo doc: %+v", done.Citations)
+	if len(done.Citations) != 0 {
+		t.Fatalf("unversioned legacy fixture admitted citations: %+v", done.Citations)
 	}
 	if done.ReceivedAt == "" {
 		t.Fatal("received_at empty")
@@ -228,7 +229,8 @@ func TestReportsOrderAndCap(t *testing.T) {
 	}
 }
 
-// v0.4 事件沉淀（ADR-0005）在异步链上行为不变：worker 完成后入库、同题覆盖、可关。
+// Explicit legacy auto-ingest remains a test seam; ADR-0011 excludes its AI notes from trusted retrieval.
+// The production workspace disables automatic incident ingestion.
 func TestAlertAutoIngestIncident(t *testing.T) {
 	h := newTestHandler(t)
 	h.SetAutoIngest(true)
@@ -257,8 +259,8 @@ func TestAlertAutoIngestIncident(t *testing.T) {
 			found = true
 		}
 	}
-	if !found {
-		t.Fatalf("incident note not retrievable: %+v", hits)
+	if found {
+		t.Fatalf("untrusted incident entered current retrieval: %+v", hits)
 	}
 
 	// 同告警重推：同题覆盖不膨胀。

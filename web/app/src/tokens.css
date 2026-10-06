@@ -1,0 +1,41 @@
+/* Proposed implementation tokens: tune against the reference, not sampled facts. */
+:root {
+  color-scheme: dark;
+  --bg-canvas: #07111c;
+  --bg-sidebar: #091521;
+  --bg-panel: #0b1826;
+  --bg-panel-raised: #101f31;
+  --bg-selected: #132b47;
+  --border-subtle: #20354c;
+  --border-strong: #385878;
+  --text-primary: #eff4fc;
+  --text-secondary: #aebfd3;
+  --text-muted: #8a9fb8;
+  --accent-primary: #60a5fa;
+  --status-danger: #ff646e;
+  --status-warning: #f5cd63;
+  --status-success: #58c8a0;
+  --entity-retrieval: #45c5e5;
+  --entity-knowledge: #ae8cf7;
+  --focus-ring: #8bc6ff;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --radius-sm: 6px;
+  --radius-panel: 10px;
+  --nav-width: 208px;
+  --header-height: 64px;
+  --incident-width: 264px;
+  --inspector-width: 296px;
+  --timeline-height: 184px;
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0ms; --duration-normal: 0ms; }
+}

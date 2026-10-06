@@ -1,0 +1,10 @@
+# oncall-agent/internal/workspace [oncall-agent/internal/workspace.test]
+internal/workspace/topology_test.go:26:14: undefined: LoadTopology
+internal/workspace/topology_test.go:57:16: undefined: LoadTopology
+FAIL	oncall-agent/internal/workspace [build failed]
+# oncall-agent/internal/handler [oncall-agent/internal/handler.test]
+internal/handler/workspace_metrics_test.go:28:14: h.RegisterM2 undefined (type *WorkspaceHTTP has no field or method RegisterM2)
+internal/handler/workspace_metrics_test.go:33:94: invalid field name "Status" in struct literal
+internal/handler/workspace_metrics_test.go:33:114: invalid field name "StartsAt" in struct literal
+FAIL	oncall-agent/internal/handler [build failed]
+FAIL

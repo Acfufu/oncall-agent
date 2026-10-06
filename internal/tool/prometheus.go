@@ -36,7 +36,7 @@ func NewPromClient(baseURL string) *PromClient {
 	return &PromClient{BaseURL: baseURL, Client: &http.Client{Timeout: 10 * time.Second}}
 }
 
-// Firing 拉取 state=firing 告警；Prom 不可用返回空（调用方明示无告警），不报错中断。
+// Firing returns firing alerts; unavailable or malformed upstreams return errors.
 // 无 ctx 版走 Background。
 func (p *PromClient) Firing() ([]Alert, error) {
 	return p.FiringWithContext(context.Background())
@@ -45,7 +45,7 @@ func (p *PromClient) Firing() ([]Alert, error) {
 // FiringWithContext 为 Firing 的 ctx 版：Prom.firing 子 span 包 HTTP。
 func (p *PromClient) FiringWithContext(ctx context.Context) (firing []Alert, err error) {
 	if p == nil {
-		return nil, nil
+		return nil, fmt.Errorf("prometheus not configured")
 	}
 	client := p.Client
 	if client == nil {
@@ -95,6 +95,9 @@ func (p *PromClient) FiringWithContext(ctx context.Context) (firing []Alert, err
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, fmt.Errorf("decode alerts: %w", err)
+	}
+	if out.Status != "success" || out.Data.Alerts == nil {
+		return nil, fmt.Errorf("prom alerts invalid response status or missing alerts")
 	}
 	for _, a := range out.Data.Alerts {
 		if !strings.EqualFold(strings.TrimSpace(a.State), "firing") {

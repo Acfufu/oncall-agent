@@ -1,0 +1,260 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "source-unavailable",
+  "fixture_phase": "M1",
+  "meta": {
+    "request_id": "fixture:source-unavailable",
+    "as_of": "2026-10-05T14:28:16.000Z",
+    "data_state": "unavailable",
+    "mode": "demo",
+    "revision": 7,
+    "next_cursor": null,
+    "truncated": false
+  },
+  "incident": {
+    "id": "inc_demo_payment_01",
+    "source_namespace": "fixture-alertmanager",
+    "environment": "demo-prod",
+    "service": "payment-service",
+    "name": "支付服务5xx错误率上升",
+    "severity": "P0",
+    "lifecycle_status": "active",
+    "starts_at": "2026-10-05T14:28:11.000Z",
+    "resolved_at": null,
+    "first_received_at": "2026-10-05T14:28:11.000Z",
+    "last_observed_at": "2026-10-05T14:28:16.000Z",
+    "identity_quality": "exact",
+    "latest_run_id": "run_demo_payment_01"
+  },
+  "run": {
+    "id": "run_demo_payment_01",
+    "incident_ids": [
+      "inc_demo_payment_01"
+    ],
+    "status": "failed",
+    "dispatch_state": "enqueued",
+    "evidence_status": "source_unavailable",
+    "notification_status": "disabled",
+    "judge_score": null,
+    "received_at": "2026-10-05T14:28:11.000Z",
+    "started_at": "2026-10-05T14:28:11.320Z",
+    "finished_at": "2026-10-05T14:28:12.000Z",
+    "duration_ms": 680,
+    "current_attempt": 1,
+    "revision": 7,
+    "report_text": null,
+    "citation_ids": [],
+    "error": {
+      "code": "source_unavailable",
+      "message": "Qdrant暂时不可用；无法判断知识库是否存在匹配。",
+      "retryable": true
+    }
+  },
+  "graph": {
+    "id": "graph_demo_01",
+    "incident_id": "inc_demo_payment_01",
+    "run_id": "run_demo_payment_01",
+    "nodes": [
+      {
+        "id": "n_inc",
+        "type": "incident",
+        "label": "支付服务事件",
+        "subtitle": "演示环境 · 活跃",
+        "entity_ref": "ev_alert",
+        "source_refs": [
+          "ev_alert"
+        ],
+        "verification": "not_applicable"
+      },
+      {
+        "id": "n_alert",
+        "type": "alert",
+        "label": "5xx 错误率升高",
+        "subtitle": "Payment5xxHigh",
+        "entity_ref": "ev_alert",
+        "source_refs": [
+          "ev_alert"
+        ],
+        "verification": "not_applicable"
+      },
+      {
+        "id": "n_search",
+        "type": "retrieval",
+        "label": "检索记录",
+        "subtitle": "数据源不可用，非无匹配",
+        "entity_ref": "ev_retrieval",
+        "source_refs": [
+          "ev_retrieval"
+        ],
+        "verification": "not_applicable"
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "n_inc",
+        "target": "n_alert",
+        "relation": "contains",
+        "basis": "recorded",
+        "source_refs": [
+          "ev_alert"
+        ],
+        "recorded_at": "2026-10-05T14:28:11.000Z",
+        "verification": "not_applicable"
+      },
+      {
+        "id": "e2",
+        "source": "n_alert",
+        "target": "n_search",
+        "relation": "triggered",
+        "basis": "recorded",
+        "source_refs": [
+          "ev_retrieval"
+        ],
+        "recorded_at": "2026-10-05T14:28:11.320Z",
+        "verification": "not_applicable"
+      }
+    ],
+    "truncated": false,
+    "omitted_counts": {
+      "nodes": 0,
+      "edges": 0
+    }
+  },
+  "evidence": [
+    {
+      "id": "ev_alert",
+      "kind": "alert_observation",
+      "source_kind": "demo",
+      "source_ref": "fixture:ev_alert",
+      "recorded_at": "2026-10-05T14:28:11.000Z",
+      "observed_at": "2026-10-05T14:28:11.000Z",
+      "document_id": null,
+      "version_id": null,
+      "chunk_id": null,
+      "snippet": "支付服务演示告警：5xx 错误率升高。",
+      "metadata": {
+        "synthetic": true,
+        "labels": {
+          "alertname": "Payment5xxHigh",
+          "service": "payment-service",
+          "environment": "demo-prod"
+        },
+        "starts_at": "2026-10-05T14:28:11.000Z"
+      }
+    },
+    {
+      "id": "ev_retrieval",
+      "kind": "retrieval",
+      "source_kind": "system",
+      "source_ref": "fixture:ev_retrieval",
+      "recorded_at": "2026-10-05T14:28:12.000Z",
+      "observed_at": null,
+      "document_id": null,
+      "version_id": null,
+      "chunk_id": null,
+      "snippet": "Qdrant暂时不可用；无法判断知识库是否存在匹配。",
+      "metadata": {
+        "synthetic": true,
+        "query": "Payment5xxHigh 支付服务5xx错误率升高",
+        "retrieval_id": "retrieval_demo_01",
+        "incident_id": "inc_demo_payment_01",
+        "run_id": "run_demo_payment_01",
+        "eligible_chunk_ids": [],
+        "result": "unavailable"
+      }
+    }
+  ],
+  "events": [
+    {
+      "event_id": "evt_001",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 1,
+      "stage": "receive",
+      "stage_attempt": 1,
+      "kind": "started",
+      "occurred_at": "2026-10-05T14:28:11.000Z",
+      "duration_ms": null,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_002",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 2,
+      "stage": "receive",
+      "stage_attempt": 1,
+      "kind": "succeeded",
+      "occurred_at": "2026-10-05T14:28:11.120Z",
+      "duration_ms": 120,
+      "result_ref": "ev_alert",
+      "error": null
+    },
+    {
+      "event_id": "evt_003",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 3,
+      "stage": "queue",
+      "stage_attempt": 1,
+      "kind": "started",
+      "occurred_at": "2026-10-05T14:28:11.120Z",
+      "duration_ms": null,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_004",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 4,
+      "stage": "queue",
+      "stage_attempt": 1,
+      "kind": "succeeded",
+      "occurred_at": "2026-10-05T14:28:11.320Z",
+      "duration_ms": 200,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_005",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 5,
+      "stage": "retrieval",
+      "stage_attempt": 1,
+      "kind": "started",
+      "occurred_at": "2026-10-05T14:28:11.320Z",
+      "duration_ms": null,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_006",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 6,
+      "stage": "retrieval",
+      "stage_attempt": 1,
+      "kind": "failed",
+      "occurred_at": "2026-10-05T14:28:12.000Z",
+      "duration_ms": 680,
+      "result_ref": "ev_retrieval",
+      "error": {
+        "code": "source_unavailable",
+        "message": "Qdrant暂时不可用；无法判断知识库是否存在匹配。",
+        "retryable": true
+      }
+    }
+  ],
+  "summary": {
+    "scope": "selected_incident",
+    "active_incidents": 1,
+    "no_evidence_incidents": null,
+    "succeeded_runs": 0,
+    "cited_succeeded_runs": 0,
+    "mean_diagnosis_ms": 680
+  }
+}

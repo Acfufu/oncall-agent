@@ -63,13 +63,21 @@
 <h2>告警诊断（POST /alert 推送记录）</h2>
 <div>
 <button id="bReports">刷新 /reports</button>
-<span class="muted">Alertmanager webhook → 异步诊断（202 入队，worker 消费），持久化环存最近 20 条（重启存活）；本页停留时每 5s 自动刷新</span>
+<span class="muted">Alertmanager webhook → 异步诊断（202 持久接受，outbox/worker 投递），SQLite 保存事实，当前接口显示最近 20 条；本页停留时每 5s 自动刷新</span>
 </div>
 <pre id="reportList">(暂无告警驱动诊断。curl -X POST /alert 或等 AM 真流转)</pre>
 <p id="alertMsg" class="err"></p>
 </section>
 
+<section aria-label="旧版控制台认证"><label>Console token（仅本页内存） <input id="legacyToken" type="password" autocomplete="off"></label><p>使用配置的控制台凭据；新版登录状态不授予旧页写入权限。</p></section>
 <script>
+function legacyFetch(path, options) {
+ options = options || {}; options.headers = Object.assign({}, options.headers || {});
+ var token = document.getElementById('legacyToken').value;
+ if (token) options.headers.Authorization = 'Bearer ' + token;
+ return window.fetch(path, options);
+}
+
 var err = document.getElementById('err');
 var kbMsg = document.getElementById('kbMsg');
 var ans = document.getElementById('ans');
@@ -102,7 +110,7 @@ function pickCites(d) {
 }
 function doList() {
   showKbMsg('');
-  fetch('/list').then(function (r) {
+  legacyFetch('/list').then(function (r) {
     return r.json().then(function (d) {
       if (!r.ok) { showKbMsg(d.error || ('请求失败: ' + r.status)); return; }
       if (d.error) { showKbMsg(d.error); return; }
@@ -113,7 +121,7 @@ function doList() {
 document.getElementById('bList').onclick = doList;
 document.getElementById('bReindex').onclick = function () {
   showKbMsg('');
-  fetch('/reindex', {method: 'POST'}).then(function (r) {
+  legacyFetch('/reindex', {method: 'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})}).then(function (r) {
     return r.json().then(function (d) {
       if (!r.ok) { showKbMsg(d.error || ('请求失败: ' + r.status)); return; }
       if (d.error) { showKbMsg(d.error); return; }
@@ -124,7 +132,7 @@ document.getElementById('bReindex').onclick = function () {
 };
 document.getElementById('bUp').onclick = function () {
   showKbMsg('');
-  fetch('/upload', {
+  legacyFetch('/upload', {
     method: 'POST',
     headers: {'content-type': 'application/json'},
     body: JSON.stringify({title: document.getElementById('upTitle').value, content: document.getElementById('upContent').value})
@@ -139,7 +147,7 @@ document.getElementById('bUp').onclick = function () {
 };
 document.getElementById('bDel').onclick = function () {
   showKbMsg('');
-  fetch('/delete?title=' + encodeURIComponent(document.getElementById('delTitle').value), {method: 'DELETE'}).then(function (r) {
+  legacyFetch('/delete?title=' + encodeURIComponent(document.getElementById('delTitle').value), {method: 'DELETE'}).then(function (r) {
     return r.json().then(function (d) {
       if (!r.ok) { showKbMsg(d.error || ('请求失败: ' + r.status)); return; }
       if (d.error) { showKbMsg(d.error); return; }
@@ -152,7 +160,7 @@ document.getElementById('bChat').onclick = function () {
   showErr('');
   ans.textContent = '请求中…';
   refs.textContent = '';
-  fetch('/chat', {
+  legacyFetch('/chat', {
     method: 'POST',
     headers: {'content-type': 'application/json'},
     body: JSON.stringify({message: document.getElementById('q').value})
@@ -169,7 +177,7 @@ document.getElementById('bPlan').onclick = function () {
   showErr('');
   ans.textContent = '诊断中…';
   refs.textContent = '';
-  fetch('/plan').then(function (r) {
+  legacyFetch('/plan').then(function (r) {
     return r.json().then(function (d) {
       if (!r.ok) { showErr(d.error || ('请求失败: ' + r.status)); ans.textContent = ''; return; }
       if (d.error) { showErr(d.error); ans.textContent = ''; return; }
@@ -180,7 +188,7 @@ document.getElementById('bPlan').onclick = function () {
 };
 document.getElementById('bSession').onclick = function () {
   showErr('');
-  fetch('/session', {method: 'DELETE'}).then(function (r) {
+  legacyFetch('/session', {method: 'DELETE'}).then(function (r) {
     return r.json().then(function (d) {
       if (!r.ok) { showErr(d.error || ('请求失败: ' + r.status)); return; }
       if (d.error) { showErr(d.error); return; }
@@ -195,7 +203,7 @@ function esc(s) {
 }
 function doReports() {
   document.getElementById('alertMsg').textContent = '';
-  fetch('/reports').then(function (r) {
+  legacyFetch('/reports').then(function (r) {
     return r.json().then(function (d) {
       if (!r.ok) { document.getElementById('alertMsg').textContent = d.error || ('请求失败: ' + r.status); return; }
       var reps = d.reports || [];

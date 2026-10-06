@@ -1,0 +1,75 @@
+           _                 _    
+  __ _  __| |_ __ __ _ _ __ | |_  
+ / _` |/ _` | '__/ _` | '_ \| __| 
+| (_| | (_| | | | (_| | | | | |_  
+ \__, |\__,_|_|  \__,_|_| |_|\__| 
+    |_|                           
+
+Version: 1.19.1, build: 6ab21cac
+Access web UI at http://localhost:6333/dashboard
+Agentic Skills: https://skills.qdrant.tech/
+
+2026-10-06T15:41:40.062281Z  WARN qdrant: There is a potential issue with the filesystem for storage path ./storage. Details: Data will be lost on system restart - tmpfs is memory-based
+2026-10-06T15:41:40.062527Z  INFO storage::content_manager::consensus::persistent: Initializing new raft state at ./storage/raft_state.json
+2026-10-06T15:41:40.069212Z  INFO qdrant: Distributed mode disabled
+2026-10-06T15:41:40.069395Z  INFO qdrant: Telemetry reporting enabled, id: d3a4c1be-84eb-4055-a9ff-f90093d318a6
+2026-10-06T15:41:40.285438Z  INFO qdrant::actix: REST transport settings: keep_alive=5s, client_request_timeout=5s, client_disconnect_timeout=5s
+2026-10-06T15:41:40.287119Z  INFO qdrant::actix: TLS disabled for REST API
+2026-10-06T15:41:40.287334Z  INFO qdrant::actix: Qdrant HTTP listening on 6333
+2026-10-06T15:41:40.289118Z  INFO actix_server::builder: starting 4 workers
+2026-10-06T15:41:40.289216Z  INFO actix_server::server: Actix runtime found; starting in Actix runtime
+2026-10-06T15:41:40.289228Z  INFO actix_server::server: starting service: "actix-web-service-0.0.0.0:6333", workers: 4, listening on: 0.0.0.0:6333
+2026-10-06T15:41:40.298492Z  INFO qdrant::tonic: Qdrant gRPC listening on 6334
+2026-10-06T15:41:40.299031Z  INFO qdrant::tonic: TLS disabled for gRPC API
+2026-10-06T15:41:52.285671Z  INFO actix_web::middleware::logger: 172.17.0.1 "GET /collections/isolated_l2 HTTP/1.1" 404 104 "-" "Go-http-client/1.1" 0.000725
+2026-10-06T15:41:52.288224Z  INFO storage::content_manager::toc::collection_meta_ops: Creating collection isolated_l2
+2026-10-06T15:41:52.296760Z  INFO actix_web::middleware::logger: 172.17.0.1 "PUT /collections/isolated_l2 HTTP/1.1" 200 68 "-" "Go-http-client/1.1" 0.008966
+2026-10-06T15:41:52.301001Z  INFO actix_web::middleware::logger: 172.17.0.1 "GET /collections/isolated_l2 HTTP/1.1" 200 460 "-" "Go-http-client/1.1" 0.001551
+2026-10-06T15:41:52.307208Z  INFO actix_web::middleware::logger: 172.17.0.1 "GET /collections/isolated_l2/points/00000000-0000-0000-0000-000000000001?with_payload=true HTTP/1.1" 404 113 "-" "Go-http-client/1.1" 0.002373
+2026-10-06T15:41:52.310643Z  INFO actix_web::middleware::logger: 172.17.0.1 "POST /collections/isolated_l2/points/count HTTP/1.1" 200 78 "-" "Go-http-client/1.1" 0.000655
+2026-10-06T15:41:52.312610Z  INFO actix_web::middleware::logger: 172.17.0.1 "GET /collections/isolated_l2 HTTP/1.1" 200 459 "-" "Go-http-client/1.1" 0.000750
+2026-10-06T15:41:52.316322Z  INFO actix_web::middleware::logger: 172.17.0.1 "PUT /collections/isolated_l2/points?wait=true HTTP/1.1" 200 91 "-" "Go-http-client/1.1" 0.002471
+2026-10-06T15:41:52.327810Z  INFO actix_web::middleware::logger: 172.17.0.1 "PUT /collections/isolated_l2/points?wait=true HTTP/1.1" 200 91 "-" "Go-http-client/1.1" 0.002011
+2026-10-06T15:41:53.226987Z  INFO actix_web::middleware::logger: 172.17.0.1 "POST /collections/isolated_l2/points/search HTTP/1.1" 200 374 "-" "Go-http-client/1.1" 0.002494
+2026-10-06T15:41:53.279606Z  INFO actix_web::middleware::logger: 172.17.0.1 "PUT /collections/isolated_l2/points?wait=true HTTP/1.1" 200 92 "-" "Go-http-client/1.1" 0.001055
+2026-10-06T15:41:53.293277Z  INFO actix_web::middleware::logger: 172.17.0.1 "POST /collections/isolated_l2/points/search HTTP/1.1" 200 378 "-" "Go-http-client/1.1" 0.000931
+2026-10-06T15:41:53.299374Z  INFO actix_web::middleware::logger: 172.17.0.1 "POST /collections/isolated_l2/points/search HTTP/1.1" 200 68 "-" "Go-http-client/1.1" 0.002012
+2026-10-06T15:41:59.325259Z  INFO actix_web::middleware::logger: 172.17.0.1 "POST /collections/isolated_l2/points/delete?wait=true HTTP/1.1" 200 91 "-" "Go-http-client/1.1" 0.001583
+2026-10-06T15:41:59.918562Z  INFO actix_web::middleware::logger: 172.17.0.1 "POST /collections/isolated_l2/points/search HTTP/1.1" 200 69 "-" "Go-http-client/1.1" 0.000582
+2026-10-06T15:42:00.598130Z  INFO actix_web::middleware::logger: 172.17.0.1 "POST /collections/isolated_l2/points/search HTTP/1.1" 200 69 "-" "Go-http-client/1.1" 0.000474
+2026-10-06T15:42:01.083820Z  INFO actix_server::server: SIGTERM received; starting graceful shutdown
+2026-10-06T15:42:01.083873Z  INFO actix_server::worker: shutting down idle worker
+2026-10-06T15:42:01.083942Z  INFO actix_server::worker: shutting down idle worker
+2026-10-06T15:42:01.084041Z  INFO actix_server::worker: shutting down idle worker
+2026-10-06T15:42:01.084160Z  INFO actix_server::worker: shutting down idle worker
+2026-10-06T15:42:01.084325Z  INFO actix_server::accept: accept thread stopped
+           _                 _    
+  __ _  __| |_ __ __ _ _ __ | |_  
+ / _` |/ _` | '__/ _` | '_ \| __| 
+| (_| | (_| | | | (_| | | | | |_  
+ \__, |\__,_|_|  \__,_|_| |_|\__| 
+    |_|                           
+
+Version: 1.19.1, build: 6ab21cac
+Access web UI at http://localhost:6333/dashboard
+Agentic Skills: https://skills.qdrant.tech/
+
+2026-10-06T15:42:08.300338Z  WARN qdrant: There is a potential issue with the filesystem for storage path ./storage. Details: Data will be lost on system restart - tmpfs is memory-based
+2026-10-06T15:42:08.300399Z  INFO storage::content_manager::consensus::persistent: Initializing new raft state at ./storage/raft_state.json
+2026-10-06T15:42:08.305304Z  INFO qdrant: Distributed mode disabled
+2026-10-06T15:42:08.305580Z  INFO qdrant: Telemetry reporting enabled, id: 739a460e-1a2d-4485-982a-38d5eb2b0439
+2026-10-06T15:42:08.370670Z  INFO qdrant::actix: REST transport settings: keep_alive=5s, client_request_timeout=5s, client_disconnect_timeout=5s
+2026-10-06T15:42:08.371488Z  INFO qdrant::actix: TLS disabled for REST API
+2026-10-06T15:42:08.371671Z  INFO qdrant::actix: Qdrant HTTP listening on 6333
+2026-10-06T15:42:08.372573Z  INFO actix_server::builder: starting 4 workers
+2026-10-06T15:42:08.372610Z  INFO actix_server::server: Actix runtime found; starting in Actix runtime
+2026-10-06T15:42:08.371829Z  INFO qdrant::tonic: Qdrant gRPC listening on 6334
+2026-10-06T15:42:08.372703Z  INFO qdrant::tonic: TLS disabled for gRPC API
+2026-10-06T15:42:08.372616Z  INFO actix_server::server: starting service: "actix-web-service-0.0.0.0:6333", workers: 4, listening on: 0.0.0.0:6333
+2026-10-06T15:42:08.445062Z  INFO actix_web::middleware::logger: 172.17.0.1 "GET /collections/isolated_l2 HTTP/1.1" 404 105 "-" "Go-http-client/1.1" 0.000450
+2026-10-06T15:42:08.446434Z  INFO storage::content_manager::toc::collection_meta_ops: Creating collection isolated_l2
+2026-10-06T15:42:08.459119Z  INFO actix_web::middleware::logger: 172.17.0.1 "PUT /collections/isolated_l2 HTTP/1.1" 200 70 "-" "Go-http-client/1.1" 0.012909
+2026-10-06T15:42:08.464561Z  INFO actix_web::middleware::logger: 172.17.0.1 "GET /collections/isolated_l2/points/00000000-0000-0000-0000-000000000001?with_payload=true HTTP/1.1" 404 113 "-" "Go-http-client/1.1" 0.003267
+2026-10-06T15:42:08.466590Z  INFO actix_web::middleware::logger: 172.17.0.1 "POST /collections/isolated_l2/points/count HTTP/1.1" 200 78 "-" "Go-http-client/1.1" 0.000570
+2026-10-06T15:42:08.467822Z  INFO actix_web::middleware::logger: 172.17.0.1 "GET /collections/isolated_l2 HTTP/1.1" 200 460 "-" "Go-http-client/1.1" 0.000469
+2026-10-06T15:42:08.470292Z  INFO actix_web::middleware::logger: 172.17.0.1 "PUT /collections/isolated_l2/points?wait=true HTTP/1.1" 200 88 "-" "Go-http-client/1.1" 0.001590

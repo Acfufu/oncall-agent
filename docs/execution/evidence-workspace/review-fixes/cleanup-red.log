@@ -1,0 +1,12 @@
+=== RUN   TestCleanupDurableRetryRestartAndHistoricalChunks
+    cleanup_test.go:48: cleanup not durable sql: no rows in result set
+--- FAIL: TestCleanupDurableRetryRestartAndHistoricalChunks (0.01s)
+=== RUN   TestCleanupLateDispatchDoesNotDeleteReactivatedVersion
+    cleanup_test.go:110: dependency unavailable
+--- FAIL: TestCleanupLateDispatchDoesNotDeleteReactivatedVersion (0.00s)
+=== RUN   TestDocumentRetransmissionRepairsProjectionAndRejectsMetadataBypass
+    cleanup_test.go:146: retransmission returned success with stale projection key="create-key": [] <nil>
+--- FAIL: TestDocumentRetransmissionRepairsProjectionAndRejectsMetadataBypass (0.00s)
+FAIL
+FAIL	oncall-agent/internal/workspace	0.665s
+FAIL

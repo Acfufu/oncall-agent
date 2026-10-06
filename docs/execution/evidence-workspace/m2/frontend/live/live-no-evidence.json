@@ -1,0 +1,37 @@
+{
+  "incident": {
+    "id": "inc_67b592207b2b7b73269108fabc05fa6d",
+    "source_namespace": "alertmanager",
+    "environment": "not-indexed",
+    "service": "isolated-unmatched",
+    "name": "BrowserNoEvidence_1791303674864",
+    "severity": "P1",
+    "lifecycle_status": "active",
+    "starts_at": "2026-10-06T16:21:18.179Z",
+    "resolved_at": null,
+    "first_received_at": "2026-10-06T16:21:18.181325Z",
+    "last_observed_at": "2026-10-06T16:21:18.181325Z",
+    "identity_quality": "exact",
+    "latest_run_id": "run_b16e4d442e01343ca7b0260ec89da3ff"
+  },
+  "run": {
+    "id": "run_b16e4d442e01343ca7b0260ec89da3ff",
+    "incident_ids": [
+      "inc_67b592207b2b7b73269108fabc05fa6d"
+    ],
+    "status": "succeeded",
+    "dispatch_state": "enqueued",
+    "evidence_status": "no_evidence",
+    "notification_status": "disabled",
+    "judge_score": null,
+    "received_at": "2026-10-06T16:21:18.181325Z",
+    "started_at": "2026-10-06T16:21:18.183003Z",
+    "finished_at": "2026-10-06T16:21:18.185013Z",
+    "duration_ms": 1,
+    "current_attempt": 1,
+    "revision": 4,
+    "report_text": "\n[P1] BrowserNoEvidence_1791303674864（not-indexed / isolated-unmatched）\n当前未找到可用于处置的合格知识，请人工研判。\n",
+    "citation_ids": [],
+    "error": null
+  }
+}

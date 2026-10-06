@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "profile": "explicit isolated L1 providers",
+  "positive": "create test environment document → alert → persisted citations → inspector version",
+  "negative": "unindexed environment → no_evidence",
+  "failure": "browser route-injected 503, not external dependency outage; no demo substitution",
+  "viewport": [
+    1586,
+    992
+  ]
+}

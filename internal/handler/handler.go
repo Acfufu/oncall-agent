@@ -55,7 +55,7 @@ type Handler struct {
 
 func New(s *store.VectorStore, r *rag.RAG, demoDir string) *Handler {
 	return &Handler{
-		Store: s, RAG: r, DemoDir: demoDir, autoIngest: true,
+		Store: s, RAG: r, DemoDir: demoDir, autoIngest: false,
 		titles:  make(map[string]string),
 		sources: make(map[string]string),
 	}

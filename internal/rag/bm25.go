@@ -158,6 +158,9 @@ type bm25Hit struct {
 
 // search 取 BM25 前 topK。空库/空查询返回 nil。
 func (b *bm25Index) search(query string, topK int) []bm25Hit {
+	return b.searchFiltered(query, topK, nil)
+}
+func (b *bm25Index) searchFiltered(query string, topK int, eligible func(string, *bm25Doc) bool) []bm25Hit {
 	qtoks := tokenize(query)
 	if len(qtoks) == 0 || topK <= 0 {
 		return nil
@@ -178,6 +181,9 @@ func (b *bm25Index) search(query string, topK int) []bm25Hit {
 	}
 	hits := make([]bm25Hit, 0, n)
 	for id, d := range b.docs {
+		if eligible != nil && !eligible(id, d) {
+			continue
+		}
 		var s float64
 		for t := range qf {
 			tf, ok := d.tf[t]

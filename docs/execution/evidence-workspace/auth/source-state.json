@@ -1,0 +1,11 @@
+{
+  "head": "d7a1fa65a91d46835a412b713abfa4145f36fa3b",
+  "captured_at": "2026-10-06T14:23:56.987385+00:00",
+  "files": {
+    "internal/auth/auth.go": "ee6c17f9dedaae2295a0658004ff1f07ba27a5e9b94f9e7be1dbf7a761b135bd",
+    "internal/auth/auth_test.go": "9d66034bbf363010ef0c3e1f09dfc59dc5f5759542143e6640e6bd67e6f2ed20",
+    "internal/handler/chat.go": "cadbf110848ea31017ac7970aece52ede59b5a3bdf24bf90dc25abdd396b6c4d",
+    "internal/handler/chat_boundary_test.go": "8550a30a59d872d3ead1537a42e2cca9bdc8c9905cee5fd516ef25ef47bdae1d",
+    "internal/mcpserver/transport_test.go": "1dc112993f95400154e842177fb5ea7b0c56450d8ef88919cb98dbdfce4a3b95"
+  }
+}

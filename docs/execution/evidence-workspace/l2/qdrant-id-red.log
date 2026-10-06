@@ -1,0 +1,17 @@
+=== RUN   TestWorkspaceL2
+asynq: pid=46578 2026/10/06 15:10:27.142542 INFO: Starting processing
+asynq: pid=46578 2026/10/06 15:10:27.142588 INFO: Starting processing
+    workspace_l2_test.go:181: 50 real HTTP webhook replays => one SQL run; real asynq worker succeeded with Qdrant citations run_05334fa0399f36b2a05ea1898ea16f88
+    workspace_l2_test.go:210: stale version 
+asynq: pid=46578 2026/10/06 15:10:28.508391 INFO: Starting graceful shutdown
+asynq: pid=46578 2026/10/06 15:10:29.630102 INFO: Waiting for all workers to finish...
+asynq: pid=46578 2026/10/06 15:10:29.630135 INFO: All workers have finished
+asynq: pid=46578 2026/10/06 15:10:29.633346 INFO: Exiting
+asynq: pid=46578 2026/10/06 15:10:29.633358 INFO: Starting graceful shutdown
+asynq: pid=46578 2026/10/06 15:10:30.159554 INFO: Waiting for all workers to finish...
+asynq: pid=46578 2026/10/06 15:10:30.159595 INFO: All workers have finished
+asynq: pid=46578 2026/10/06 15:10:30.162176 INFO: Exiting
+--- FAIL: TestWorkspaceL2 (3.04s)
+FAIL
+FAIL	oncall-agent/internal/handler	3.723s
+FAIL

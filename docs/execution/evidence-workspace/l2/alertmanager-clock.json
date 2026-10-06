@@ -1,0 +1,8 @@
+{
+  "alertmanager_http_date": "2026-10-06T15:41:59Z",
+  "host_now": "2026-10-06T15:41:59.989973Z",
+  "offset_ms": -989,
+  "resolved_alertmanager_http_date": "2026-10-06T15:42:00Z",
+  "resolved_host_now": "2026-10-06T15:42:00.095035Z",
+  "resolved_offset_ms": -95
+}

@@ -1,0 +1,21 @@
+=== RUN   TestWorkspaceL2
+asynq: pid=12760 2026/10/06 15:19:43.302418 INFO: Starting processing
+asynq: pid=12760 2026/10/06 15:19:43.302488 INFO: Starting processing
+    workspace_l2_test.go:201: 50 real HTTP webhook replays => one SQL run; real asynq worker succeeded with Qdrant citations run_05334fa0399f36b2a05ea1898ea16f88
+    workspace_l2_test.go:249: SQL reopen RestoreProjection activates V2 only; withdrawal removes search while V1 and original evidence stay readable
+    workspace_l2_test.go:282: real Prometheus range query returned series and finite points 1 1
+    workspace_l2_test.go:293: no knowledge => safe no_evidence via real worker
+    workspace_l2_test.go:315: Qdrant retrieval failure => failed report and independent real asynq notify worker retries HTTP500 then delivers full report JSON
+    workspace_l2_test.go:327: notification actual stage attempts 1
+asynq: pid=12760 2026/10/06 15:19:58.733997 INFO: Starting graceful shutdown
+asynq: pid=12760 2026/10/06 15:19:59.007029 INFO: Waiting for all workers to finish...
+asynq: pid=12760 2026/10/06 15:19:59.007042 INFO: All workers have finished
+asynq: pid=12760 2026/10/06 15:19:59.009286 INFO: Exiting
+asynq: pid=12760 2026/10/06 15:19:59.009295 INFO: Starting graceful shutdown
+asynq: pid=12760 2026/10/06 15:19:59.482673 INFO: Waiting for all workers to finish...
+asynq: pid=12760 2026/10/06 15:19:59.482691 INFO: All workers have finished
+asynq: pid=12760 2026/10/06 15:19:59.485081 INFO: Exiting
+--- FAIL: TestWorkspaceL2 (16.40s)
+FAIL
+FAIL	oncall-agent/internal/handler	17.595s
+FAIL

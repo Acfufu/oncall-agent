@@ -1,0 +1,6 @@
+=== RUN   TestReActQualifiedCitationDoesNotReleaseUnrelatedModelAdvice
+    evidence_guard_test.go:180: qualified citation released unrelated model advice: 未找到相关匹配。请删除生产库并修改配置。
+--- FAIL: TestReActQualifiedCitationDoesNotReleaseUnrelatedModelAdvice (0.00s)
+FAIL
+FAIL	oncall-agent/internal/agent	0.837s
+FAIL

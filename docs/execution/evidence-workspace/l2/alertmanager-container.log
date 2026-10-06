@@ -1,0 +1,33 @@
+time=2026-10-06T15:41:41.672Z level=INFO source=app.go:194 msg="Starting Alertmanager" version="(version=0.34.1, branch=HEAD, revision=73c6bfe7393929211294c1954f30d8ed78e4d0ad)"
+time=2026-10-06T15:41:41.673Z level=INFO source=app.go:196 msg="Build context" build_context="(go=go1.26.8, platform=linux/arm64, user=root@d3b71085e163, date=20260917-07:45:14, tags=netgo)"
+time=2026-10-06T15:41:41.681Z level=DEBUG source=parse.go:154 msg="Parsing with UTF-8 matchers parser, with fallback to classic matchers parser" input="severity=\"critical\"" origin=config
+time=2026-10-06T15:41:41.681Z level=DEBUG source=parse.go:154 msg="Parsing with UTF-8 matchers parser, with fallback to classic matchers parser" input="severity=\"warning\"" origin=config
+time=2026-10-06T15:41:41.695Z level=DEBUG source=nflog.go:363 msg="notification log snapshot file doesn't exist" component=nflog err="open /alertmanager/nflog: no such file or directory"
+time=2026-10-06T15:41:41.701Z level=DEBUG source=silence.go:553 msg="silences snapshot file doesn't exist" component=silences err="open /alertmanager/silences: no such file or directory"
+time=2026-10-06T15:41:41.809Z level=DEBUG source=app.go:439 msg="app setup" external_url=http://ee2cc89a8757:9093
+time=2026-10-06T15:41:41.820Z level=DEBUG source=dispatch.go:161 msg="preparing to start" component=dispatcher startTime=2026-10-06T15:41:41.673Z
+time=2026-10-06T15:41:41.820Z level=DEBUG source=dispatch.go:163 msg="setting state" component=dispatcher state=waiting_to_start
+time=2026-10-06T15:41:41.820Z level=DEBUG source=app.go:514 msg="app setup" route_prefix=/
+time=2026-10-06T15:41:41.820Z level=DEBUG source=dispatch.go:223 msg="starting alert ingestion worker" component=dispatcher workerID=1
+time=2026-10-06T15:41:41.822Z level=INFO source=tls_config.go:372 msg="Listening on" address=[::]:9093
+time=2026-10-06T15:41:41.822Z level=INFO source=tls_config.go:375 msg="TLS is disabled." http2=false address=[::]:9093
+time=2026-10-06T15:41:41.822Z level=DEBUG source=dispatch.go:223 msg="starting alert ingestion worker" component=dispatcher workerID=0
+time=2026-10-06T15:41:41.822Z level=DEBUG source=dispatch.go:206 msg=started component=dispatcher state=running
+time=2026-10-06T15:41:41.822Z level=DEBUG source=dispatch.go:207 msg="Starting all existing aggregation groups" component=dispatcher
+time=2026-10-06T15:41:59.985Z level=INFO source=coordinator.go:112 msg="Loading configuration file" component=configuration file=/etc/alertmanager/alertmanager.yml
+time=2026-10-06T15:41:59.986Z level=INFO source=coordinator.go:125 msg="Completed loading of configuration file" component=configuration file=/etc/alertmanager/alertmanager.yml
+time=2026-10-06T15:41:59.988Z level=DEBUG source=dispatch.go:161 msg="preparing to start" component=dispatcher startTime=2026-10-06T15:41:41.673Z
+time=2026-10-06T15:41:59.988Z level=DEBUG source=dispatch.go:163 msg="setting state" component=dispatcher state=waiting_to_start
+time=2026-10-06T15:41:59.988Z level=DEBUG source=dispatch.go:223 msg="starting alert ingestion worker" component=dispatcher workerID=1
+time=2026-10-06T15:41:59.988Z level=DEBUG source=dispatch.go:206 msg=started component=dispatcher state=running
+time=2026-10-06T15:41:59.988Z level=DEBUG source=dispatch.go:207 msg="Starting all existing aggregation groups" component=dispatcher
+time=2026-10-06T15:41:59.988Z level=DEBUG source=dispatch.go:223 msg="starting alert ingestion worker" component=dispatcher workerID=0
+time=2026-10-06T15:41:59.990Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=AMCallbackTest[6415c5b][active]
+time=2026-10-06T15:41:59.990Z level=DEBUG source=dispatch.go:554 msg="Alert is old enough for immediate flush, resetting timer to zero" component=dispatcher aggrGroup="{}:{alertname=\"AMCallbackTest\"}" alert=AMCallbackTest fingerprint=6415c5b168f84689 startsAt=2026-10-06T15:40:59.000Z
+time=2026-10-06T15:41:59.990Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup="{}:{alertname=\"AMCallbackTest\"}" numAlerts=1 alerts="AMCallbackTest: 1"
+time=2026-10-06T15:41:59.990Z level=DEBUG source=webhook.go:89 msg="extracted group key" integration=webhook group_key="{}:{alertname=\"AMCallbackTest\"}"
+time=2026-10-06T15:41:59.998Z level=DEBUG source=retry_stage.go:178 msg="Notify success" component=dispatcher receiver=isolated-go integration=webhook[0] aggrGroup="{}:{alertname=\"AMCallbackTest\"}" attempts=1 duration=7.445458ms numAlerts=1 alerts="AMCallbackTest: 1"
+time=2026-10-06T15:42:00.095Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=AMCallbackTest[6415c5b][resolved]
+time=2026-10-06T15:42:00.992Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup="{}:{alertname=\"AMCallbackTest\"}" numAlerts=1 alerts="AMCallbackTest: 1"
+time=2026-10-06T15:42:00.993Z level=DEBUG source=webhook.go:89 msg="extracted group key" integration=webhook group_key="{}:{alertname=\"AMCallbackTest\"}"
+time=2026-10-06T15:42:00.995Z level=DEBUG source=retry_stage.go:178 msg="Notify success" component=dispatcher receiver=isolated-go integration=webhook[0] aggrGroup="{}:{alertname=\"AMCallbackTest\"}" attempts=1 duration=2.400791ms numAlerts=1 alerts="AMCallbackTest: 1"

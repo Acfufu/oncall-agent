@@ -1,0 +1,94 @@
+=== RUN   TestReActNoEvidenceReplacesEntireAdvice
+--- PASS: TestReActNoEvidenceReplacesEntireAdvice (0.00s)
+=== RUN   TestReActRejectsUnversionedEvidence
+--- PASS: TestReActRejectsUnversionedEvidence (0.00s)
+=== RUN   TestReActToolFailureDoesNotBecomeNoEvidence
+--- PASS: TestReActToolFailureDoesNotBecomeNoEvidence (0.00s)
+=== RUN   TestReActFallbackFailureDoesNotBecomeNoEvidence
+2026/10/06 22:52:37 warn: chat LLM loop failed, degraded to rag-direct fallback: llm 500: 
+--- PASS: TestReActFallbackFailureDoesNotBecomeNoEvidence (0.00s)
+=== RUN   TestPlannerRetrievalFailureIsVisible
+--- PASS: TestPlannerRetrievalFailureIsVisible (0.00s)
+=== RUN   TestReActHistoricalCitationsNotReused
+--- PASS: TestReActHistoricalCitationsNotReused (0.00s)
+=== RUN   TestSafePlanSeparatesUnavailableFromEmpty
+=== RUN   TestSafePlanSeparatesUnavailableFromEmpty/unavailable
+=== RUN   TestSafePlanSeparatesUnavailableFromEmpty/malformed
+=== RUN   TestSafePlanSeparatesUnavailableFromEmpty/empty
+=== RUN   TestSafePlanSeparatesUnavailableFromEmpty/retrieval_failed
+--- PASS: TestSafePlanSeparatesUnavailableFromEmpty (0.00s)
+    --- PASS: TestSafePlanSeparatesUnavailableFromEmpty/unavailable (0.00s)
+    --- PASS: TestSafePlanSeparatesUnavailableFromEmpty/malformed (0.00s)
+    --- PASS: TestSafePlanSeparatesUnavailableFromEmpty/empty (0.00s)
+    --- PASS: TestSafePlanSeparatesUnavailableFromEmpty/retrieval_failed (0.00s)
+=== RUN   TestSafePlannerVersionQualification
+--- PASS: TestSafePlannerVersionQualification (0.00s)
+=== RUN   TestSafePlannerCancellationStopsBeforeRetrieval
+--- PASS: TestSafePlannerCancellationStopsBeforeRetrieval (0.00s)
+=== RUN   TestReActQualifiedCitationDoesNotReleaseUnrelatedModelAdvice
+--- PASS: TestReActQualifiedCitationDoesNotReleaseUnrelatedModelAdvice (0.00s)
+=== RUN   TestEvidenceReportDoesNotPromoteUntrustedSource
+--- PASS: TestEvidenceReportDoesNotPromoteUntrustedSource (0.00s)
+=== RUN   TestPlannerDoesNotPromoteAlertDescriptionIntoAdvice
+--- PASS: TestPlannerDoesNotPromoteAlertDescriptionIntoAdvice (0.00s)
+=== RUN   TestAlertChainRagHitsCarriesCallerAlert
+--- PASS: TestAlertChainRagHitsCarriesCallerAlert (0.00s)
+=== RUN   TestPlanPromUnreachableNotSilent
+--- PASS: TestPlanPromUnreachableNotSilent (0.00s)
+=== RUN   TestChatFallbackObservable
+2026/10/06 22:52:37 warn: chat LLM loop failed, degraded to rag-direct fallback: llm 500: boom
+--- PASS: TestChatFallbackObservable (0.00s)
+=== RUN   TestChatNonJSONErrorSurfacesStatus
+--- PASS: TestChatNonJSONErrorSurfacesStatus (0.00s)
+=== RUN   TestSessionsLRUCapped
+--- PASS: TestSessionsLRUCapped (0.09s)
+=== RUN   TestClearSessions
+--- PASS: TestClearSessions (0.00s)
+=== RUN   TestClearSessionsUnknownID
+--- PASS: TestClearSessionsUnknownID (0.00s)
+PASS
+ok  	oncall-agent/internal/agent	1.947s
+=== RUN   TestFetchDeployEventsMergesAndOrders
+--- PASS: TestFetchDeployEventsMergesAndOrders (0.00s)
+=== RUN   TestFetchDeployEventsWindowPassthroughAndFilter
+--- PASS: TestFetchDeployEventsWindowPassthroughAndFilter (0.00s)
+=== RUN   TestFetchDeployEventsDefaultWindow24h
+--- PASS: TestFetchDeployEventsDefaultWindow24h (0.00s)
+=== RUN   TestFetchDeployEventsTruncates10
+--- PASS: TestFetchDeployEventsTruncates10 (0.00s)
+=== RUN   TestFetchDeployEventsBadTime
+--- PASS: TestFetchDeployEventsBadTime (0.00s)
+=== RUN   TestFetchDeployEventsConnRefused
+--- PASS: TestFetchDeployEventsConnRefused (0.00s)
+=== RUN   TestFetchDeployEventsNon2xx
+--- PASS: TestFetchDeployEventsNon2xx (0.00s)
+=== RUN   TestDeployEventsToolTextShape
+--- PASS: TestDeployEventsToolTextShape (0.00s)
+=== RUN   TestDeployEventsToolBadArgs
+--- PASS: TestDeployEventsToolBadArgs (0.00s)
+=== RUN   TestPrometheusResponseContract
+=== RUN   TestPrometheusResponseContract/upstream-error
+=== RUN   TestPrometheusResponseContract/missing-alerts
+=== RUN   TestPrometheusResponseContract/invalid-json
+=== RUN   TestPrometheusResponseContract/http-500
+=== RUN   TestPrometheusResponseContract/empty-success
+--- PASS: TestPrometheusResponseContract (0.00s)
+    --- PASS: TestPrometheusResponseContract/upstream-error (0.00s)
+    --- PASS: TestPrometheusResponseContract/missing-alerts (0.00s)
+    --- PASS: TestPrometheusResponseContract/invalid-json (0.00s)
+    --- PASS: TestPrometheusResponseContract/http-500 (0.00s)
+    --- PASS: TestPrometheusResponseContract/empty-success (0.00s)
+=== RUN   TestMissingRAGIsUnavailable
+--- PASS: TestMissingRAGIsUnavailable (0.00s)
+=== RUN   TestRagToolCancellation
+--- PASS: TestRagToolCancellation (0.00s)
+=== RUN   TestRagSearchToolTextCarriesSource
+--- PASS: TestRagSearchToolTextCarriesSource (0.00s)
+=== RUN   TestWhitelistGatingOff
+--- PASS: TestWhitelistGatingOff (0.00s)
+=== RUN   TestWhitelistGatingOn
+--- PASS: TestWhitelistGatingOn (0.00s)
+=== RUN   TestExecDispatchDeployEvents
+--- PASS: TestExecDispatchDeployEvents (0.00s)
+PASS
+ok  	oncall-agent/internal/tool	1.359s

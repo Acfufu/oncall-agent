@@ -1,0 +1,31 @@
+# Explicit opt-in app slice. Never changes or deletes the existing named volumes.
+services:
+  app:
+    build: .
+    ports: ["127.0.0.1:8819:8819"]
+    environment:
+      ONCALL_SERVER_HOST: 0.0.0.0
+      ONCALL_LOCALHOST_HTTP: "true"
+      ONCALL_REDIS_ADDR: redis:6379
+      ONCALL_QUEUE_NAMESPACE: workspace
+      ONCALL_QDRANT_HOST: qdrant
+      ONCALL_EMBEDDER_HOST: host.docker.internal
+      ONCALL_PROMETHEUS_URL: http://prometheus:9090
+      ONCALL_CONSOLE_TOKEN: ${ONCALL_CONSOLE_TOKEN:?set console token}
+      ONCALL_WEBHOOK_TOKEN: ${ONCALL_WEBHOOK_TOKEN:?set webhook token}
+    volumes: ["workspace_data:/app/data"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+  alertmanager:
+    volumes:
+      - ./alertmanager/alertmanager.workspace.yml:/etc/alertmanager/alertmanager.yml:ro
+    secrets: [workspace_webhook_token]
+secrets:
+  workspace_webhook_token:
+    environment: ONCALL_WEBHOOK_TOKEN
+volumes:
+  workspace_data: {}

@@ -1,0 +1,11 @@
+--- FAIL: TestChatStatelessSafety (0.00s)
+    chat_boundary_test.go:53: unsafe no evidence response: {"citations":[],"reply":"未找到相关匹配，运行 rm -rf /data 后修改生产配置"}
+    chat_boundary_test.go:53: unsafe no evidence response: {"citations":[],"reply":"未找到相关匹配，运行 rm -rf /data 后修改生产配置"}
+    chat_boundary_test.go:64: shared request history: 2 users
+    chat_boundary_test.go:68: request sessions retained: 1
+--- FAIL: TestChatLimits (0.00s)
+    chat_boundary_test.go:86: got 503 want 413
+    chat_boundary_test.go:86: got 503 want 413
+FAIL
+FAIL	oncall-agent/internal/handler	0.726s
+FAIL

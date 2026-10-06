@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -20,10 +21,34 @@ type Config struct {
 	Notify     NotifyConfig     `json:"notify"`
 	Deploy     DeployConfig     `json:"deploy"`
 	Reports    ReportsConfig    `json:"reports"`
+	Storage    StorageConfig    `json:"storage"`
+	Auth       AuthConfig       `json:"auth"`
+	UI         UIConfig         `json:"ui"`
+	Topology   FileConfig       `json:"topology"`
+	Metrics    MetricsConfig    `json:"metrics"`
 }
 
 // ReportsConfig 报告环持久化旋钮（v0.8/ADR-0010）：persist_path 空=关闭，
 // 默认 data/reports.json。
+type StorageConfig struct {
+	SQLitePath string `json:"sqlite_path"`
+}
+type AuthConfig struct {
+	ConsoleTokenEnv string `json:"console_token_env"`
+	WebhookTokenEnv string `json:"webhook_token_env"`
+	LocalhostHTTP   bool   `json:"localhost_http"`
+}
+type UIConfig struct {
+	Mode          string `json:"mode"`
+	LegacyEnabled bool   `json:"legacy_enabled"`
+	LegacyDefault bool   `json:"legacy_default"`
+}
+type FileConfig struct {
+	File string `json:"file"`
+}
+type MetricsConfig struct {
+	TemplatesFile string `json:"templates_file"`
+}
 type ReportsConfig struct {
 	PersistPath string `json:"persist_path"`
 }
@@ -33,6 +58,8 @@ type ReportsConfig struct {
 // Desktop 端口发布仅 IPv4，asynq 直连会拒（v0.5 验收实测）。
 type QueueConfig struct {
 	RedisAddr string `json:"redis_addr"`
+	Namespace string `json:"namespace"`
+	RedisDB   int    `json:"redis_db"`
 }
 
 // JudgeConfig 诊断自评分旋钮（ADR-0006）：低分阈值（1-5 分制，score<阈值
@@ -96,14 +123,18 @@ func Default() Config {
 	return Config{
 		Server:     ServerConfig{Host: "127.0.0.1", Port: 8819},
 		OpenAI:     OpenAIConfig{APIBase: "https://api.openai.com/v1"},
-		Qdrant:     QdrantConfig{Host: "127.0.0.1", Port: 6334, Collection: "oncallagent"},
+		Qdrant:     QdrantConfig{Host: "127.0.0.1", Port: 6334, Collection: "oncallagent_workspace_v1"},
 		Embedder:   EmbedderConfig{Host: "127.0.0.1", Port: 11434, Model: "nomic-embed-text"},
 		Prometheus: PrometheusConfig{URL: "http://localhost:9090"},
-		Knowledge:  KnowledgeConfig{AutoIngest: true, IncidentWeight: 0.5},
-		Queue:      QueueConfig{RedisAddr: "127.0.0.1:6379"},
+		Knowledge:  KnowledgeConfig{AutoIngest: false, IncidentWeight: 0.5},
+		Queue:      QueueConfig{RedisAddr: "127.0.0.1:6379", Namespace: "workspace"},
 		Judge:      JudgeConfig{LowThreshold: 3},
-		Notify:     NotifyConfig{},                                  // webhook_url 空=关闭（ADR-0008）
-		Deploy:     DeployConfig{},                                  // github_repo 空=deploy_events 不注册（ADR-0009）
+		Notify:     NotifyConfig{}, // webhook_url 空=关闭（ADR-0008）
+		Deploy:     DeployConfig{}, // github_repo 空=deploy_events 不注册（ADR-0009）
+		Metrics:    MetricsConfig{TemplatesFile: "config/metric_templates.json"},
+		Storage:    StorageConfig{SQLitePath: "data/oncall-agent.sqlite"},
+		Auth:       AuthConfig{ConsoleTokenEnv: "ONCALL_CONSOLE_TOKEN", WebhookTokenEnv: "ONCALL_WEBHOOK_TOKEN"},
+		UI:         UIConfig{Mode: "live", LegacyEnabled: true},
 		Reports:    ReportsConfig{PersistPath: "data/reports.json"}, // 空串=关闭（ADR-0010）
 	}
 }
@@ -141,6 +172,28 @@ func loadFile(path string) (*Config, error) {
 	}
 	if v := strings.TrimSpace(os.Getenv("OPENAI_API_KEY")); v != "" {
 		cfg.OpenAI.APIKey = v
+	}
+	// Explicit container/test overrides do not rewrite the user's configuration file.
+	for _, override := range []struct {
+		name   string
+		target *string
+	}{
+		{"ONCALL_SERVER_HOST", &cfg.Server.Host}, {"ONCALL_SQLITE_PATH", &cfg.Storage.SQLitePath},
+		{"ONCALL_REDIS_ADDR", &cfg.Queue.RedisAddr}, {"ONCALL_QUEUE_NAMESPACE", &cfg.Queue.Namespace},
+		{"ONCALL_QDRANT_HOST", &cfg.Qdrant.Host}, {"ONCALL_QDRANT_COLLECTION", &cfg.Qdrant.Collection},
+		{"ONCALL_EMBEDDER_HOST", &cfg.Embedder.Host}, {"ONCALL_PROMETHEUS_URL", &cfg.Prometheus.URL},
+		{"ONCALL_TOPOLOGY_FILE", &cfg.Topology.File}, {"ONCALL_METRICS_TEMPLATES_FILE", &cfg.Metrics.TemplatesFile},
+	} {
+		if v := strings.TrimSpace(os.Getenv(override.name)); v != "" {
+			*override.target = v
+		}
+	}
+	if v := os.Getenv("ONCALL_LOCALHOST_HTTP"); v != "" {
+		b, e := strconv.ParseBool(v)
+		if e != nil {
+			return nil, fmt.Errorf("invalid ONCALL_LOCALHOST_HTTP")
+		}
+		cfg.Auth.LocalhostHTTP = b
 	}
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 8819

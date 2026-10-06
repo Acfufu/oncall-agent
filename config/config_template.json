@@ -1,19 +1,65 @@
 {
-  "server": { "host": "127.0.0.1", "port": 8819 },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8819
+  },
   "openai": {
     "api_key": "YOUR-KEY",
     "model": "your-model-name",
     "api_base": "https://api.openai.com/v1"
   },
-  "qdrant": { "host": "127.0.0.1", "port": 6334, "collection": "oncallagent" },
-  "embedder": { "host": "127.0.0.1", "port": 11434, "model": "nomic-embed-text" },
-  "prometheus": { "url": "http://localhost:9090" },
-  "knowledge": { "auto_ingest": true, "incident_weight": 0.5 },
-  "queue": { "redis_addr": "127.0.0.1:6379" },
-  "judge": { "low_threshold": 3 },
-  "notify": { "webhook_url": "" },
-  "deploy": { "github_repo": "", "github_token": "" },
+  "qdrant": {
+    "host": "127.0.0.1",
+    "port": 6334,
+    "collection": "oncallagent_workspace_v1"
+  },
+  "embedder": {
+    "host": "127.0.0.1",
+    "port": 11434,
+    "model": "nomic-embed-text"
+  },
+  "prometheus": {
+    "url": "http://localhost:9090"
+  },
+  "knowledge": {
+    "auto_ingest": false,
+    "incident_weight": 0.5
+  },
+  "queue": {
+    "redis_addr": "127.0.0.1:6379",
+    "namespace": "workspace",
+    "redis_db": 0
+  },
+  "judge": {
+    "low_threshold": 3
+  },
+  "notify": {
+    "webhook_url": ""
+  },
+  "deploy": {
+    "github_repo": "",
+    "github_token": ""
+  },
   "reports": {
     "persist_path": "data/reports.json"
+  },
+  "storage": {
+    "sqlite_path": "data/oncall-agent.sqlite"
+  },
+  "auth": {
+    "console_token_env": "ONCALL_CONSOLE_TOKEN",
+    "webhook_token_env": "ONCALL_WEBHOOK_TOKEN",
+    "localhost_http": false
+  },
+  "ui": {
+    "mode": "live",
+    "legacy_enabled": true,
+    "legacy_default": false
+  },
+  "topology": {
+    "file": ""
+  },
+  "metrics": {
+    "templates_file": "config/metric_templates.json"
   }
 }

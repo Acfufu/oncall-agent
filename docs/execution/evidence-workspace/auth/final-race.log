@@ -1,0 +1,3 @@
+ok  	oncall-agent/internal/auth	1.790s
+ok  	oncall-agent/internal/mcpserver	1.791s
+ok  	oncall-agent/internal/handler	1.696s

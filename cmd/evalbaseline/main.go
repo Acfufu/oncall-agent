@@ -14,12 +14,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"oncall-agent/internal/agent"
 	"oncall-agent/internal/config"
 	"oncall-agent/internal/judge"
 	"oncall-agent/internal/rag"
-	"oncall-agent/internal/store"
 	"oncall-agent/internal/tool"
 )
 
@@ -47,16 +47,16 @@ func docTitle(demoDir, file string) string {
 }
 
 func main() {
-	cfg, err := config.Load("config/config.json")
+	defaults := config.Default()
+	cfg := &defaults
+	if os.Getenv("EVAL_GEN") == "1" || os.Getenv("EVAL_JUDGE") == "1" {
+		log.Fatal("legacy model evaluation disabled; use isolated production-surface harness")
+	}
+	s, err := evalStore()
 	if err != nil {
-		log.Fatalf("load config: %v", err)
+		log.Fatalf("eval isolation: %v", err)
 	}
-	httpPort := cfg.Qdrant.Port
-	if httpPort == 6334 {
-		httpPort = 6333
-	}
-	s := store.NewVectorFromHostPort(cfg.Qdrant.Host, httpPort, cfg.Qdrant.Collection)
-	r := rag.New(s, rag.SelectEmbedder(cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model))
+	r := rag.New(s, rag.HashEmbedder{})
 
 	// 预热：同进程 AddDoc 填满 BM25 内存镜像（Qdrant upsert 按 ID 幂等）。
 	entries, err := os.ReadDir("aiops-docs-demo")
@@ -105,7 +105,7 @@ func main() {
 			limit = n
 		}
 	}
-	noRerank := strings.TrimSpace(os.Getenv("EVAL_NORERANK")) == "1"
+	noRerank := strings.TrimSpace(os.Getenv("EVAL_REMOTE")) != "1" || strings.TrimSpace(os.Getenv("EVAL_NORERANK")) == "1"
 	// 生成层拒答回归（v0.3）：EVAL_GEN=1 时对负例（expect_doc 为空）走一次
 	// LLM 诊断判定——引用不相关必须明示“未找到相关匹配”。消耗 LLM token，
 	// 默认关。拒答语义已证伪检索层 Floor（7库无可分界），验收挂生成层。
@@ -275,9 +275,7 @@ type alertSample struct {
 // /alert 同链同参。跑前按 source 清 incident 沉淀——否则 fixture 告警
 // 命中上次沉淀、引用自己的报告，eval 自证失真。
 func runAlertEval(cfg *config.Config, r *rag.RAG, genOn bool) {
-	if err := r.DeleteSource("incident"); err != nil {
-		log.Printf("warn: clear incident source before alert eval: %v", err)
-	}
+
 	f, err := os.Open("eval-data/datasets/alerts.jsonl")
 	if err != nil {
 		log.Fatalf("open alert dataset: %v", err)
@@ -365,9 +363,7 @@ func runAlertEval(cfg *config.Config, r *rag.RAG, genOn bool) {
 // 跑前先按 source 清 incident 沉淀防自证循环（同 runAlertEval：否则 fixture
 // 告警命中上次沉淀、judge 给自指报告打分）。评分失败计 err，不计入均分。
 func runJudgeEval(cfg *config.Config, r *rag.RAG) {
-	if err := r.DeleteSource("incident"); err != nil {
-		log.Printf("warn: clear incident source before judge eval: %v", err)
-	}
+
 	f, err := os.Open("eval-data/datasets/alerts.jsonl")
 	if err != nil {
 		log.Fatalf("open alert dataset: %v", err)
@@ -469,7 +465,7 @@ func genRefusal(cfg *config.Config, question string, hits []rag.Result) (bool, s
 	if strings.TrimSpace(cfg.OpenAI.APIKey) != "" {
 		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(cfg.OpenAI.APIKey))
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
 	if err != nil {
 		return false, "", err
 	}

@@ -1,0 +1,194 @@
+{
+  "source_tree_sha256": "d81d021573eb3eac5e4628de7a9edc6725e35a537fe5b41d53ffb42651e7d477",
+  "images": [
+    {
+      "path": "m2/frontend/controlled/lifecycle-server-filter.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "10cdfa46e7ed0f8a23d07b22f557ffeba5d108ec09bf4eea219cc6418c2def9c",
+      "profile": "controlled"
+    },
+    {
+      "path": "m2/frontend/controlled/metrics-topology-controlled.png",
+      "width": 1586,
+      "height": 1725,
+      "sha256": "aa1f6033f134f45e79e87d3075b826e8d8050cea1ee9278c1e118845b507c877",
+      "profile": "controlled"
+    },
+    {
+      "path": "m2/frontend/controlled/pagination-knowledge.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "0e8f66241d94de714a32a21ee387f3f9faedbb400b1162c0301ea2e1c5187fed",
+      "profile": "controlled"
+    },
+    {
+      "path": "m2/frontend/controlled/topology-scope-switch.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "0e2160f5fbbd4ba3987c52a99e41f45b4d4324c8590b2e1b6f7e4ce82a79a0bb",
+      "profile": "controlled"
+    },
+    {
+      "path": "m2/frontend/demo/dashboard-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "13f44d334c6c7be5463d00c4db765613e9a0fc6c0f709f088bda4a4f7f783f53",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/evaluations-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "3fbf5184b27024b536f02714979f6fec089d85ef42ebc179360a16961ede34aa",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/evidence-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "042e1ddc847e07f21ed38a1c140ddc1ac88228a1605ce5e5cf5b35175367f2da",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/incidents-1280.png",
+      "width": 1280,
+      "height": 922,
+      "sha256": "fb21444b003f79f952166d29d61918c817e938c6e8eb83ccaa452ad53a5caa9c",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/incidents-1440.png",
+      "width": 1440,
+      "height": 929,
+      "sha256": "3294fab9809e83f9ca0cddc2e228e36242c0a64334cbc73a289e29cbd2efe3d6",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/incidents-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "f82240446cc9332d2a0c5a5acb6b38be7b2a1f75653bb60bc35c7d2c19fd72ad",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/incidents-1600.png",
+      "width": 1600,
+      "height": 1019,
+      "sha256": "76927e2a46d43b6cd2f30c3c8742d7f29701c18b5458db81c43fb4f2856cc56a",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/incidents-390.png",
+      "width": 390,
+      "height": 1527,
+      "sha256": "9b580aee961e972ea9ac3fdf05a2bd5db864ce14d2da3d09180ed34e80f1c8fa",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/incidents-768.png",
+      "width": 768,
+      "height": 1157,
+      "sha256": "2042560a7a1523ae52ece035070df58101e1b8db434ac8a0815b343ce6d3cd8a",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/knowledge-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "b2e5f47a146950c94f22b4a77a4be9014586312bc57e2ffc970fea03f375d71e",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/metrics-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "e79bb25b202b49522d4de9329eb85b49d0ae18a1974eb9e0442a0dbc973cfc2c",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/demo/settings-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "a7f18e614d9453e2e51da934067fa6a7689b07371e7ed4fb24e9d728958a2a7b",
+      "profile": "demo"
+    },
+    {
+      "path": "m2/frontend/live/live-cited-inspector.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "6d18a78031998bef0cbae368cdd56b88eddd999cbde98d380d299d37d995eedc",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-dashboard-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "e6b6ef4b02778495ea27cb62ae5877179049542f391fa044a0d5cb0dc7dd12ab",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-document-test-environment.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "e174daaf3f3c1ad8813354e860487b560f47faf1e6aa7a5255db18c9cf5a4167",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-evaluations-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "fd1bc1cb12ea0de0441016ad1249fbdf94787244699b860a6db8f4804e598bb1",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-evidence-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "c5839e7a6ac6c16fe3e8ab20c3deab4501d4ac43628d6e4daa9fbd7974ce36ed",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-failure-injected-no-demo.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "69705db4ecf83522ef8d2fb20d0da5f9162812a4d6d4d991fd20caf8336db859",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-incidents-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "bddd50b7e1ee7534914b572aff3842aaad9dbd4a7b3b2a6273a162874f927da6",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-knowledge-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "0eb1faf4ebd88969cc26db608f8918cd6233c0f6014bf95fb2968d7a84a849a6",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-metrics-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "4eb916c16321c062fee542bb80ec11958a03659d4670973622db2952251ea8a4",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-no-evidence.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "7203ba175661a3d27382e5c6f0347e7d744b9f3733e2f9dbaf866240d2e5433e",
+      "profile": "live"
+    },
+    {
+      "path": "m2/frontend/live/live-settings-1586.png",
+      "width": 1586,
+      "height": 992,
+      "sha256": "09f71e924d028b6cdabac95ab799ec969f68ab47dcbeaca24d1139ea499605e7",
+      "profile": "live"
+    }
+  ]
+}

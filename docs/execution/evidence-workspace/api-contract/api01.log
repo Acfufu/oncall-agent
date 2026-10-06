@@ -1,0 +1,5 @@
+Invocation: go test -race ./internal/agent ./internal/handler ./internal/tool -count=1 -v
+Latest complete execution excerpt:
+=== RUN   TestAPI01OpenAPIActualRoutesAndResponses
+    workspace_contract_test.go:92: API-01: registered workspace+M2 route inventory and actual isolated SQLite HTTP 200/201/409 DTO responses match OpenAPI
+--- PASS: TestAPI01OpenAPIActualRoutesAndResponses (0.05s)

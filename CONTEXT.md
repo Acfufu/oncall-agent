@@ -25,3 +25,7 @@
 ---
 Migrated from `/Users/acfufu/Codehub/opencode/CONTEXT.md` on 2026-09-22.
 Source decisions: `docs/adr/0001-0003`.
+
+## Evidence Workspace（2026-10-06 / ADR-0011、0012）
+
+本次已立项 M0可靠性、M1事件证据工作台、M2声明拓扑/受限指标，M3仅规划。SQLite为业务事实源，Qdrant/BM25为检索投影；文档不可变版本、run独立生命周期与证据状态。has_citations不是根因确认，judge不是正确率。默认关闭事件沉淀；聊天默认无状态；HTTP统一轻量认证。旧JSON快照仅迁移输入，保留历史引用。适用的新约定优先于上方历史版本说明。

@@ -1,234 +1,76 @@
 # oncall-agent
 
-**按 runbook 回答的值班代理，有引用可查——没有匹配就直说没有。**
+Evidence Workspace：Go / Gin + SQLite 业务事实 + Redis / asynq + Qdrant 检索 + Prometheus / OTel，React / TypeScript 前端由同一 Go 服务托管。按 M0→M1→M2实施；M3 全局探索仅规划。告警与工具保持只读，不确认、不静默、不自动处置。
 
-告警进，带引用的诊断出：Go 服务把 Prometheus 告警接到 Hybrid 检索的
-runbook 库，基于 OpenAI 兼容 LLM、Qdrant 与 Prometheus。
+[English](README.md) · [运行、迁移、备份与回滚](docs/execution/evidence-workspace/operations.md) · [验收与限制](docs/execution/evidence-workspace/verification.md) · [API](docs/api/workspace.openapi.yaml)
 
-文档 · [快速开始](#快速开始10-分钟) · [路由](#路由) · [为什么要带引用](#为什么要带引用)
+## 启动
 
-[English](./README.md) · 简体中文
+需要 Go 1.25+、C 编译器（SQLite CGO）、Node 24（仅构建），以及 Redis、Qdrant、Embedding 服务。默认使用 Ollama `nomic-embed-text`；Embedding/Qdrant 故障明确报错，不使用内存库或 Hash 兜底。工作台和确定性引用诊断不要求 LLM key；聊天与 judge 使用配置的 OpenAI 兼容模型。
 
-> **注意**
-> 每次诊断都带来源。知识库没有匹配就明确声明无匹配——绝不编造处置步骤。
-
-```bash
-cp config/config_template.json config/config.json  # 填入你的 LLM Key
+```sh
+# 已有配置不覆盖；升级前先按运行说明盘点与备份
+cp -n config/config_template.json config/config.json
+cp -n .env.example .env
+(cd web/app && npm ci && npm run build)
 docker compose up -d
+# 在当前 shell 设置两个不同强随机凭据；不要写入前端或提交到 Git
+# export ONCALL_CONSOLE_TOKEN=...; export ONCALL_WEBHOOK_TOKEN=...
+export ONCALL_LOCALHOST_HTTP=true # 仅 loopback HTTP 开发；TLS 环境不设置
+export ONCALL_CONFIG="$PWD/config/config.json"
 go run ./cmd/server
 ```
 
-```text
-oncall-agent v0.8.1 listening on 127.0.0.1:8819 (memonly=false, Qdrant 正常时)
+打开 [本地工作台](http://127.0.0.1:8819)，输入 console token 建立 HttpOnly / SameSite=Strict 会话。缺少凭据时业务接口拒绝访问。`GET /ping` 只证明进程存活，`GET /ready` 检查事实库、队列和检索。生产不运行 Node 或 Vite。
+
+完整容器切片可用 `docker compose -f docker-compose.yml -f docker-compose.workspace.yml up --build -d`；先设置上述 token。新增 app 使用独立 SQLite volume 和新 collection，宿主仅开放 loopback 8819；Alertmanager 用 webhook token 调用 `/alert`，包含 resolved。不要执行 `down -v`，不要清理旧 collection。
+
+## 工作台与数据
+
+七页保留参考图的海军蓝、共同导航和各页布局。事件工作台提供事件列、证据图/可访问列表、来源检查器、真实阶段时间线。知识库支持版本、更新与撤下；引用始终指向不可变 version/chunk。M2 包含有来源的声明拓扑及三个受限指标模板，缺值保留 null，潜在影响仅推断。
+
+指标页路径为 `/workspace/metrics`，原 `/metrics` 保留监控抓取用途。`?mode=demo` 是显式演示，持续显示“演示数据”，管理操作禁用；真实接口故障不会切演示。评测未配置时为空态，不显示虚构正确率。M3 全局图显示 deferred。
+
+SQLite 是单实例事实来源：事件、运行、逐阶段事件、版本、引用、outbox 和来源记录跨重启保存。告警业务键事务幂等；resolved 更新生命周期，不产生新诊断，诊断成功不代表故障恢复。报告与事件笔记不成为合格 runbook；模板默认关闭 `knowledge.auto_ingest`。没有本轮相关证据时输出安全无证据结果，不释放模型任意操作建议。
+
+## 接口与认证
+
+所有业务、`/mcp` 和 `/metrics` 都需要认证。控制台使用 console Bearer 或同源短期会话；Cookie 写操作需要 Origin 与 CSRF。`POST /alert` 使用独立 webhook Bearer。HTTP 明文凭据只在显式 loopback 开发模式允许。
+
+|接口|用途|
+|--|--|
+|`GET /api/v1/incidents`、`/runs/{id}`、`/incidents/{id}/graph`|分页事件、运行、证据图与时间线|
+|`/api/v1/documents`、`/documents/{id}/versions`|版本化知识管理，更新具备 CAS|
+|`GET /api/v1/evidence/{id}`|原始来源与不可变引用|
+|`GET /api/v1/incidents/{id}/topology`、`/metrics`|限定环境拓扑、受限服务端指标模板|
+|`GET /api/v1/workspace/summary`、`/system/status`|SQL 摘要、依赖状态与最近成功时间|
+|`POST /alert`|异步 admission，202 后由持久 outbox 入队|
+|`GET /reports`、`/plan`，`POST /upload`、`/chat`，`GET /list`|兼容旧客户端，通过同一领域层；需认证|
+|`DELETE /delete`、`/session`，`POST /reindex`|撤下知识、兼容会话清理、活动版本投影恢复|
+|`GET/POST /mcp`|共享 StreamableHTTP transport 会话与只读白名单|
+|`GET /metrics`|Prometheus 抓取端点（需 console Bearer，不进 trace）|
+
+MCP STDIO：`go run ./cmd/server serve --mcp`，信任本地进程所有者，仍只暴露白名单工具。`deploy_events` 仅在配置 GitHub repo 时注册，来源为只读 commits/deployments。通知使用独立消费者、持久载荷、at-least-once；接收方按报告 ID 幂等。通知失败不阻断诊断，不代表自动处置。
+
+## 配置与恢复
+
+模板为 `config/config_template.json`，不要提交 `config.json`、`.env` 或 token。重要项：`storage.sqlite_path`、独立 Qdrant collection、Redis namespace、Embedding provider/model/dimension、`ui.legacy_enabled` / `legacy_default`、受控 topology 文件、metric templates、可选 notify webhook。不同 embedding 空间用新 collection，不自动删除旧库。
+
+`workspacectl inventory` / `dry-run` 为只读；`backup --output` 使用一致性 SQLite `VACUUM INTO` 并拒绝覆盖。旧报告通过显式 `import-legacy --apply` 导入，checksum 幂等且保留不完整来源标记，不重新投递旧任务。不能仅复制活动 WAL 库主文件。恢复时停止实例，保留原库，选择备份新路径；不要覆盖运行库。UI 可通过 `/legacy`、`/v01` 或 `ui.legacy_default=true` 回退，后端事实不变。详见运行说明。
+
+## 开发与验证
+
+```sh
+gofmt -l cmd internal
+go vet ./...
+go test ./... -count=1 -timeout=3m
+go test -race ./... -count=1 -timeout=3m
+go build ./...
+(cd web/app && npm run typecheck && npm run test && npm run test:browser)
+# 可选：仅创建本次 owner 标签的隔离服务并清理；不接业务 compose/volume
+ONCALL_L2=1 scripts/workspace-l2.sh
 ```
 
-## 快速开始（10 分钟）
-
-前置条件：Go 1.25+、Docker、git 和一个 LLM Key。其余全部由 compose 预置：
-Qdrant、Prometheus、OTel Collector 与 Jaeger。
-
-```bash
-cp config/config_template.json config/config.json  # 填 api_key，唯一必填项
-cp .env.example .env
-docker compose up -d        # Qdrant :6333 + Prometheus :9090 + OTLP :4317 + Jaeger :16686
-go mod tidy && go run ./cmd/server
-```
-
-### 验证跑通
-
-```bash
-curl -s http://localhost:8819/ping
-```
-
-```json
-{"status":"ok"}
-```
-
-然后打开 `http://localhost:8819` 用控制台，或直接调 API：
-
-```bash
-curl -s -X POST http://localhost:8819/chat \
-  -H 'content-type: application/json' \
-  -d '{"message":"CPU 使用率超 90%，怎么排查？"}'
-```
-
-返回包含回答与 `citations`（`{doc, snippet}`）。引用为空即表示库中无匹配。
-
-### 接下来四步
-
-1. **载入演示库。** `POST /reindex` 导入 `aiops-docs-demo/` 下 7 篇
-   runbook（CPU宕机、服务不可用、OOM、磁盘、P99、MQ、TLS）。
-2. **跑基线。** `EVAL_NORERANK=1 go run ./cmd/evalbaseline`
-   回放 32 个种子问题：30 个可回答项 recall@3 为 1.0；
-   加 `EVAL_GEN=1` 验生成层拒答（2 个库外探测项 2/2 明示
-   “未找到相关匹配”，不编造）。
-3. **看一次诊断。** `GET /plan` 拉取 firing 的 Prometheus 告警并返回
-   带引用的报告；调用链可在 `:16686` 的 Jaeger 里看到。
-4. **推一条告警。** compose 预置 Alertmanager + demo 恒真规则
-   （`ContainerOOMKilled`）：Prometheus → AM → `POST /alert` → 当场返回
-   `202 {id, status:"queued"}`，Redis 队列 worker 完成诊断后，带引用报告
-   落进 `GET /reports` 与控制台（条目带 `id`/`status`/`score`）。报告自动
-   入库为事件沉淀（`source=incident`，检索降权，同题覆盖，
-   `knowledge.auto_ingest` 可关）。回归用
-   `EVAL_ALERT=1 go run ./cmd/evalbaseline`。
-
-## 路由
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| `GET` | `/ping` | 健康检查，`{"status":"ok"}` |
-| `POST` | `/chat` | ReAct 多轮对话，只读工具，回答带引用 |
-| `GET` | `/plan` | Plan-Execute：拉告警 → 检索 → 带引用的报告 |
-| `POST` | `/alert` | Alertmanager webhook：推入告警 → `202 {id, status:"queued"}`，worker 完成诊断（异步，ADR-0006） |
-| `GET` | `/reports` | 最近告警驱动诊断（持久化环，近 20 条，重启存活） |
-| `POST` | `/upload` | 入库一篇 Markdown runbook |
-| `GET` | `/list` | 列出已入库标题 |
-| `DELETE` | `/delete` | 从注册表删除标题 |
-| `POST` | `/reindex` | 重载演示库 |
-| `GET` | `/metrics` | Prometheus 抓取端点（不进 trace） |
-| `GET`+`POST` | `/mcp` | MCP server（StreamableHTTP）：三只读工具（ADR-0007） |
-
-控制台挂在 `/`；上一代单页保留在 `/v01`。
-
-## MCP server（v0.5）
-
-三只读工具（`time_now`、`rag_search`、`prometheus_query`）同时以 MCP 对外
-暴露（ADR-0007）——白名单语义不变，不暴露诊断 agent 本体：
-
-- **StreamableHTTP**：MCP 客户端直连 `http://localhost:8819/mcp`。
-- **STDIO** 给本地客户端（Claude Desktop / MCP inspector）：
-
-```bash
-go run ./cmd/server serve --mcp        # 不需要 LLM Key——工具只碰 Qdrant/Prometheus
-npx @modelcontextprotocol/inspector go run ./cmd/server serve --mcp
-```
-
-```json
-{
-  "mcpServers": {
-    "oncall-agent": {
-      "command": "go",
-      "args": ["run", "./cmd/server", "serve", "--mcp"]
-    }
-  }
-}
-```
-
-## 为什么要带引用
-
-值班建议只有能核查才有用。约束直接钉在工具层：
-
-- **只读工具白名单。** `time_now`、`rag_search`、`prometheus_query`——
-  名单之外一律由 `IsAllowed` 拒绝。
-- **Hybrid 检索。** 稠密向量 + 内存 BM25（CJK 二元组，RRF k=60），
-  融合后标题加权 ×1.5。
-- **Floor 门控的诚实。** 相似度 floor 滤掉弱命中；低于它就报无匹配，
-  不猜。
-- **可观测的深度。** Gin 服务 span + 每个工具 span 经 OTLP 进 Jaeger；
-  请求指标直接从 `/metrics` 抓。
-
-## 架构
-
-```text
-Prometheus 告警 ──▶ /plan ──▶ Hybrid RAG ──▶ 带引用的报告
-Alertmanager ──────▶ /alert ──▶ 同一条链 ──▶ 带引用的报告 + 事件沉淀
-值班提问 ──▶ /chat（ReAct + 3 个只读工具）──▶ 带引用的回答
-Runbook .md ──▶ /upload · /reindex ──▶ Qdrant + BM25 镜像
-```
-
-```text
-compose: redis（:6379）· qdrant（:6333）· prometheus（:9090）· alertmanager（:9093）· otel-collector（:4317/:4318）· jaeger（:16686）
-app: :8819 · embedder 默认：本地 Ollama nomic-embed-text（:11434）· LLM：OpenAI 兼容 api_base + model + key
-```
-
-目录按 `internal/` 分层：`config`、`handler`、`agent`、`queue`、`rag`、
-`store`、`tool`、`observability`、`trace`。选型钉在
-`docs/adr/0001-0007`；各版本范围见 `docs/ROADMAP.md`。
-
-## 配置与运维
-
-只有 `openai.api_key` 必填，其余走模板默认值：
-
-| 键 | 默认值 | 说明 |
-| --- | --- | --- |
-| `server` | `127.0.0.1:8819` | 服务地址 |
-| `openai.api_base` + `model` + `api_key` | OpenAI 兼容 | 任何兼容端点可用 |
-| `qdrant` | `127.0.0.1:6334`，collection `oncallagent` | HTTP 探测 `:6333`；失败回退内存 |
-| `embedder` | `127.0.0.1:11434`，`nomic-embed-text` | 启动时自动探测向量维度 |
-| `prometheus.url` | `http://localhost:9090` | 告警 + 查询来源 |
-| `knowledge` | `auto_ingest: true`，`incident_weight: 0.5` | 事件沉淀入库 + 检索降权（ADR-0005） |
-| `queue` | `redis_addr: 127.0.0.1:6379` | 诊断队列（Redis 硬依赖，ADR-0006） |
-| `notify` | `webhook_url: ""` | 通知写回；空 = 关闭（ADR-0008） |
-| `reports` | `persist_path: data/reports.json` | `/reports` 环持久化跨重启保留；空串=仅内存（ADR-0010） |
-| `deploy` | `github_repo: ""`，`github_token: ""` | 变更富化源；repo 空 = `deploy_events` 不注册（ADR-0009） |
-
-### 变更富化（v0.7，ADR-0009）
-
-把 `deploy.github_repo` 配成 `owner/name` 后，第四只读工具 `deploy_events`
-进入白名单——ReAct 提示词、`/chat` tools 数组与 MCP 面（`/mcp`、
-`serve --mcp`）跟随同一单一事实源。工具从 GitHub commits（原生
-`since`/`until` 窗过滤）与 deployments（端点无窗参数，客户端过滤）合成
-时间线，两类各 10 条、按时间倒序；参数仅可选 `since`/`until`（RFC3339，
-缺省最近 24 小时）。仓库由配置锁定——工具不设 repo 参数，不会变成任意
-仓库探测器。告警驱动报告新增观察字段 `deploy_events`（env/sha/message/time
-扁平数组），按 `[最早 startsAt−24h, startsAt]` 取窗拉取——变更先于告警才
-构成根因线索——并 additive 透传进 notify 载荷。该字段不进 `citations`：
-拒答语义与 eval 断言不受搅动。失败降级为空数组加一行日志；三计数器
-`deploy_events_calls_total` / `deploy_events_errors_total` /
-`deploy_events_total`。仍是只读——不是 remediation。GitHub 匿名限额
-60 次/时；私有库或高频使用请配 `github_token`。
-
-### 通知写回（v0.6，ADR-0008）
-
-诊断落到 `low_score=true`（judge 评分低于 `judge.low_threshold`）或
-`status=failed` 终态时，完整报告——与 `GET /reports` 条目同形状的 JSON——
-POST 到 `notify.webhook_url`。投递跑独立 asynq 队列：at-least-once、最多
-重试 3 次指数退避（5s/10s/20s）。载荷自包含，环驱逐或重启不影响在途通知。
-接收端应按 `id` 幂等去重（同一报告可能送达多次）。重试耗尽的丢弃会记日志
-并计入 `notification_failed_total`（成功计入 `notification_sent_total`）；
-`/reports` 条目不含通知状态字段。通知纯 outbound——它不是 remediation：
-本服务不确认、不静默、不处置任何告警。
-
-不要提交 `config/config.json`——它已在 gitignore 里。MCP 工具路由
-（`modelcontextprotocol/go-sdk`）与相似度 floor 按
-`docs/adr/0004-mcp-otel.md` 分阶段落地；沙箱保持关闭，告警动作保持
-只读（不确认、不静默）。
-
-## 已知局限
-
-- `/reports` 持久化（ADR-0010）在环每次变更时原子写快照（tmp+rename），**不做 fsync**——断电可能丢最后一条；设 `reports.persist_path` 为 `""` 可回纯内存。
-
-- 检索层拒答 0/2 属预期：拒答验收挂生成层（`EVAL_GEN=1` 实测 2/2 明示
-  “未找到相关匹配”）；余弦 floor 旋钮默认保持关。
-- Rerank 只在评测链路跑，不进线上 `/chat`。
-- **v0.5 起 `POST /alert` 为异步（BREAKING）**：入队即回
-  `202 {id, status:"queued"}`，结果经 `GET /reports` 获取；读 v0.4 同步
-  返回体的客户端需迁移。队列跑在 Redis 上（compose 预置）；队列未装配时
-  `/alert` 返回 `503`。
-- `/reports` 环经 JSON 快照跨重启存活（`reports.persist_path`，ADR-0010，
-  启动时加载；快照无 fsync——见上）。排队中的任务在 Redis 里存活、
-  重启后重投；事件沉淀同题覆盖保证重跑幂等。环容量 20——积压大时
-  `queued` 条目可能在 worker 完成前被驱逐。通知载荷自包含，驱逐或重启
-  不会丢在途通知（ADR-0008）。
-- 默认仅绑回环：`server.host` 缺省 `127.0.0.1`，compose 全部端口发布在
-  `127.0.0.1`。容器经 `host.docker.internal` 访问宿主 App——Docker Desktop
-  下该名字解析到宿主回环；Linux 上 `host-gateway` 解析到网桥网关，回环绑定
-  对容器不可达——需显式把 `server.host` 改 `0.0.0.0` 并自行做网络层防护。
-- MCP 面（`/mcp`、`serve --mcp`）按设计不设鉴权——与其余只读 HTTP API
-  同一口径，请在网络层做好防护。
-
-## 开发
-
-```bash
-gofmt -l .            # 必须干净
-go vet ./...          # 必须过
-go build ./...        # 必须过
-EVAL_NORERANK=1 go run ./cmd/evalbaseline   # 检索基线
-```
-
-提交用 Conventional Commits（`feat:`、`fix:`、`docs:`、`chore:`），一次
-一个原子改动。
-
-## 许可
+不要使用旧无隔离评测命令。新版 `evalbaseline` 必须提供明确隔离配置和本次 ownership；本次未执行真实模型质量评测。已执行检查、源码指纹、七页/窄屏截图、性能测量与限制见验收记录。受控 fake/Hash/Memory 仅在显式测试 profile 使用，不能证明模型质量或生产吞吐。
 
 [Apache-2.0](LICENSE)

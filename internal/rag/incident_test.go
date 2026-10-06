@@ -32,19 +32,20 @@ func TestIncidentNoteDownweight(t *testing.T) {
 	for _, h := range hits {
 		bySource[h.Source] = true
 	}
-	if !bySource["demo"] || !bySource["incident"] {
-		t.Fatalf("source not carried through: %+v", hits)
+	if !bySource["demo"] || bySource["incident"] {
+		t.Fatalf("default trusted retrieval must exclude incident: %+v", hits)
 	}
-
-	// 关闭降权（权重>=1）后，沉淀凭标题加权可反超。
 	r.IncidentWeight = 1
 	hits, err = r.Search("CPUHighUsage", 5)
-	if err != nil || len(hits) == 0 {
-		t.Fatalf("search failed: hits=%v err=%v", hits, err)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if hits[0].Doc != "CPUHighUsage.incident.md" {
-		t.Fatalf("weight=1 should let incident top with title boost, got %+v", hits)
+	for _, h := range hits {
+		if h.Source == "incident" {
+			t.Fatal("weight changes cannot admit untrusted incident")
+		}
 	}
+
 }
 
 func TestIncidentOverwriteSameTitle(t *testing.T) {
@@ -71,9 +72,19 @@ func TestIncidentOverwriteSameTitle(t *testing.T) {
 		}
 	}
 	hits, err := r.Search("堆积 30 万条", 5)
-	if err != nil || len(hits) == 0 {
-		t.Fatalf("incident v2 lost: hits=%v err=%v", hits, err)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if len(hits) != 0 {
+		t.Fatalf("incident versions entered trusted retrieval: %+v", hits)
+	}
+	r.bm.mu.RLock()
+	for _, d := range r.bm.docs {
+		if strings.Contains(d.Snippet, "10 万条") {
+			t.Fatal("stale incident remains in projection")
+		}
+	}
+	r.bm.mu.RUnlock()
 
 	// 诊断 eval 防自证路径：按 source 清沉淀。
 	if err := r.DeleteSource("incident"); err != nil {

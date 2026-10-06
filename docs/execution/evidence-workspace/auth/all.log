@@ -1,0 +1,14 @@
+ok  	oncall-agent/internal/auth	0.516s
+ok  	oncall-agent/internal/mcpserver	0.506s
+2026/10/06 22:22:45 warn: enqueue alert diagnosis 271e25c9b6741359: task ID conflicts with another task
+2026/10/06 22:22:45 warn: enqueue alert diagnosis bd5e2c37d94d4c97: redis down
+--- FAIL: TestAlertAutoIngestIncident (0.00s)
+    alert_test.go:261: incident note not retrievable: [{Doc:cpu_high_usage.md Snippet:【cpu_high_usage.md】# CPU 高负载处置 Score:0.024590163 Source:demo ChunkID:0b409d36cc60fe42213c8426fd4a5108 VersionID: DocID: DenseScore:0x1301d5d46a70 BM25Score:<nil> RRFScore:0.01639344262295082} {Doc:cpu_high_usage.md Snippet:【cpu_high_usage.md】## 处置
+        限流扩容排查热点 Score:0.016129032 Source:demo ChunkID:da76c8e807ea5d328879c403060a356d VersionID: DocID: DenseScore:0x1301d5d46a90 BM25Score:<nil> RRFScore:0.016129032258064516} {Doc:cpu_high_usage.md Snippet:【cpu_high_usage.md】## 现象
+        CPU 使用率持续大于 90% Score:0.015873017 Source:demo ChunkID:c16a4ec5b198c5097b3322d727a1fa65 VersionID: DocID: DenseScore:0x1301d5d46ab0 BM25Score:<nil> RRFScore:0.015873015873015872}]
+2026/10/06 22:22:45 warn: deploy_events dep2 degraded: deploy_events github unreachable: Get "http://127.0.0.1:1/repos/o/r/commits?per_page=10&since=2026-09-25T10%3A00%3A00Z&until=2026-09-26T10%3A00%3A00Z": dial tcp 127.0.0.1:1: connect: connection refused
+2026/10/06 22:22:45 warn: notify r-noctx failed without task context (no retry accounting): notify: post http://127.0.0.1:56313: Post "http://127.0.0.1:56313": dial tcp 127.0.0.1:56313: connect: connection refused
+2026/10/06 22:22:45 warn: reports snapshot corrupt (invalid character 'n' looking for beginning of object key string), starting empty (self-heal on next write)
+FAIL
+FAIL	oncall-agent/internal/handler	1.212s
+FAIL

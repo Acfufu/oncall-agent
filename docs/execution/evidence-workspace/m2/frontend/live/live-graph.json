@@ -1,0 +1,131 @@
+{
+  "revision": 5,
+  "as_of": "2026-10-06T16:21:16.083331Z",
+  "id": "graph_de7a134003d610aa5301174da1618ec7",
+  "incident_id": "inc_f31cb414467af2daabd89fa575b46834",
+  "run_id": "run_749302672cdad74f1901ef9a810b23b4",
+  "nodes": [
+    {
+      "id": "inc_f31cb414467af2daabd89fa575b46834",
+      "type": "incident",
+      "label": "BrowserDiskFull_1791303674864",
+      "subtitle": "active",
+      "entity_ref": "inc_f31cb414467af2daabd89fa575b46834",
+      "source_refs": [
+        "alert_1c8d95100f64f9018c8790a3944f5f88"
+      ],
+      "verification": "not_applicable"
+    },
+    {
+      "id": "alert_1c8d95100f64f9018c8790a3944f5f88",
+      "type": "alert",
+      "label": "原始告警",
+      "subtitle": "storage",
+      "entity_ref": "alert_1c8d95100f64f9018c8790a3944f5f88",
+      "source_refs": [
+        "alert_1c8d95100f64f9018c8790a3944f5f88"
+      ],
+      "verification": "not_applicable"
+    },
+    {
+      "id": "report_run_749302672cdad74f1901ef9a810b23b4",
+      "type": "report",
+      "label": "诊断报告",
+      "subtitle": "has_citations",
+      "entity_ref": "report_run_749302672cdad74f1901ef9a810b23b4",
+      "source_refs": [
+        "report_run_749302672cdad74f1901ef9a810b23b4"
+      ],
+      "verification": "unverified"
+    },
+    {
+      "id": "ret_3c0c86b8f781422a683f80f18a7c3801",
+      "type": "retrieval",
+      "label": "检索记录",
+      "subtitle": "succeeded",
+      "entity_ref": "ret_3c0c86b8f781422a683f80f18a7c3801",
+      "source_refs": [
+        "ret_3c0c86b8f781422a683f80f18a7c3801"
+      ],
+      "verification": "not_applicable"
+    },
+    {
+      "id": "chunk_cecd62f3f41c5ddc105ac36bba8e3ce0",
+      "type": "document_chunk",
+      "label": "文档片段",
+      "subtitle": "ver_67750af98ef6a13a0a5a66592d79d111",
+      "entity_ref": "chunk_cecd62f3f41c5ddc105ac36bba8e3ce0",
+      "source_refs": [
+        "chunk_cecd62f3f41c5ddc105ac36bba8e3ce0"
+      ],
+      "verification": "unverified"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_80666bb4f8b66427a600a83bdd138a21",
+      "source": "inc_f31cb414467af2daabd89fa575b46834",
+      "target": "alert_1c8d95100f64f9018c8790a3944f5f88",
+      "relation": "contains",
+      "basis": "recorded",
+      "source_refs": [
+        "alert_1c8d95100f64f9018c8790a3944f5f88"
+      ],
+      "recorded_at": "2026-10-06T16:21:15.086032Z",
+      "verification": "not_applicable"
+    },
+    {
+      "id": "edge_a23761620257d63398cdc490118f798b",
+      "source": "alert_1c8d95100f64f9018c8790a3944f5f88",
+      "target": "ret_3c0c86b8f781422a683f80f18a7c3801",
+      "relation": "triggered",
+      "basis": "recorded",
+      "source_refs": [
+        "ret_3c0c86b8f781422a683f80f18a7c3801"
+      ],
+      "recorded_at": "2026-10-06T16:21:15.086032Z",
+      "verification": "not_applicable"
+    },
+    {
+      "id": "edge_ce2b086ba9fed885fefb2168c62d177c",
+      "source": "ret_3c0c86b8f781422a683f80f18a7c3801",
+      "target": "report_run_749302672cdad74f1901ef9a810b23b4",
+      "relation": "produced",
+      "basis": "recorded",
+      "source_refs": [
+        "ret_3c0c86b8f781422a683f80f18a7c3801"
+      ],
+      "recorded_at": "2026-10-06T16:21:15.086032Z",
+      "verification": "not_applicable"
+    },
+    {
+      "id": "edge_3b4df7ba2e927359fade652537549e01",
+      "source": "ret_3c0c86b8f781422a683f80f18a7c3801",
+      "target": "chunk_cecd62f3f41c5ddc105ac36bba8e3ce0",
+      "relation": "retrieved",
+      "basis": "recorded",
+      "source_refs": [
+        "chunk_cecd62f3f41c5ddc105ac36bba8e3ce0"
+      ],
+      "recorded_at": "2026-10-06T16:21:15.086032Z",
+      "verification": "not_applicable"
+    },
+    {
+      "id": "edge_81f8d4c5d4480918d10ae2570410545f",
+      "source": "report_run_749302672cdad74f1901ef9a810b23b4",
+      "target": "chunk_cecd62f3f41c5ddc105ac36bba8e3ce0",
+      "relation": "cites",
+      "basis": "recorded",
+      "source_refs": [
+        "chunk_cecd62f3f41c5ddc105ac36bba8e3ce0"
+      ],
+      "recorded_at": "2026-10-06T16:21:15.086032Z",
+      "verification": "not_applicable"
+    }
+  ],
+  "truncated": false,
+  "omitted_counts": {
+    "edges": 0,
+    "nodes": 0
+  }
+}

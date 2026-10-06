@@ -1,0 +1,15 @@
+{
+  "id": "inc_5548fcd16ceef8b4922ebac953baa9d2",
+  "source_namespace": "alertmanager",
+  "environment": "test",
+  "service": "api",
+  "name": "AMCallbackTest",
+  "severity": "P0",
+  "lifecycle_status": "resolved",
+  "starts_at": "2026-10-06T15:40:59Z",
+  "resolved_at": "2026-10-06T15:41:55Z",
+  "first_received_at": "2026-10-06T15:41:59.99718Z",
+  "last_observed_at": "2026-10-06T15:42:00.996095Z",
+  "identity_quality": "exact",
+  "latest_run_id": "run_c1d6d35b79b7d41a6b76ee6cc5e004f1"
+}

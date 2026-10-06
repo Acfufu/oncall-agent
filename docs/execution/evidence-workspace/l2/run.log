@@ -1,0 +1,32 @@
+=== RUN   TestWorkspaceL2
+asynq: pid=59076 2026/10/06 15:41:52.321041 INFO: Starting processing
+asynq: pid=59076 2026/10/06 15:41:52.321190 INFO: Starting processing
+    workspace_l2_test.go:244: 50 real HTTP webhook replays => one SQL run; real asynq worker succeeded with Qdrant citations run_05334fa0399f36b2a05ea1898ea16f88
+    workspace_l2_test.go:292: SQL reopen RestoreProjection activates V2 only; withdrawal removes search while V1 and original evidence stay readable
+    workspace_l2_test.go:329: real Prometheus range query returned series and finite points 1 1
+    workspace_l2_test.go:340: no knowledge => safe no_evidence via real worker
+    workspace_l2_test.go:402: actual Alertmanager input firing starts 2026-10-06 15:40:59 +0000 UTC ends 2026-10-06 15:42:59 +0000 UTC
+    workspace_l2_test.go:156: actual AM callback status firing individual status firing
+    workspace_l2_test.go:438: actual Alertmanager input resolved starts 2026-10-06 15:40:59 +0000 UTC ends 2026-10-06 15:41:55 +0000 UTC
+    workspace_l2_test.go:156: actual AM callback status resolved individual status resolved
+    workspace_l2_test.go:462: resolution mode: submitted past EndsAt using Alertmanager HTTP Date; SQL run count unchanged 3
+    workspace_l2_test.go:474: real isolated Alertmanager Bearer webhook firing -> resolved callback persisted inc_5548fcd16ceef8b4922ebac953baa9d2
+    workspace_l2_test.go:497: Qdrant retrieval failure => failed report and independent real asynq notify worker retries HTTP500 then delivers full report JSON
+    workspace_l2_test.go:519: production ProbeRetrieval stop failure -> restart success; incompatible provider remains rejected
+redis: 2026/10/06 23:42:08 pubsub.go:171: redis: discarding bad PubSub connection: EOF
+redis: 2026/10/06 23:42:08 pubsub.go:171: redis: discarding bad PubSub connection: EOF
+asynq: pid=59076 2026/10/06 15:42:08.931123 ERROR: Dequeue error: UNKNOWN: redis eval error: dial tcp 127.0.0.1:58820: connect: connection refused
+    workspace_l2_test.go:530: stopped Qdrant => document 503; stopped Redis => new webhook 503 and no new SQL run
+asynq: pid=59076 2026/10/06 15:42:08.951145 INFO: Starting graceful shutdown
+asynq: pid=59076 2026/10/06 15:42:09.029993 INFO: Waiting for all workers to finish...
+asynq: pid=59076 2026/10/06 15:42:09.030008 INFO: All workers have finished
+asynq: pid=59076 2026/10/06 15:42:09.133231 ERROR: Failed to clear server state: INTERNAL_ERROR: redis command error: ZREM failed: dial tcp 127.0.0.1:58820: connect: connection refused
+asynq: pid=59076 2026/10/06 15:42:09.133284 INFO: Exiting
+asynq: pid=59076 2026/10/06 15:42:09.133287 INFO: Starting graceful shutdown
+asynq: pid=59076 2026/10/06 15:42:09.400533 INFO: Waiting for all workers to finish...
+asynq: pid=59076 2026/10/06 15:42:09.400563 INFO: All workers have finished
+asynq: pid=59076 2026/10/06 15:42:09.517030 ERROR: Failed to clear server state: INTERNAL_ERROR: redis command error: ZREM failed: dial tcp 127.0.0.1:58820: connect: connection refused
+asynq: pid=59076 2026/10/06 15:42:09.517056 INFO: Exiting
+--- PASS: TestWorkspaceL2 (17.24s)
+PASS
+ok  	oncall-agent/internal/handler	19.299s

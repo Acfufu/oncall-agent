@@ -1,0 +1,4110 @@
+openapi: 3.1.0
+info:
+  title: Oncall Evidence Workspace HTTP API
+  version: M2
+  description: Implementation-bound contract. Workspace DTOs snake_case; Alertmanager
+    timestamps and migrated legacy archive retain original spelling. Bearer console
+    OR oncall_session cookie. Cookie mutations require matching Origin and X-CSRF-Token;
+    webhook bearer limited to POST /alert. Missing token configuration fails closed503.
+    Ordinary reads120/minute/identity. Protected /mcp and /metrics share authentication.
+    No endpoint confirms, silences or remediates alerts. M3 global graph deferred;
+    absent from paths. Auth/legacy errors can be smaller {error,...}; detailed uniform
+    Error applies to workspace handler errors.
+servers:
+- url: /
+security:
+- ConsoleBearer: []
+- ConsoleCookie: []
+paths:
+  /api/v1/system/status:
+    get:
+      operationId: get_api_v1_system_status
+      summary: Probe actual dependency readiness
+      description: Database read errors return 503. Dependency fields contain state
+        and last_success_at, without URLs or credentials. Capability configuration
+        does not establish source health.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SystemStatus'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/workspace/summary:
+    get:
+      operationId: get_api_v1_workspace_summary
+      summary: Recorded scoped counts and history
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Summary'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - &id001
+        name: environment
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+      - &id002
+        name: service
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+      - &id003
+        name: status
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+      - &id004
+        name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: ''
+      - &id005
+        name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: ''
+  /api/v1/incidents:
+    get:
+      operationId: get_api_v1_incidents
+      summary: Incident list
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Incident'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - &id006
+        name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        description: ''
+      - &id007
+        name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Opaque base64 JSON continuation bound to path and all filters
+          except limit. Descending timestamp plus ID; invalid or filter-mismatched
+          cursor returns 400.
+  /api/v1/incidents/{id}:
+    get:
+      operationId: get_api_v1_incidents_id
+      summary: Incident and runs
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      incident:
+                        $ref: '#/components/schemas/Incident'
+                      runs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Run'
+                    required:
+                    - incident
+                    - runs
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+  /api/v1/incidents/{id}/graph:
+    get:
+      operationId: get_api_v1_incidents_id_graph
+      summary: Bounded incident evidence graph
+      description: Run and focus must belong to this incident. No focus/depth returns
+        full bounded graph. Explicit focus/depth selects its neighborhood. meta revision/as_of
+        match the SQL graph snapshot; omitted_counts and truncated expose budget omissions.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Graph'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+      - name: focus_id
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+      - name: depth
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2
+          default: 1
+        description: ''
+      - name: node_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 300
+          default: 60
+        description: ''
+      - name: edge_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 600
+          default: 120
+        description: ''
+  /api/v1/incidents/{id}/runs:
+    post:
+      operationId: post_api_v1_incidents_id_runs
+      summary: Request re-diagnosis
+      description: Optional JSON body (default {}), maximum 32 KiB; canonical body
+        participates in key conflict checks. Accepted durable run; pending dispatch
+        is not completion. 10 manual requests/minute per identity.
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      run_id:
+                        type: string
+                      status:
+                        type: string
+                      dispatch_state:
+                        type: string
+                    required:
+                    - run_id
+                    - status
+                    - dispatch_state
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - &id008
+        name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description: Reuse same key for same payload; changed payload conflicts with
+          409.
+  /api/v1/runs/{id}:
+    get:
+      operationId: get_api_v1_runs_id
+      summary: Run fact
+      description: ETag contains quoted run revision.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Run'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+  /api/v1/runs/{id}/events:
+    get:
+      operationId: get_api_v1_runs_id_events
+      summary: Monotonic run event page
+      description: Ascending sequence strictly greater than after_sequence. meta has_more
+        and next_after_sequence enable polling.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - name: after_sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 1073741824
+          default: 0
+        description: ''
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 100
+        description: ''
+  /api/v1/evidence/{id}:
+    get:
+      operationId: get_api_v1_evidence_id
+      summary: Immutable evidence fact
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Evidence'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+  /api/v1/documents:
+    get:
+      operationId: get_api_v1_documents
+      summary: Active document list
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Document'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: source_kind
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+      - *id006
+      - *id007
+    post:
+      operationId: post_api_v1_documents
+      summary: Create upload document version
+      description: 600 KiB request body; ETag is new version ID. Failed indexing is
+        visible and never activated as current evidence.
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DocumentWrite'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentInput'
+  /api/v1/documents/{id}:
+    put:
+      operationId: put_api_v1_documents_id
+      summary: Replace document with new version
+      description: 600 KiB request body; ETag is new version ID. Historical versions
+        remain readable.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DocumentWrite'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - &id009
+        name: If-Match
+        in: header
+        required: true
+        schema:
+          type: string
+        description: Exact current active version ID, optionally quoted; wildcard
+          forbidden. Missing returns 400, stale returns 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentInput'
+    delete:
+      operationId: delete_api_v1_documents_id
+      summary: Tombstone current document
+      description: Exclude current version from retrieval; retain historical evidence.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Document'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '202':
+          description: SQL tombstone committed; current retrieval excluded; index_status=cleanup_pending
+            and durable cleanup outbox retries until removed. Historical source/chunks/evidence
+            retained.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Document'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - *id009
+  /api/v1/documents/{id}/versions:
+    get:
+      operationId: get_api_v1_documents_id_versions
+      summary: Historical version list
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Version'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - *id006
+      - *id007
+  /api/v1/documents/{id}/versions/{version}:
+    get:
+      operationId: get_api_v1_documents_id_versions_version
+      summary: Exact historical Markdown and chunks
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Version'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+  /api/v1/knowledge/reindex-demo:
+    post:
+      operationId: post_api_v1_knowledge_reindex_demo
+      summary: Explicit demo reindex
+      description: Explicit confirm=true required; no general collection deletion.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      documents:
+                        type: integer
+                      versions:
+                        type: integer
+                    required:
+                    - documents
+                    - versions
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: &id012
+              type: object
+              properties:
+                confirm:
+                  type: boolean
+                  const: true
+              required:
+              - confirm
+  /api/v1/incidents/{id}/topology:
+    get:
+      operationId: get_api_v1_incidents_id_topology
+      summary: Configured read-only service topology
+      description: Filters must equal incident scope. Missing config returns capability=not_configured
+        and empty arrays. Snapshot source, validity and provenance are explicit. Potential
+        impact is inference, not incident evidence; historical_evidence=false.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TopologySnapshot'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - name: environment
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+      - name: service
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ''
+  /api/v1/incidents/{id}/metrics:
+    get:
+      operationId: get_api_v1_incidents_id_metrics
+      summary: Controlled Prometheus range query
+      description: Unknown/repeated query parameters rejected. Ordered window <=24
+        hours; <=2000 timestamps; <=20 series; upstream timeout 10s and body <=2 MiB.
+        Only configured scope templates, no arbitrary PromQL. Missing config returns
+        not_configured empty series. NaN/Inf/missing samples become null, partial
+        data_state; unsupported histograms/matrix shape return 422. Auxiliary live
+        data is not historical evidence.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/metricResult'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: unsupported_result_type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ''
+      - name: metric_id
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - error_rate
+          - request_rate
+          - latency_p99
+        description: ''
+      - name: start
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+        description: ''
+      - name: end
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+        description: ''
+      - name: step
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 15
+          maximum: 86400
+        description: ''
+  /api/v1/auth/session:
+    post:
+      operationId: post_api_v1_auth_session
+      summary: Console session
+      description: Establish browser session using console bearer; Set-Cookie HttpOnly
+        SameSite=Strict; secure except explicit localhost HTTP. Five login attempts/minute/IP.
+        TTL 8 hours.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: &id010
+                    type: object
+                    properties:
+                      authenticated:
+                        type: boolean
+                      csrf_token:
+                        type: string
+                      expires_at:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                      capabilities:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                    - authenticated
+                    - csrf_token
+                    - expires_at
+                    - capabilities
+                  meta: &id011
+                    type: object
+                    properties:
+                      request_id:
+                        type: string
+                      as_of:
+                        type: string
+                      data_state:
+                        type: string
+                      mode:
+                        type: string
+                    required:
+                    - request_id
+                    - as_of
+                    - data_state
+                    - mode
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - ConsoleBearer: []
+    get:
+      operationId: get_api_v1_auth_session
+      summary: Console session
+      description: Current console authentication; bearer has empty CSRF token and
+        null expiry.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: *id010
+                  meta: *id011
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: delete_api_v1_auth_session
+      summary: Console session
+      description: Clear session; cookie writes need same-origin Origin and X-CSRF-Token.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      authenticated:
+                        type: boolean
+                        const: false
+                    required:
+                    - authenticated
+                  meta: *id011
+                required:
+                - data
+                - meta
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /alert:
+    post:
+      operationId: post_alert
+      summary: Admit Alertmanager observations
+      description: <=1 MiB. Webhook or console scope. Firing yields id/status/received/duplicate/dispatch_state;
+        duplicate retains same run ID even while queue unavailable. Pure resolved
+        yields 200 {status:accepted,received,diagnosis_enqueued:false}, no diagnosis.
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Resolved observation accepted; diagnosis_enqueued=false
+          content:
+            application/json:
+              schema:
+                type: object
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Alertmanager webhook alerts array (<=100) with labels.alertname,
+                status firing/resolved, startsAt/endsAt RFC3339; legacy name/severity/description
+                observations also supported.
+      security:
+      - WebhookBearer: []
+      - ConsoleBearer: []
+      - ConsoleCookie: []
+  /reports:
+    get:
+      operationId: get_reports
+      summary: SQLite report compatibility projection; original migrated report archives
+        retained; no data/meta
+      description: SQLite report compatibility projection; original migrated report
+        archives retained; no data/meta.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LegacyReport'
+                  count:
+                    type: integer
+                required:
+                - reports
+                - count
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /upload:
+    post:
+      operationId: post_upload
+      summary: Upload namespace only; derived idempotency key when absent; updates
+        create historical versions
+      description: Upload namespace only; derived idempotency key when absent; updates
+        create historical versions.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title:
+                    type: string
+                  count:
+                    type: integer
+                  document_id:
+                    type: string
+                  active_version_id:
+                    anyOf:
+                    - type: string
+                    - type: 'null'
+                required:
+                - title
+                - count
+                - document_id
+                - active_version_id
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentInput'
+  /list:
+    get:
+      operationId: get_list
+      summary: Current active document titles
+      description: Current active document titles.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  titles:
+                    type: array
+                    items:
+                      type: string
+                  count:
+                    type: integer
+                required:
+                - titles
+                - count
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /delete:
+    delete:
+      operationId: delete_delete
+      summary: Delete uniquely matched upload title; ambiguous titles conflict; demo
+        namespace protected
+      description: Delete uniquely matched upload title; ambiguous titles conflict;
+        demo namespace protected.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title:
+                    type: string
+                  count:
+                    type: integer
+                  index_status:
+                    type: string
+                required:
+                - title
+                - count
+                - index_status
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '202':
+          description: Upload document tombstoned; index_status=cleanup_pending until
+            durable outbox cleanup succeeds.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title:
+                    type: string
+                  count:
+                    type: integer
+                  index_status:
+                    type: string
+                required:
+                - title
+                - count
+                - index_status
+      parameters:
+      - name: title
+        in: query
+        required: true
+        schema:
+          type: string
+        description: ''
+  /reindex:
+    post:
+      operationId: post_reindex
+      summary: Explicit demo indexing
+      description: Explicit demo indexing.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                required:
+                - count
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: *id012
+  /chat:
+    post:
+      operationId: post_chat
+      summary: 'Stateless chat: <=32 KiB body, <=12 KiB message, 30s deadline'
+      description: 'Stateless chat: <=32 KiB body, <=12 KiB message, 30s deadline.
+        Only deterministic qualified current source excerpts; no arbitrary generated
+        remediation. No evidence => safe human-review message; source failure503;
+        deadline504; cancellation408.'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: string
+                  citations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Citation'
+                  evidence_status:
+                    type: string
+                    enum:
+                    - has_citations
+                    - no_evidence
+                  history_mode:
+                    type: string
+                    const: stateless
+                required:
+                - reply
+                - citations
+                - evidence_status
+                - history_mode
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '408':
+          description: Request cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                session_id:
+                  type: string
+              required:
+              - message
+  /session:
+    delete:
+      operationId: delete_session
+      summary: Stateless compatibility clear
+      description: Stateless compatibility clear.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cleared:
+                    type: integer
+                    const: 0
+                  history_mode:
+                    type: string
+                    const: stateless
+                required:
+                - cleared
+                - history_mode
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /plan:
+    get:
+      operationId: get_plan
+      summary: Legacy synchronous diagnostic path, 30s
+      description: Legacy synchronous diagnostic path, 30s. Empty firing alerts return
+        alerts/diagnosis/citations; otherwise durable report projection; timeout keeps
+        accepted run queryable.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /ping:
+    get:
+      operationId: get_ping
+      summary: Public health probe
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    const: ok
+                required:
+                - status
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+  /ready:
+    get:
+      operationId: get_ready
+      summary: Public health probe
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ready:
+                    type: boolean
+                required:
+                - ready
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security: []
+  /metrics:
+    get:
+      operationId: get_metrics
+      summary: Protected Prometheus exposition
+      description: ''
+      responses:
+        '200':
+          description: Success
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /mcp:
+    get:
+      operationId: get_mcp
+      summary: MCP Streamable HTTP transport
+      description: Read-only whitelist tools; protocol response JSON or text/event-stream.
+        Console authentication required; underlying MCP SDK owns JSON-RPC schemas,
+        session headers, negotiation and status codes.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: {}
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: post_mcp
+      summary: MCP Streamable HTTP transport
+      description: Read-only whitelist tools; protocol response JSON or text/event-stream.
+        Console authentication required; underlying MCP SDK owns JSON-RPC schemas,
+        session headers, negotiation and status codes.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: {}
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: delete_mcp
+      summary: MCP Streamable HTTP transport
+      description: Read-only whitelist tools; protocol response JSON or text/event-stream.
+        Console authentication required; underlying MCP SDK owns JSON-RPC schemas,
+        session headers, negotiation and status codes.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: {}
+            text/event-stream:
+              schema:
+                type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '403':
+          description: Scope or CSRF rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '404':
+          description: Missing record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Version/idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Body budget exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 'Rate limit (Retry-After: 60)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '503':
+          description: Dependency unavailable; no synthetic success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: Request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    ConsoleBearer:
+      type: http
+      scheme: bearer
+      description: Console token read from configured environment variable
+    WebhookBearer:
+      type: http
+      scheme: bearer
+      description: Separate webhook token, POST /alert only
+    ConsoleCookie:
+      type: apiKey
+      in: cookie
+      name: oncall_session
+  schemas:
+    Incident:
+      type: object
+      properties:
+        id:
+          type: string
+        source_namespace:
+          type: string
+        environment:
+          type: string
+        service:
+          type: string
+        name:
+          type: string
+        severity:
+          type: string
+        lifecycle_status:
+          type: string
+        starts_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+        resolved_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+        first_received_at:
+          type: string
+        last_observed_at:
+          type: string
+        identity_quality:
+          type: string
+        latest_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - id
+      - source_namespace
+      - environment
+      - service
+      - name
+      - severity
+      - lifecycle_status
+      - starts_at
+      - resolved_at
+      - first_received_at
+      - last_observed_at
+      - identity_quality
+      - latest_run_id
+    APIError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        retryable:
+          type: boolean
+      required:
+      - code
+      - message
+      - retryable
+    Run:
+      type: object
+      properties:
+        id:
+          type: string
+        incident_ids:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        dispatch_state:
+          type: string
+        evidence_status:
+          type: string
+        notification_status:
+          type: string
+        judge_score:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        received_at:
+          type: string
+        started_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+        finished_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+        duration_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        current_attempt:
+          type: integer
+        revision:
+          type: integer
+        report_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+        citation_ids:
+          type: array
+          items:
+            type: string
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/APIError'
+          - type: 'null'
+      required:
+      - id
+      - incident_ids
+      - status
+      - dispatch_state
+      - evidence_status
+      - notification_status
+      - judge_score
+      - received_at
+      - started_at
+      - finished_at
+      - duration_ms
+      - current_attempt
+      - revision
+      - report_text
+      - citation_ids
+      - error
+    Event:
+      type: object
+      properties:
+        event_id:
+          type: string
+        run_id:
+          type: string
+        attempt:
+          type: integer
+        sequence:
+          type: integer
+        stage:
+          type: string
+        stage_attempt:
+          type: integer
+        kind:
+          type: string
+        occurred_at:
+          type: string
+        duration_ms:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        result_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+        error:
+          anyOf:
+          - $ref: '#/components/schemas/APIError'
+          - type: 'null'
+      required:
+      - event_id
+      - run_id
+      - attempt
+      - sequence
+      - stage
+      - stage_attempt
+      - kind
+      - occurred_at
+      - duration_ms
+      - result_ref
+      - error
+    Evidence:
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+        source_kind:
+          type: string
+        source_ref:
+          type: string
+        recorded_at:
+          type: string
+        observed_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+        document_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        version_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        chunk_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        snippet:
+          anyOf:
+          - type: string
+          - type: 'null'
+        metadata:
+          type: object
+          additionalProperties: {}
+      required:
+      - id
+      - kind
+      - source_kind
+      - source_ref
+      - recorded_at
+      - observed_at
+      - document_id
+      - version_id
+      - chunk_id
+      - snippet
+      - metadata
+    Node:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        label:
+          type: string
+        subtitle:
+          type: string
+        entity_ref:
+          type: string
+        source_refs:
+          type: array
+          items:
+            type: string
+        verification:
+          type: string
+      required:
+      - id
+      - type
+      - label
+      - subtitle
+      - entity_ref
+      - source_refs
+      - verification
+    Edge:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        relation:
+          type: string
+        basis:
+          type: string
+        source_refs:
+          type: array
+          items:
+            type: string
+        recorded_at:
+          type: string
+        verification:
+          type: string
+      required:
+      - id
+      - source
+      - target
+      - relation
+      - basis
+      - source_refs
+      - recorded_at
+      - verification
+    Graph:
+      type: object
+      properties:
+        revision:
+          type: integer
+        as_of:
+          type: string
+        id:
+          type: string
+        incident_id:
+          type: string
+        run_id:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Node'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/Edge'
+        truncated:
+          type: boolean
+        omitted_counts:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+      - revision
+      - as_of
+      - id
+      - incident_id
+      - run_id
+      - nodes
+      - edges
+      - truncated
+      - omitted_counts
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        source_kind:
+          type: string
+        environment:
+          type: string
+        active_version_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        deleted_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+        index_status:
+          type: string
+      required:
+      - id
+      - title
+      - source_kind
+      - environment
+      - active_version_id
+      - deleted_at
+      - index_status
+    Chunk:
+      type: object
+      properties:
+        id:
+          type: string
+        version_id:
+          type: string
+        document_id:
+          type: string
+        title:
+          type: string
+        snippet:
+          type: string
+        source:
+          type: string
+        space_id:
+          type: string
+      required:
+      - id
+      - version_id
+      - document_id
+      - title
+      - snippet
+      - source
+      - space_id
+    Version:
+      type: object
+      properties:
+        id:
+          type: string
+        document_id:
+          type: string
+        content:
+          type: string
+        content_sha256:
+          type: string
+        created_at:
+          type: string
+        status:
+          type: string
+        index_status:
+          type: string
+        embedding_space_id:
+          type: string
+        chunks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chunk'
+      required:
+      - id
+      - document_id
+      - content
+      - content_sha256
+      - created_at
+      - status
+      - index_status
+      - embedding_space_id
+      - chunks
+    Observation:
+      type: object
+      properties:
+        name:
+          type: string
+        severity:
+          type: string
+        description:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        annotations:
+          type: object
+          additionalProperties:
+            type: string
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+        status:
+          type: string
+      required:
+      - name
+      - severity
+      - description
+      - labels
+      - annotations
+      - startsAt
+      - endsAt
+      - status
+    TopologyNode:
+      type: object
+      properties:
+        id:
+          type: string
+        environment:
+          type: string
+        namespace:
+          type: string
+        service:
+          type: string
+        source_ref:
+          type: string
+      required:
+      - id
+      - environment
+      - namespace
+      - service
+      - source_ref
+    TopologyEdge:
+      type: object
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+        target:
+          type: string
+        kind:
+          type: string
+        source_ref:
+          type: string
+        valid_from:
+          type: string
+        valid_to:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - id
+      - source
+      - target
+      - kind
+      - source_ref
+      - valid_from
+      - valid_to
+    PotentialImpact:
+      type: object
+      properties:
+        service_id:
+          type: string
+        label:
+          type: string
+        basis:
+          type: string
+        source_refs:
+          type: array
+          items:
+            type: string
+      required:
+      - service_id
+      - label
+      - basis
+      - source_refs
+    TopologySnapshot:
+      type: object
+      properties:
+        capability:
+          type: string
+        version:
+          type: string
+        content_sha256:
+          type: string
+        source_ref:
+          type: string
+        valid_from:
+          type: string
+        valid_to:
+          anyOf:
+          - type: string
+          - type: 'null'
+        as_of:
+          type: string
+        focus_id:
+          type: string
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyEdge'
+        potential_impact:
+          type: array
+          items:
+            $ref: '#/components/schemas/PotentialImpact'
+        historical_evidence:
+          type: boolean
+        validity_state:
+          type: string
+      required:
+      - capability
+      - version
+      - content_sha256
+      - source_ref
+      - valid_from
+      - valid_to
+      - as_of
+      - focus_id
+      - nodes
+      - edges
+      - potential_impact
+      - historical_evidence
+      - validity_state
+    metricSeries:
+      type: object
+      properties:
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        values:
+          type: array
+          items:
+            type: array
+            prefixItems:
+            - type: number
+            - type:
+              - number
+              - 'null'
+            minItems: 2
+            maxItems: 2
+        missing_samples:
+          type: integer
+      required:
+      - labels
+      - values
+      - missing_samples
+    metricResult:
+      type: object
+      properties:
+        capability:
+          type: string
+        metric_id:
+          type: string
+        unit:
+          type: string
+        start:
+          type: string
+        end:
+          type: string
+        step:
+          type: integer
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/metricSeries'
+        source:
+          type: string
+        query:
+          type: string
+        template_version:
+          type: string
+        template_sha256:
+          type: string
+        sample_state:
+          type: string
+        historical_evidence:
+          type: boolean
+      required:
+      - capability
+      - metric_id
+      - unit
+      - start
+      - end
+      - step
+      - series
+      - source
+      - query
+      - template_version
+      - template_sha256
+      - sample_state
+      - historical_evidence
+    Citation:
+      type: object
+      properties:
+        doc:
+          type: string
+        snippet:
+          type: string
+        doc_id:
+          type: string
+        version_id:
+          type: string
+        chunk_id:
+          type: string
+        source:
+          type: string
+      required:
+      - doc
+      - snippet
+    Meta:
+      type: object
+      properties:
+        request_id:
+          type: string
+        as_of:
+          type: string
+          format: date-time
+        data_state:
+          type: string
+        mode:
+          type: string
+          enum:
+          - live
+        revision:
+          type: integer
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+        truncated:
+          type: boolean
+        has_more:
+          type: boolean
+        next_after_sequence:
+          type: integer
+      required:
+      - request_id
+      - as_of
+      - data_state
+      - mode
+      - revision
+      - next_cursor
+      - truncated
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        retryable:
+          type: boolean
+        request_id:
+          type: string
+      required:
+      - error
+      - code
+      - retryable
+      - request_id
+    AuthError:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+      required:
+      - error
+    DocumentInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          description: Trimmed nonempty; maximum 512 UTF-8 bytes
+        content:
+          type: string
+          minLength: 1
+          description: Trimmed nonempty Markdown; maximum 512 KiB UTF-8 bytes
+        source_kind:
+          type: string
+          enum:
+          - upload
+          default: upload
+        environment:
+          type: string
+      required:
+      - title
+      - content
+    DocumentWrite:
+      type: object
+      properties:
+        document:
+          $ref: '#/components/schemas/Document'
+        version:
+          $ref: '#/components/schemas/Version'
+      required:
+      - document
+      - version
+    HistoryBucket:
+      type: object
+      properties:
+        received_incidents:
+          type: integer
+        succeeded_runs:
+          type: integer
+        no_evidence_runs:
+          type: integer
+        cited_succeeded_runs:
+          type: integer
+        latency_samples:
+          type: integer
+        timestamp:
+          type: string
+        mean_diagnosis_ms:
+          type:
+          - number
+          - 'null'
+        citation_coverage:
+          type:
+          - number
+          - 'null'
+      required:
+      - received_incidents
+      - succeeded_runs
+      - no_evidence_runs
+      - cited_succeeded_runs
+      - latency_samples
+      - timestamp
+      - mean_diagnosis_ms
+      - citation_coverage
+    Summary:
+      type: object
+      properties:
+        active_incidents:
+          type: integer
+        no_evidence_incidents:
+          type: integer
+        source_unavailable_incidents:
+          type: integer
+        succeeded_runs:
+          type: integer
+        cited_succeeded_runs:
+          type: integer
+        latency_samples:
+          type: integer
+        mean_diagnosis_ms:
+          type:
+          - number
+          - 'null'
+        citation_coverage:
+          type:
+          - number
+          - 'null'
+        comparison:
+          type: 'null'
+        coverage:
+          type: string
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryBucket'
+        history_basis:
+          type: string
+      required:
+      - active_incidents
+      - no_evidence_incidents
+      - source_unavailable_incidents
+      - succeeded_runs
+      - cited_succeeded_runs
+      - latency_samples
+      - mean_diagnosis_ms
+      - citation_coverage
+      - comparison
+      - coverage
+      - history
+      - history_basis
+      description: Only recorded scoped SQLite facts. UTC received-day buckets; no
+        synthetic zero gaps or historical coverage claim; empty denominators are null.
+    Dependency:
+      type: object
+      properties:
+        data_state:
+          type: string
+        last_success_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+      required:
+      - data_state
+      - last_success_at
+    SystemStatus:
+      type: object
+      properties:
+        capabilities:
+          type: object
+          properties:
+            workspace:
+              type: string
+            knowledge:
+              type: string
+            topology:
+              type: string
+            metrics:
+              type: string
+            global_graph:
+              type: string
+          required:
+          - workspace
+          - knowledge
+          - topology
+          - metrics
+          - global_graph
+        dependencies:
+          type: object
+          properties:
+            sqlite:
+              $ref: '#/components/schemas/Dependency'
+            queue:
+              $ref: '#/components/schemas/Dependency'
+            retrieval:
+              $ref: '#/components/schemas/Dependency'
+            prometheus:
+              $ref: '#/components/schemas/Dependency'
+          required:
+          - sqlite
+          - queue
+          - retrieval
+          - prometheus
+        config_fingerprint:
+          type: string
+        auto_ingest:
+          type: boolean
+          const: false
+        chat_history:
+          type: string
+          const: stateless
+      required:
+      - capabilities
+      - dependencies
+      - config_fingerprint
+      - auto_ingest
+      - chat_history
+    LegacyReport:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        received_at:
+          type: string
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Observation'
+        diagnosis:
+          type: string
+        citations:
+          type: array
+          items:
+            type: object
+        score:
+          type: integer
+        low_score:
+          type: boolean
+        ingested:
+          type: integer
+        evidence_status:
+          type: string
+        notification_status:
+          type: string
+      required:
+      - id
+      - status
+      description: Current report projection uses score=0 for no judge score and status=done
+        for succeeded. Migrated historical archives retain original fields plus legacy_incomplete=true/evidence_status=not_evaluated;
+        old citations are unqualified historical text.
+x-cookie-write-requirements:
+  Origin: must match request scheme and host
+  X-CSRF-Token: must match current authenticated session

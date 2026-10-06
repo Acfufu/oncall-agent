@@ -1,0 +1,12 @@
+{
+  "head": "d7a1fa65a91d46835a412b713abfa4145f36fa3b",
+  "files": {
+    "internal/workspace/topology.go": "e396def7f63cfe83e17e8730c2b9e2c79db11821176ec9e4ba2a317fdb5339ef",
+    "internal/workspace/topology_test.go": "74c5e7807a744d7008e59e4ab77ce3dac276a6d355ec762c75c112d46d9c39f6",
+    "internal/handler/workspace_metrics.go": "cdd626ce996535a407be8e12a2a0fc0d88b5e534b5b725768542f1aeb5a0bb28",
+    "internal/handler/workspace_metrics_test.go": "edce2a75d32d23d00b6f9c78249d50549af30ca925655e826ac600eafef41299",
+    "config/topology.example.json": "f024b1a8fa91fded2dd46d9e436a897616f865b88feea2a29411fb5329492331",
+    "config/metric_templates.json": "34daf09b4b44754df485f0952d767176c2ea6336e17b83d499c6669d0ab04f8f",
+    "internal/handler/browser_server_test.go": "315e7e8748e658c1bb0e7f4e8ef6a4d6b9e359453ad80a4de5905e7710146189"
+  }
+}

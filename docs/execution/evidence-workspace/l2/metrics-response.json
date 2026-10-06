@@ -1,0 +1,53 @@
+{
+  "data": {
+    "capability": "available",
+    "end": "2026-10-06T15:41:59Z",
+    "historical_evidence": false,
+    "metric_id": "request_rate",
+    "query": "sum(rate(http_requests_total{environment=\"test\",service=\"api\"}[5m]))",
+    "sample_state": "partial",
+    "series": [
+      {
+        "labels": {},
+        "missing_samples": 4,
+        "values": [
+          [
+            1791301259,
+            null
+          ],
+          [
+            1791301274,
+            null
+          ],
+          [
+            1791301289,
+            null
+          ],
+          [
+            1791301304,
+            null
+          ],
+          [
+            1791301319,
+            0.04620085299213648
+          ]
+        ]
+      }
+    ],
+    "source": "http://127.0.0.1:58831/api/v1/query_range",
+    "start": "2026-10-06T15:40:59Z",
+    "step": 15,
+    "template_sha256": "34daf09b4b44754df485f0952d767176c2ea6336e17b83d499c6669d0ab04f8f",
+    "template_version": "http-service-v1",
+    "unit": "requests/s"
+  },
+  "meta": {
+    "as_of": "2026-10-06T15:41:59.31612Z",
+    "data_state": "partial",
+    "mode": "live",
+    "next_cursor": null,
+    "request_id": "req_2b557d231d8d9504",
+    "revision": 1,
+    "truncated": false
+  }
+}

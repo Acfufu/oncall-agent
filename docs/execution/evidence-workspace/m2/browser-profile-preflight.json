@@ -1,0 +1,392 @@
+{
+  "profile": "L1 controlled samples",
+  "incident": {
+    "id": "inc_adbea333b0b91e8a53dac0242eb0e15d",
+    "source_namespace": "alertmanager",
+    "environment": "test",
+    "service": "browser-api",
+    "name": "CPUHigh",
+    "severity": "P1",
+    "lifecycle_status": "active",
+    "starts_at": "2026-10-06T14:50:00Z",
+    "resolved_at": null,
+    "first_received_at": "2026-10-06T14:50:14.767409Z",
+    "last_observed_at": "2026-10-06T14:50:14.767409Z",
+    "identity_quality": "exact",
+    "latest_run_id": "run_ec7f9f26eff634e62a8bbf7dada238d1"
+  },
+  "topology": {
+    "data": {
+      "capability": "available",
+      "version": "L1-browser-v1",
+      "content_sha256": "a6f4272e4a84fc672e2fbed7df92013a0f8c304121bdcec165199b2053cc81c4",
+      "source_ref": "topology_src_f8b93b05f74d421016fddcd8938dd8b9",
+      "valid_from": "2026-01-01T00:00:00Z",
+      "valid_to": null,
+      "as_of": "2026-10-06T15:12:09.063649Z",
+      "focus_id": "test/default/browser-api",
+      "nodes": [
+        {
+          "id": "test/default/browser-api",
+          "environment": "test",
+          "namespace": "default",
+          "service": "browser-api",
+          "source_ref": "topology_src_0a8bc2e319c34d02678f4cacb2140d5c"
+        },
+        {
+          "id": "test/default/api",
+          "environment": "test",
+          "namespace": "default",
+          "service": "api",
+          "source_ref": "topology_src_ef5e97c6470598ee08a68081c94fba81"
+        },
+        {
+          "id": "test/default/database",
+          "environment": "test",
+          "namespace": "default",
+          "service": "database",
+          "source_ref": "topology_src_afea5b915e655e319d38198dcccb416b"
+        }
+      ],
+      "edges": [
+        {
+          "id": "dep_945e928415d99f843d3a8a982af41bb4",
+          "source": "test/default/browser-api",
+          "target": "test/default/database",
+          "kind": "declared",
+          "source_ref": "topology_src_0bd3ab583fdbdb045dc7db299eca02c2",
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_to": null
+        },
+        {
+          "id": "dep_abf0f58b00d694733211c2bf6f1a3f49",
+          "source": "test/default/api",
+          "target": "test/default/database",
+          "kind": "declared",
+          "source_ref": "topology_src_5e89d7c644606e086a15f87fd217e09d",
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_to": null
+        }
+      ],
+      "potential_impact": [],
+      "historical_evidence": false,
+      "validity_state": "active"
+    },
+    "meta": {
+      "as_of": "2026-10-06T15:12:09.063649Z",
+      "data_state": "fresh",
+      "mode": "live",
+      "next_cursor": null,
+      "request_id": "req_282a5605b4d294b2",
+      "revision": 1,
+      "truncated": false
+    }
+  },
+  "evidence": {
+    "topology_src_ef5e97c6470598ee08a68081c94fba81": {
+      "data": {
+        "id": "topology_src_ef5e97c6470598ee08a68081c94fba81",
+        "kind": "topology_definition",
+        "source_kind": "manual",
+        "source_ref": "test-profile:api",
+        "recorded_at": "2026-10-06T15:02:36.166566Z",
+        "observed_at": null,
+        "document_id": null,
+        "version_id": null,
+        "chunk_id": null,
+        "snippet": "{\"environment\":\"test\",\"namespace\":\"default\",\"service\":\"api\",\"source_ref\":\"test-profile:api\"}",
+        "metadata": {
+          "content_sha256": "a6f4272e4a84fc672e2fbed7df92013a0f8c304121bdcec165199b2053cc81c4",
+          "historical_evidence": false,
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_to": null,
+          "verification": "declared",
+          "version": "L1-browser-v1"
+        }
+      },
+      "meta": {
+        "as_of": "2026-10-06T15:12:09.063896Z",
+        "data_state": "fresh",
+        "mode": "live",
+        "next_cursor": null,
+        "request_id": "req_d27f57f5ccc101a3",
+        "revision": 1,
+        "truncated": false
+      }
+    },
+    "topology_src_f8b93b05f74d421016fddcd8938dd8b9": {
+      "data": {
+        "id": "topology_src_f8b93b05f74d421016fddcd8938dd8b9",
+        "kind": "topology_definition",
+        "source_kind": "manual",
+        "source_ref": "test-profile:controlled-browser-topology",
+        "recorded_at": "2026-10-06T15:02:36.166303Z",
+        "observed_at": null,
+        "document_id": null,
+        "version_id": null,
+        "chunk_id": null,
+        "snippet": "{\"version\":\"L1-browser-v1\",\"source_ref\":\"test-profile:controlled-browser-topology\",\"valid_from\":\"2026-01-01T00:00:00Z\",\"nodes\":[{\"environment\":\"test\",\"namespace\":\"default\",\"service\":\"browser-api\",\"source_ref\":\"test-profile:browser-api\"},{\"environment\":\"test\",\"namespace\":\"default\",\"service\":\"api\",\"source_ref\":\"test-profile:api\"},{\"environment\":\"test\",\"namespace\":\"default\",\"service\":\"database\",\"source_ref\":\"test-profile:database\"}],\"edges\":[{\"source\":\"test/default/browser-api\",\"target\":\"test/default/database\",\"kind\":\"declared\",\"source_ref\":\"test-profile:browser-api-depends-database\"},{\"source\":\"test/default/api\",\"target\":\"test/default/database\",\"kind\":\"declared\",\"source_ref\":\"test-profile:api-depends-database\"}]}",
+        "metadata": {
+          "content_sha256": "a6f4272e4a84fc672e2fbed7df92013a0f8c304121bdcec165199b2053cc81c4",
+          "historical_evidence": false,
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_to": null,
+          "verification": "declared",
+          "version": "L1-browser-v1"
+        }
+      },
+      "meta": {
+        "as_of": "2026-10-06T15:12:09.064179Z",
+        "data_state": "fresh",
+        "mode": "live",
+        "next_cursor": null,
+        "request_id": "req_7fc1d2f2cfa061a8",
+        "revision": 1,
+        "truncated": false
+      }
+    },
+    "topology_src_0a8bc2e319c34d02678f4cacb2140d5c": {
+      "data": {
+        "id": "topology_src_0a8bc2e319c34d02678f4cacb2140d5c",
+        "kind": "topology_definition",
+        "source_kind": "manual",
+        "source_ref": "test-profile:browser-api",
+        "recorded_at": "2026-10-06T15:02:36.166554Z",
+        "observed_at": null,
+        "document_id": null,
+        "version_id": null,
+        "chunk_id": null,
+        "snippet": "{\"environment\":\"test\",\"namespace\":\"default\",\"service\":\"browser-api\",\"source_ref\":\"test-profile:browser-api\"}",
+        "metadata": {
+          "content_sha256": "a6f4272e4a84fc672e2fbed7df92013a0f8c304121bdcec165199b2053cc81c4",
+          "historical_evidence": false,
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_to": null,
+          "verification": "declared",
+          "version": "L1-browser-v1"
+        }
+      },
+      "meta": {
+        "as_of": "2026-10-06T15:12:09.064393Z",
+        "data_state": "fresh",
+        "mode": "live",
+        "next_cursor": null,
+        "request_id": "req_b14d5fb226d23381",
+        "revision": 1,
+        "truncated": false
+      }
+    },
+    "topology_src_afea5b915e655e319d38198dcccb416b": {
+      "data": {
+        "id": "topology_src_afea5b915e655e319d38198dcccb416b",
+        "kind": "topology_definition",
+        "source_kind": "manual",
+        "source_ref": "test-profile:database",
+        "recorded_at": "2026-10-06T15:02:36.166572Z",
+        "observed_at": null,
+        "document_id": null,
+        "version_id": null,
+        "chunk_id": null,
+        "snippet": "{\"environment\":\"test\",\"namespace\":\"default\",\"service\":\"database\",\"source_ref\":\"test-profile:database\"}",
+        "metadata": {
+          "content_sha256": "a6f4272e4a84fc672e2fbed7df92013a0f8c304121bdcec165199b2053cc81c4",
+          "historical_evidence": false,
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_to": null,
+          "verification": "declared",
+          "version": "L1-browser-v1"
+        }
+      },
+      "meta": {
+        "as_of": "2026-10-06T15:12:09.064611Z",
+        "data_state": "fresh",
+        "mode": "live",
+        "next_cursor": null,
+        "request_id": "req_7f975cecfef1e47e",
+        "revision": 1,
+        "truncated": false
+      }
+    },
+    "topology_src_5e89d7c644606e086a15f87fd217e09d": {
+      "data": {
+        "id": "topology_src_5e89d7c644606e086a15f87fd217e09d",
+        "kind": "topology_definition",
+        "source_kind": "manual",
+        "source_ref": "test-profile:api-depends-database",
+        "recorded_at": "2026-10-06T15:02:36.166583Z",
+        "observed_at": null,
+        "document_id": null,
+        "version_id": null,
+        "chunk_id": null,
+        "snippet": "{\"source\":\"test/default/api\",\"target\":\"test/default/database\",\"kind\":\"declared\",\"source_ref\":\"test-profile:api-depends-database\"}",
+        "metadata": {
+          "content_sha256": "a6f4272e4a84fc672e2fbed7df92013a0f8c304121bdcec165199b2053cc81c4",
+          "historical_evidence": false,
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_to": null,
+          "verification": "declared",
+          "version": "L1-browser-v1"
+        }
+      },
+      "meta": {
+        "as_of": "2026-10-06T15:12:09.064801Z",
+        "data_state": "fresh",
+        "mode": "live",
+        "next_cursor": null,
+        "request_id": "req_53b4fa954c7f8535",
+        "revision": 1,
+        "truncated": false
+      }
+    },
+    "topology_src_0bd3ab583fdbdb045dc7db299eca02c2": {
+      "data": {
+        "id": "topology_src_0bd3ab583fdbdb045dc7db299eca02c2",
+        "kind": "topology_definition",
+        "source_kind": "manual",
+        "source_ref": "test-profile:browser-api-depends-database",
+        "recorded_at": "2026-10-06T15:02:36.166577Z",
+        "observed_at": null,
+        "document_id": null,
+        "version_id": null,
+        "chunk_id": null,
+        "snippet": "{\"source\":\"test/default/browser-api\",\"target\":\"test/default/database\",\"kind\":\"declared\",\"source_ref\":\"test-profile:browser-api-depends-database\"}",
+        "metadata": {
+          "content_sha256": "a6f4272e4a84fc672e2fbed7df92013a0f8c304121bdcec165199b2053cc81c4",
+          "historical_evidence": false,
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_to": null,
+          "verification": "declared",
+          "version": "L1-browser-v1"
+        }
+      },
+      "meta": {
+        "as_of": "2026-10-06T15:12:09.064974Z",
+        "data_state": "fresh",
+        "mode": "live",
+        "next_cursor": null,
+        "request_id": "req_b2e2edef980be392",
+        "revision": 1,
+        "truncated": false
+      }
+    }
+  },
+  "metrics": {
+    "data": {
+      "capability": "available",
+      "metric_id": "request_rate",
+      "unit": "requests/s",
+      "start": "2026-10-06T15:07:09Z",
+      "end": "2026-10-06T15:12:09Z",
+      "step": 15,
+      "series": [
+        {
+          "labels": {
+            "test_profile": "L1 controlled samples"
+          },
+          "values": [
+            [
+              1791299229,
+              30
+            ],
+            [
+              1791299244,
+              30.993347
+            ],
+            [
+              1791299259,
+              31.947092
+            ],
+            [
+              1791299274,
+              32.823212
+            ],
+            [
+              1791299289,
+              33.58678
+            ],
+            [
+              1791299304,
+              null
+            ],
+            [
+              1791299319,
+              34.660195
+            ],
+            [
+              1791299334,
+              34.927249
+            ],
+            [
+              1791299349,
+              34.997868
+            ],
+            [
+              1791299364,
+              34.869238
+            ],
+            [
+              1791299379,
+              34.546487
+            ],
+            [
+              1791299394,
+              34.042482
+            ],
+            [
+              1791299409,
+              33.377316
+            ],
+            [
+              1791299424,
+              32.577507
+            ],
+            [
+              1791299439,
+              31.674941
+            ],
+            [
+              1791299454,
+              30.7056
+            ],
+            [
+              1791299469,
+              29.708129
+            ],
+            [
+              1791299484,
+              28.722294
+            ],
+            [
+              1791299499,
+              27.787398
+            ],
+            [
+              1791299514,
+              26.940711
+            ],
+            [
+              1791299529,
+              26.215988
+            ]
+          ],
+          "missing_samples": 1
+        }
+      ],
+      "source": "http://127.0.0.1:54515/api/v1/query_range",
+      "query": "sum(rate(http_requests_total{environment=\"test\",service=\"browser-api\"}[5m]))",
+      "template_version": "http-service-v1",
+      "template_sha256": "34daf09b4b44754df485f0952d767176c2ea6336e17b83d499c6669d0ab04f8f",
+      "sample_state": "partial",
+      "historical_evidence": false
+    },
+    "meta": {
+      "as_of": "2026-10-06T15:12:09.068168Z",
+      "data_state": "partial",
+      "mode": "live",
+      "next_cursor": null,
+      "request_id": "req_5442c7c22307da73",
+      "revision": 1,
+      "truncated": false
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "owner": "oncall-l2-4675d6354d6e4eee8bc0e87bf3c59798",
+  "containers": {
+    "redis": {
+      "id": "1a55096d78b86be8595685055784682d886bc5996b803b4567d11bfbf46a6e69",
+      "image": "redis:7-alpine",
+      "image_id": "sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499",
+      "port": "50427"
+    },
+    "qdrant": {
+      "id": "e059a53811fc098a6f6b30d0fadf68cbf8882062968b51d3598bd91e207adc38",
+      "image": "qdrant/qdrant:latest",
+      "image_id": "sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10",
+      "port": "50432"
+    },
+    "prom": {
+      "id": "ab6527f40b961a1573d2bd0226f4d03da8284fdb078081e81461d3c5307053d6",
+      "image": "prom/prometheus:latest",
+      "image_id": "sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0",
+      "port": "50438"
+    }
+  },
+  "profile": "real Redis/Qdrant/Prometheus; test HashEmbedder; no LLM",
+  "command": "ONCALL_L2=1 scripts/workspace-l2.sh -> go test ./internal/handler -run ^TestWorkspaceL2$ -count=1 -timeout 4m -v",
+  "exit_code": 0,
+  "cleanup": {
+    "redis": "removed matching owner ID",
+    "qdrant": "removed matching owner ID",
+    "prom": "removed matching owner ID"
+  }
+}

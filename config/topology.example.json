@@ -1,0 +1,12 @@
+{
+  "version": "example-v1",
+  "source_ref": "config/topology.example.json (example only; explicitly configure before use)",
+  "valid_from": "2026-10-06T00:00:00Z",
+  "nodes": [
+    {"environment":"test","namespace":"default","service":"api","source_ref":"config/topology.example.json#api"},
+    {"environment":"test","namespace":"default","service":"database","source_ref":"config/topology.example.json#database"}
+  ],
+  "edges": [
+    {"source":"test/default/api","target":"test/default/database","kind":"declared","source_ref":"config/topology.example.json#api-depends-on-database"}
+  ]
+}

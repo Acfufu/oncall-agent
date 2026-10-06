@@ -31,10 +31,11 @@ func TestAlertChainRagHitsCarriesCallerAlert(t *testing.T) {
 
 	s := store.NewMemoryVector()
 	r := rag.New(s, nil)
-	md := "# CPU 高负载处置\n## 现象\nCPU 使用率持续大于 90%\n## 处置\n限流扩容排查热点"
-	if err := r.AddDoc("cpu_high_usage.md", md, "demo"); err != nil {
+	md := "# CPUHighUsage 高负载处置\n## 现象\nCPU 使用率持续大于 90%\n## 处置\n限流扩容排查热点"
+	if _, err := r.IndexVersion(context.Background(), "cpu", "cpu-v1", "CPUHighUsage.md", md, "demo", "test-space"); err != nil {
 		t.Fatal(err)
 	}
+	r.ActivateVersions([]rag.ActiveVersion{{DocID: "cpu", VersionID: "cpu-v1", SpaceID: "test-space"}})
 	p := New(nil, r)
 	alerts := []tool.Alert{{
 		Name:        "CPUHighUsage",
@@ -113,9 +114,10 @@ func TestChatFallbackObservable(t *testing.T) {
 	s := store.NewMemoryVector()
 	r := rag.New(s, nil)
 	md := "# CPU 高负载处置\n## 现象\nCPU 使用率持续大于 90%\n## 处置\n限流扩容排查热点"
-	if err := r.AddDoc("cpu_high_usage.md", md, "demo"); err != nil {
+	if _, err := r.IndexVersion(context.Background(), "cpu", "cpu-v1", "cpu_high_usage.md", md, "demo", "test-space"); err != nil {
 		t.Fatal(err)
 	}
+	r.ActivateVersions([]rag.ActiveVersion{{DocID: "cpu", VersionID: "cpu-v1", SpaceID: "test-space"}})
 	ra := NewReAct(llm.URL, "", "test-model", tool.NewDeps(r, ""))
 	reply, _, err := ra.Run(context.Background(), "s-fallback", "CPU 使用率高怎么办")
 	if err != nil {
@@ -145,7 +147,7 @@ func TestChatNonJSONErrorSurfacesStatus(t *testing.T) {
 	defer gw.Close()
 	ra := NewReAct(gw.URL, "", "test-model", tool.NewDeps(nil, ""))
 	cites := []Citation{}
-	_, err := ra.loop(context.Background(), []apiMsg{{Role: "user", Content: "q"}}, &cites, map[string]bool{})
+	_, err := ra.loop(context.Background(), []apiMsg{{Role: "user", Content: "q"}}, &cites, map[string]bool{}, "q")
 	if err == nil {
 		t.Fatal("want error from llm call")
 	}

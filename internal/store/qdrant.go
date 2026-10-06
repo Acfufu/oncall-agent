@@ -1,5 +1,5 @@
 // Package store 封装 Qdrant HTTP(6333) 建 collection / 写 point / 查 topK。
-// 无 Qdrant 可用时自动降级为内存 map，保证可跑可测（v0.1 单路稠密召回）。
+// 持久模式失败显式返回；内存模式只能由测试显式构造。
 package store
 
 import (
@@ -8,15 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-
-	"oncall-agent/internal/observability"
 )
 
 // DefaultCollection 与 config_template.json 保持一致。
@@ -32,6 +29,9 @@ type Point struct {
 	Doc       string    `json:"doc"`
 	Source    string    `json:"source"`
 	Embedding []float32 `json:"embedding"`
+	DocID     string    `json:"doc_id,omitempty"`
+	VersionID string    `json:"version_id,omitempty"`
+	SpaceID   string    `json:"space_id,omitempty"`
 }
 
 // ScoredPoint 为检索命中。
@@ -40,7 +40,7 @@ type ScoredPoint struct {
 	Score float32 `json:"score"`
 }
 
-// Store 优先走 Qdrant HTTP，失败时走内存 fallback。
+// VectorStore uses Qdrant in persistent mode, with no automatic memory fallback.
 // 注：包内 memory 文档 Store 见 store.go；本类型为向量 Store，专供 rag 用。
 type VectorStore struct {
 	baseURL    string
@@ -73,41 +73,31 @@ func NewVectorFromHostPort(host string, port int, collection string) *VectorStor
 	return NewVector(fmt.Sprintf("http://%s:%d", host, port), collection)
 }
 
-// NewMemoryVector 纯内存向量 Store（测试 / 无 Qdrant 环境）。
+// NewMemoryVector explicitly constructs a test-only memory projection.
 func NewMemoryVector() *VectorStore {
 	s := NewVector("http://127.0.0.1:6333", DefaultCollection)
 	s.memOnly = true
 	return s
 }
 
-// IsMemOnly 是否处于内存 fallback 模式。
+// IsMemOnly reports an explicitly configured in-memory store.
 func (s *VectorStore) IsMemOnly() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.memOnly
 }
 
-// fallback 降级内存模式并打点：首次转移才记日志与计数（F04——此前降级全程
-// 无声，memOnly 闩锁后检索退化无从察觉）。转移后不自动回切，重启进程恢复。
-func (s *VectorStore) fallback() {
-	s.mu.Lock()
-	first := !s.memOnly
-	s.memOnly = true
-	s.mu.Unlock()
-	if first {
-		log.Printf("warn: qdrant unreachable, degraded to memory store (memonly; restart to recover)")
-		observability.AddStoreFallback(context.Background())
-	}
-}
-
 func (s *VectorStore) doJSON(method, path string, body any, out any) error {
+	return s.doJSONContext(context.Background(), method, path, body, out)
+}
+func (s *VectorStore) doJSONContext(ctx context.Context, method, path string, body any, out any) error {
 	var buf bytes.Buffer
 	if body != nil {
 		if err := json.NewEncoder(&buf).Encode(body); err != nil {
 			return err
 		}
 	}
-	req, err := http.NewRequest(method, s.baseURL+path, &buf)
+	req, err := http.NewRequestWithContext(ctx, method, s.baseURL+path, &buf)
 	if err != nil {
 		return err
 	}
@@ -129,25 +119,9 @@ func (s *VectorStore) doJSON(method, path string, body any, out any) error {
 	return nil
 }
 
-// EnsureCollection 建 collection（已存在则忽略），失败降级内存。
+// EnsureCollection is the compatibility wrapper for non-destructive dimension validation.
 func (s *VectorStore) EnsureCollection(vectorSize int) error {
-	if vectorSize <= 0 {
-		vectorSize = 64
-	}
-	body := map[string]any{
-		"vectors": map[string]any{"size": vectorSize, "distance": "Cosine"},
-	}
-	var out map[string]any
-	err := s.doJSON(http.MethodPut, "/collections/"+s.collection, body, &out)
-	if err != nil {
-		// collection 已存在时 Qdrant 返回 409，视为成功。
-		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "409") {
-			return nil
-		}
-		s.fallback()
-		return nil
-	}
-	return nil
+	return s.EnsureCompatible(context.Background(), vectorSize)
 }
 
 // VectorSize 查 collection 当前向量维度；不存在或内存模式返回 0。
@@ -172,26 +146,24 @@ func (s *VectorStore) VectorSize() (int, error) {
 	return out.Result.Config.Params.Vectors.Size, nil
 }
 
-// RecreateCollection 删后重建（embedder 维度变更时用，已获批清空重建）。
+// RecreateCollection refuses destructive legacy recreation.
 func (s *VectorStore) RecreateCollection(vectorSize int) error {
-	if vectorSize <= 0 {
-		vectorSize = 64
-	}
-	var out map[string]any
-	_ = s.doJSON(http.MethodDelete, "/collections/"+s.collection, nil, &out)
-	s.mu.Lock()
-	s.mem = make(map[string]Point)
-	s.mu.Unlock()
-	return s.EnsureCollection(vectorSize)
+	return fmt.Errorf("automatic collection recreation disabled; migrate into an owned new collection")
 }
 
-// Upsert 写 point，同时镜像一份到内存供 fallback 用。
-func (s *VectorStore) Upsert(p Point) error {
+// Upsert writes to the configured projection and propagates persistent failure.
+func (s *VectorStore) Upsert(p Point) error { return s.UpsertWithContext(context.Background(), p) }
+func (s *VectorStore) UpsertWithContext(ctx context.Context, p Point) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	if s.mem == nil {
 		s.mem = make(map[string]Point)
 	}
-	s.mem[p.ID] = p
+	if s.memOnly {
+		s.mem[p.ID] = p
+	}
 	memOnly := s.memOnly
 	s.mu.Unlock()
 
@@ -204,24 +176,34 @@ func (s *VectorStore) Upsert(p Point) error {
 				"id":     p.ID,
 				"vector": p.Embedding,
 				"payload": map[string]any{
-					"title":   p.Title,
-					"content": p.Content,
-					"doc":     p.Doc,
-					"source":  p.Source,
+					"chunk_id": p.ID,
+					"title":    p.Title,
+					"content":  p.Content,
+					"doc":      p.Doc,
+					"source":   p.Source,
+					"doc_id":   p.DocID, "version_id": p.VersionID, "space_id": p.SpaceID,
 				},
 			},
 		},
 	}
 	var out map[string]any
-	if err := s.doJSON(http.MethodPut, "/collections/"+s.collection+"/points?wait=true", body, &out); err != nil {
-		s.fallback()
-		return nil
+	if err := s.doJSONContext(ctx, http.MethodPut, "/collections/"+s.collection+"/points?wait=true", body, &out); err != nil {
+		return err
 	}
 	return nil
 }
 
-// Search 查 topK。Qdrant 不可用或查失败时走内存余弦；无匹配返回空，不编造。
+// Search returns topK, propagating Qdrant failures.
 func (s *VectorStore) Search(query []float32, topK int) ([]ScoredPoint, error) {
+	return s.SearchWithContext(context.Background(), query, topK)
+}
+func (s *VectorStore) SearchWithContext(ctx context.Context, query []float32, topK int) ([]ScoredPoint, error) {
+	return s.SearchFiltered(ctx, query, topK, nil)
+}
+func (s *VectorStore) SearchFiltered(ctx context.Context, query []float32, topK int, filter map[string]any) ([]ScoredPoint, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if topK <= 0 {
 		topK = 5
 	}
@@ -232,13 +214,16 @@ func (s *VectorStore) Search(query []float32, topK int) ([]ScoredPoint, error) {
 	memOnly := s.memOnly
 	s.mu.RUnlock()
 	if memOnly {
-		return s.searchMem(query, topK), nil
+		return s.searchMemFiltered(query, topK, filter), nil
 	}
 
 	body := map[string]any{
 		"vector":       query,
 		"limit":        topK,
 		"with_payload": true,
+	}
+	if filter != nil {
+		body["filter"] = filter
 	}
 	var resp struct {
 		Result []struct {
@@ -248,9 +233,8 @@ func (s *VectorStore) Search(query []float32, topK int) ([]ScoredPoint, error) {
 			Vector  []float32      `json:"vector"`
 		} `json:"result"`
 	}
-	if err := s.doJSON(http.MethodPost, "/collections/"+s.collection+"/points/search", body, &resp); err != nil {
-		s.fallback()
-		return s.searchMem(query, topK), nil
+	if err := s.doJSONContext(ctx, http.MethodPost, "/collections/"+s.collection+"/points/search", body, &resp); err != nil {
+		return nil, err
 	}
 	if len(resp.Result) == 0 {
 		return nil, nil
@@ -261,13 +245,22 @@ func (s *VectorStore) Search(query []float32, topK int) ([]ScoredPoint, error) {
 		content, _ := r.Payload["content"].(string)
 		doc, _ := r.Payload["doc"].(string)
 		source, _ := r.Payload["source"].(string)
+		id := payloadString(r.Payload, "chunk_id")
+		if id == "" {
+			id = fmt.Sprintf("%v", r.ID)
+			if len(id) == 36 {
+				id = strings.ReplaceAll(id, "-", "")
+			}
+		}
+
 		out = append(out, ScoredPoint{
 			Point: Point{
-				ID:        fmt.Sprintf("%v", r.ID),
-				Title:     title,
-				Content:   content,
-				Doc:       doc,
-				Source:    source,
+				ID:      id,
+				Title:   title,
+				Content: content,
+				Doc:     doc,
+				Source:  source,
+				DocID:   payloadString(r.Payload, "doc_id"), VersionID: payloadString(r.Payload, "version_id"), SpaceID: payloadString(r.Payload, "space_id"),
 				Embedding: r.Vector,
 			},
 			Score: r.Score,
@@ -279,6 +272,12 @@ func (s *VectorStore) Search(query []float32, topK int) ([]ScoredPoint, error) {
 // deleteByFilter 按 payload 精确匹配删点。Qdrant 删失败返回错误（不降级内存：
 // 删除必须如实报告，静默降级会假装删掉而向量仍在）；内存镜像同步清理。
 func (s *VectorStore) deleteByFilter(key, value string) error {
+	return s.deleteByFilterContext(context.Background(), key, value)
+}
+func (s *VectorStore) deleteByFilterContext(ctx context.Context, key, value string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	for id, p := range s.mem {
 		if matchPoint(p, key, value) {
@@ -298,7 +297,7 @@ func (s *VectorStore) deleteByFilter(key, value string) error {
 		},
 	}
 	var out map[string]any
-	return s.doJSON(http.MethodPost, "/collections/"+s.collection+"/points/delete?wait=true", body, &out)
+	return s.doJSONContext(ctx, http.MethodPost, "/collections/"+s.collection+"/points/delete?wait=true", body, &out)
 }
 
 func matchPoint(p Point, key, value string) bool {
@@ -307,6 +306,8 @@ func matchPoint(p Point, key, value string) bool {
 		return p.Doc == value
 	case "source":
 		return p.Source == value
+	case "version_id":
+		return p.VersionID == value
 	}
 	return false
 }
@@ -329,6 +330,9 @@ func (s *VectorStore) DeleteBySource(source string) error {
 }
 
 func (s *VectorStore) searchMem(query []float32, topK int) []ScoredPoint {
+	return s.searchMemFiltered(query, topK, nil)
+}
+func (s *VectorStore) searchMemFiltered(query []float32, topK int, filter map[string]any) []ScoredPoint {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if len(s.mem) == 0 {
@@ -336,6 +340,9 @@ func (s *VectorStore) searchMem(query []float32, topK int) []ScoredPoint {
 	}
 	scored := make([]ScoredPoint, 0, len(s.mem))
 	for _, p := range s.mem {
+		if !matchesFilter(p, filter) {
+			continue
+		}
 		// R01：混维度守卫——embedder 降级/恢复过渡期内存镜像可能 64/768 混存，
 		// cosine 截断到 min(len) 会产出假分数；维度不符的点直接跳过。
 		if len(p.Embedding) != len(query) {
@@ -375,4 +382,165 @@ func cosine(a, b []float32) float32 {
 		return 0
 	}
 	return float32(dot / (math.Sqrt(na) * math.Sqrt(nb)))
+}
+
+func payloadString(p map[string]any, key string) string { v, _ := p[key].(string); return v }
+
+// EnsureCompatible never deletes an existing collection. Missing collections may be created.
+func (s *VectorStore) EnsureCompatible(ctx context.Context, dim int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if dim <= 0 {
+		return fmt.Errorf("embedding dimension required")
+	}
+	if s.IsMemOnly() {
+		return nil
+	}
+	var out struct {
+		Result struct {
+			Config struct {
+				Params struct {
+					Vectors struct {
+						Size int `json:"size"`
+					} `json:"vectors"`
+				} `json:"params"`
+			} `json:"config"`
+		} `json:"result"`
+	}
+	err := s.doJSONContext(ctx, http.MethodGet, "/collections/"+s.collection, nil, &out)
+	if err != nil {
+		if !strings.Contains(err.Error(), ": 404 ") {
+			return err
+		}
+		var res map[string]any
+		return s.doJSONContext(ctx, http.MethodPut, "/collections/"+s.collection, map[string]any{"vectors": map[string]any{"size": dim, "distance": "Cosine"}}, &res)
+	}
+	if out.Result.Config.Params.Vectors.Size != dim {
+		return fmt.Errorf("embedding dimension mismatch: collection=%d configured=%d; migrate into a new collection", out.Result.Config.Params.Vectors.Size, dim)
+	}
+	return nil
+}
+
+// EnsureSpace stores a non-retrievable marker in the collection; an existing collection without a marker requires migration.
+func (s *VectorStore) EnsureSpace(ctx context.Context, spaceID string) error {
+	if spaceID == "" {
+		return fmt.Errorf("embedding space required")
+	}
+	if s.IsMemOnly() {
+		return nil
+	}
+	const marker = "00000000-0000-0000-0000-000000000001"
+	var out struct {
+		Result struct {
+			Payload map[string]any `json:"payload"`
+		} `json:"result"`
+	}
+	err := s.doJSONContext(ctx, http.MethodGet, "/collections/"+s.collection+"/points/"+marker+"?with_payload=true", nil, &out)
+	if err == nil {
+		if payloadString(out.Result.Payload, "space_id") != spaceID {
+			return fmt.Errorf("embedding space mismatch; migrate into a new collection")
+		}
+		return nil
+	}
+	if !strings.Contains(err.Error(), ": 404 ") {
+		return err
+	}
+	var count struct {
+		Result struct {
+			Count int `json:"count"`
+		} `json:"result"`
+	}
+	if err := s.doJSONContext(ctx, http.MethodPost, "/collections/"+s.collection+"/points/count", map[string]any{"exact": true}, &count); err != nil {
+		return err
+	}
+	if count.Result.Count != 0 {
+		return fmt.Errorf("existing collection has no embedding space metadata; explicit migration required")
+	}
+	var size struct {
+		Result struct {
+			Config struct {
+				Params struct {
+					Vectors struct {
+						Size int `json:"size"`
+					} `json:"vectors"`
+				} `json:"params"`
+			} `json:"config"`
+		} `json:"result"`
+	}
+	if err := s.doJSONContext(ctx, http.MethodGet, "/collections/"+s.collection, nil, &size); err != nil {
+		return err
+	}
+	if size.Result.Config.Params.Vectors.Size <= 0 {
+		return fmt.Errorf("invalid collection dimension")
+	}
+	return s.UpsertWithContext(ctx, Point{ID: marker, Source: "space_metadata", SpaceID: spaceID, Embedding: make([]float32, size.Result.Config.Params.Vectors.Size)})
+}
+func matchesFilter(p Point, f map[string]any) bool {
+	if f == nil {
+		return true
+	}
+	check := func(c map[string]any) bool {
+		if _, ok := c["must"]; ok {
+			return matchesFilter(p, c)
+		}
+		k, _ := c["key"].(string)
+		m, _ := c["match"].(map[string]any)
+		v, _ := m["value"].(string)
+		var actual string
+		switch k {
+		case "source":
+			actual = p.Source
+		case "version_id":
+			actual = p.VersionID
+		case "space_id":
+			actual = p.SpaceID
+		case "doc_id":
+			actual = p.DocID
+		}
+		return actual == v
+	}
+	if cs, ok := f["must_not"].([]map[string]any); ok {
+		for _, c := range cs {
+			if check(c) {
+				return false
+			}
+		}
+	}
+	if cs, ok := f["must"].([]map[string]any); ok {
+		for _, c := range cs {
+			if !check(c) {
+				return false
+			}
+		}
+	}
+	if cs, ok := f["should"].([]map[string]any); ok {
+		for _, c := range cs {
+			if check(c) {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
+func (s *VectorStore) DeleteByDocWithContext(ctx context.Context, doc string) error {
+	if strings.TrimSpace(doc) == "" {
+		return fmt.Errorf("doc required")
+	}
+	return s.deleteByFilterContext(ctx, "doc", doc)
+}
+func (s *VectorStore) DeleteBySourceWithContext(ctx context.Context, source string) error {
+	if strings.TrimSpace(source) == "" {
+		return fmt.Errorf("source required")
+	}
+	return s.deleteByFilterContext(ctx, "source", source)
+}
+
+func (s *VectorStore) DeleteByVersionWithContext(ctx context.Context, versionID string) error {
+	if strings.TrimSpace(versionID) == "" {
+		return fmt.Errorf("version required")
+	}
+	return s.deleteByFilterContext(ctx, "version_id", versionID)
 }

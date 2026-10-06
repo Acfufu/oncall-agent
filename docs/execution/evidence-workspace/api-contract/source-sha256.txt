@@ -1,0 +1,2 @@
+0d672bc7ca11a7ee21079c0db42db3b2f838e62dae75009eb4a96c25f726cced  docs/api/workspace.openapi.yaml
+8a9fa2d78bc7b7418fda3d5de257b1b133e74aece9b4072acb6174dcf52b11e2  internal/handler/workspace_contract_test.go

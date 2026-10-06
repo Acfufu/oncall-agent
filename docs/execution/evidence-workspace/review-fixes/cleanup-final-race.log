@@ -1,0 +1,80 @@
+# oncall-agent/internal/handler [oncall-agent/internal/handler.test]
+internal/handler/chat_qualification_test.go:33:20: h.Chat undefined (type *WorkspaceHTTP has no field or method Chat)
+=== RUN   TestCleanupDurableRetryRestartAndHistoricalChunks
+--- PASS: TestCleanupDurableRetryRestartAndHistoricalChunks (0.01s)
+=== RUN   TestCleanupLateDispatchDoesNotDeleteReactivatedVersion
+--- PASS: TestCleanupLateDispatchDoesNotDeleteReactivatedVersion (0.01s)
+=== RUN   TestDocumentRetransmissionRepairsProjectionAndRejectsMetadataBypass
+--- PASS: TestDocumentRetransmissionRepairsProjectionAndRejectsMetadataBypass (0.01s)
+=== RUN   TestCleanupTombstoneAndOutboxRollbackTogether
+--- PASS: TestCleanupTombstoneAndOutboxRollbackTogether (0.01s)
+=== RUN   TestLegacyImportIdempotencyRestartAndSourcePreservation
+--- PASS: TestLegacyImportIdempotencyRestartAndSourcePreservation (0.01s)
+=== RUN   TestLegacyImportTransactionalConflictRollback
+--- PASS: TestLegacyImportTransactionalConflictRollback (0.01s)
+=== RUN   TestInventoryReadOnlyAndAbsentDatabase
+--- PASS: TestInventoryReadOnlyAndAbsentDatabase (0.01s)
+=== RUN   TestLegacyBackupRestoreAndRefusesOverwrite
+--- PASS: TestLegacyBackupRestoreAndRefusesOverwrite (0.01s)
+=== RUN   TestBackupSelectionRollbackRestoresPriorFacts
+--- PASS: TestBackupSelectionRollbackRestoresPriorFacts (0.01s)
+=== RUN   TestInventoryConnectionCannotWriteSource
+--- PASS: TestInventoryConnectionCannotWriteSource (0.01s)
+=== RUN   TestSummaryRecordedHistoryHasNullableMissingMeasurements
+--- PASS: TestSummaryRecordedHistoryHasNullableMissingMeasurements (0.01s)
+=== RUN   TestM2TopologyBoundedCycleAndPotentialImpact
+--- PASS: TestM2TopologyBoundedCycleAndPotentialImpact (0.02s)
+=== RUN   TestM2TopologyRejectsInvalidDeclarations
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/cross_environment
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/unknown_service
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/missing_source
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/ambiguous_namespace
+=== RUN   TestM2TopologyRejectsInvalidDeclarations/invalid_time
+--- PASS: TestM2TopologyRejectsInvalidDeclarations (0.02s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/cross_environment (0.01s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/unknown_service (0.00s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/missing_source (0.00s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/ambiguous_namespace (0.00s)
+    --- PASS: TestM2TopologyRejectsInvalidDeclarations/invalid_time (0.00s)
+=== RUN   TestM2TopologyVersionsStayImmutableAndRespectValidity
+--- PASS: TestM2TopologyVersionsStayImmutableAndRespectValidity (0.01s)
+=== RUN   TestConcurrentAdmissionPersistentIdentity
+--- PASS: TestConcurrentAdmissionPersistentIdentity (0.04s)
+=== RUN   TestVersionActivationHistoryAndTombstone
+--- PASS: TestVersionActivationHistoryAndTombstone (0.02s)
+=== RUN   TestIndexFailureRetainsLastActive
+--- PASS: TestIndexFailureRetainsLastActive (0.00s)
+=== RUN   TestResolvedAndLateFiringNeverReopens
+--- PASS: TestResolvedAndLateFiringNeverReopens (0.01s)
+=== RUN   TestFencedAttemptCannotPublish
+--- PASS: TestFencedAttemptCannotPublish (0.01s)
+=== RUN   TestDurableOutboxRecoversAfterDispatchFailure
+--- PASS: TestDurableOutboxRecoversAfterDispatchFailure (0.01s)
+=== RUN   TestGraphScopedToIncidentAndRun
+--- PASS: TestGraphScopedToIncidentAndRun (0.01s)
+=== RUN   TestBackupRestoreFacts
+--- PASS: TestBackupRestoreFacts (0.01s)
+=== RUN   TestKnowledgeMetadataUpdateAndHistoricalVersionRemainStable
+--- PASS: TestKnowledgeMetadataUpdateAndHistoricalVersionRemainStable (0.01s)
+=== RUN   TestLegacyReportUsesRunTimeObservationAndCitationSnapshots
+--- PASS: TestLegacyReportUsesRunTimeObservationAndCitationSnapshots (0.02s)
+=== RUN   TestM0IntegrationFiftyWebhookReplays
+--- PASS: TestM0IntegrationFiftyWebhookReplays (0.11s)
+=== RUN   TestM0IntegrationTwoAlertsEvidenceAndReadBoundary
+--- PASS: TestM0IntegrationTwoAlertsEvidenceAndReadBoundary (0.03s)
+=== RUN   TestM0IntegrationNoEvidenceAndSourceUnavailable
+=== RUN   TestM0IntegrationNoEvidenceAndSourceUnavailable/false
+=== RUN   TestM0IntegrationNoEvidenceAndSourceUnavailable/true
+--- PASS: TestM0IntegrationNoEvidenceAndSourceUnavailable (0.02s)
+    --- PASS: TestM0IntegrationNoEvidenceAndSourceUnavailable/false (0.01s)
+    --- PASS: TestM0IntegrationNoEvidenceAndSourceUnavailable/true (0.01s)
+=== RUN   TestM0IntegrationNotificationQueueAndHTTPRecovery
+--- PASS: TestM0IntegrationNotificationQueueAndHTTPRecovery (0.01s)
+=== RUN   TestM0IntegrationCancellationPersistsTerminalFailure
+--- PASS: TestM0IntegrationCancellationPersistsTerminalFailure (0.01s)
+=== RUN   TestM0IntegrationRecoveredAttemptCannotReuseOldCitation
+--- PASS: TestM0IntegrationRecoveredAttemptCannotReuseOldCitation (0.02s)
+PASS
+ok  	oncall-agent/internal/workspace	2.122s
+FAIL	oncall-agent/internal/handler [build failed]
+FAIL

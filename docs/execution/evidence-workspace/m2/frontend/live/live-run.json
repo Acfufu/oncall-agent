@@ -1,0 +1,70 @@
+{
+  "profile": "explicit L1 MemoryVector/Hash controlled providers; not production source proof",
+  "incident": {
+    "id": "inc_f31cb414467af2daabd89fa575b46834",
+    "source_namespace": "alertmanager",
+    "environment": "test",
+    "service": "storage",
+    "name": "BrowserDiskFull_1791303674864",
+    "severity": "P0",
+    "lifecycle_status": "active",
+    "starts_at": "2026-10-06T16:21:15.075Z",
+    "resolved_at": null,
+    "first_received_at": "2026-10-06T16:21:15.086032Z",
+    "last_observed_at": "2026-10-06T16:21:15.086032Z",
+    "identity_quality": "exact",
+    "latest_run_id": "run_749302672cdad74f1901ef9a810b23b4"
+  },
+  "run": {
+    "id": "run_749302672cdad74f1901ef9a810b23b4",
+    "incident_ids": [
+      "inc_f31cb414467af2daabd89fa575b46834"
+    ],
+    "status": "succeeded",
+    "dispatch_state": "enqueued",
+    "evidence_status": "has_citations",
+    "notification_status": "disabled",
+    "judge_score": null,
+    "received_at": "2026-10-06T16:21:15.086032Z",
+    "started_at": "2026-10-06T16:21:15.087121Z",
+    "finished_at": "2026-10-06T16:21:15.088923Z",
+    "duration_ms": 1,
+    "current_attempt": 1,
+    "revision": 5,
+    "report_text": "\n[P0] BrowserDiskFull_1791303674864（test / storage）\n来源片段【BrowserDiskFull_1791303674864 / ver_67750af98ef6a13a0a5a66592d79d111】：\n# BrowserDiskFull_1791303674864\n\n确认磁盘使用率与只读监控采样。核对环境 test、服务 storage 的同时间观测，引用本轮运维手册；证据不足交由人工研判。不删除文件、不重启服务。\n以上为来源记录，尚未独立核验，不代表已确认根因。\n",
+    "citation_ids": [
+      "chunk_cecd62f3f41c5ddc105ac36bba8e3ce0"
+    ],
+    "error": null
+  },
+  "document": {
+    "id": "doc_8ec71faba97faa5f5b85c999b4955637",
+    "title": "BrowserDiskFull_1791303674864",
+    "source_kind": "upload",
+    "environment": "test",
+    "active_version_id": "ver_67750af98ef6a13a0a5a66592d79d111",
+    "deleted_at": null,
+    "index_status": "indexed"
+  },
+  "version": {
+    "id": "ver_67750af98ef6a13a0a5a66592d79d111",
+    "document_id": "doc_8ec71faba97faa5f5b85c999b4955637",
+    "content": "# BrowserDiskFull_1791303674864\n\n确认磁盘使用率与只读监控采样。核对环境 test、服务 storage 的同时间观测，引用本轮运维手册；证据不足交由人工研判。不删除文件、不重启服务。",
+    "content_sha256": "2e695d98702ab22ae977fcaef5c12804ca22a97eb27444ee11730e4e5e46c5e6",
+    "created_at": "2026-10-06T16:21:14.913346Z",
+    "status": "active",
+    "index_status": "indexed",
+    "embedding_space_id": "l1-browser/hash/64",
+    "chunks": [
+      {
+        "id": "6cafbeb4cbd8e92caf54d2d1e1ec849c",
+        "version_id": "ver_67750af98ef6a13a0a5a66592d79d111",
+        "document_id": "doc_8ec71faba97faa5f5b85c999b4955637",
+        "title": "BrowserDiskFull_1791303674864",
+        "snippet": "# BrowserDiskFull_1791303674864\n\n确认磁盘使用率与只读监控采样。核对环境 test、服务 storage 的同时间观测，引用本轮运维手册；证据不足交由人工研判。不删除文件、不重启服务。",
+        "source": "upload",
+        "space_id": "l1-browser/hash/64"
+      }
+    ]
+  }
+}

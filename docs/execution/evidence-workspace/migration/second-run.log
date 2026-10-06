@@ -1,0 +1,10 @@
+=== RUN   TestLegacyImportIdempotencyRestartAndSourcePreservation
+--- PASS: TestLegacyImportIdempotencyRestartAndSourcePreservation (0.01s)
+=== RUN   TestLegacyImportTransactionalConflictRollback
+--- PASS: TestLegacyImportTransactionalConflictRollback (0.01s)
+=== RUN   TestInventoryReadOnlyAndAbsentDatabase
+--- PASS: TestInventoryReadOnlyAndAbsentDatabase (0.01s)
+=== RUN   TestLegacyBackupRestoreAndRefusesOverwrite
+--- PASS: TestLegacyBackupRestoreAndRefusesOverwrite (0.01s)
+PASS
+ok  	oncall-agent/internal/workspace	2.005s

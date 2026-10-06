@@ -1,0 +1,20 @@
+=== RUN   TestWorkspaceL2
+asynq: pid=7538 2026/10/06 15:18:43.560944 INFO: Starting processing
+asynq: pid=7538 2026/10/06 15:18:43.560982 INFO: Starting processing
+    workspace_l2_test.go:200: 50 real HTTP webhook replays => one SQL run; real asynq worker succeeded with Qdrant citations run_05334fa0399f36b2a05ea1898ea16f88
+    workspace_l2_test.go:248: SQL reopen RestoreProjection activates V2 only; withdrawal removes search while V1 and original evidence stay readable
+    workspace_l2_test.go:281: real Prometheus range query returned series and finite points 1 1
+    workspace_l2_test.go:292: no knowledge => safe no_evidence via real worker
+    workspace_l2_test.go:307: observable timed out
+asynq: pid=7538 2026/10/06 15:19:17.012585 INFO: Starting graceful shutdown
+asynq: pid=7538 2026/10/06 15:19:17.047765 INFO: Waiting for all workers to finish...
+asynq: pid=7538 2026/10/06 15:19:17.047799 INFO: All workers have finished
+asynq: pid=7538 2026/10/06 15:19:17.050499 INFO: Exiting
+asynq: pid=7538 2026/10/06 15:19:17.050511 INFO: Starting graceful shutdown
+asynq: pid=7538 2026/10/06 15:19:17.131078 INFO: Waiting for all workers to finish...
+asynq: pid=7538 2026/10/06 15:19:17.131103 INFO: All workers have finished
+asynq: pid=7538 2026/10/06 15:19:17.133186 INFO: Exiting
+--- FAIL: TestWorkspaceL2 (33.61s)
+FAIL
+FAIL	oncall-agent/internal/handler	34.961s
+FAIL

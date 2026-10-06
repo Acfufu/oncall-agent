@@ -1,0 +1,29 @@
+{
+  "profile": "controlled synthetic frontend measurement; not production dependency validation",
+  "browser": "145.0.7632.6",
+  "host": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "cpu": "Apple M5",
+    "cpu_count": 10,
+    "memory_bytes": 34359738368
+  },
+  "concurrent_host_load": "See parent verification record; shared host may run Go race and Docker build",
+  "viewport": [
+    1586,
+    992
+  ],
+  "nodes": 60,
+  "edges": 120,
+  "initial_load_and_layout_ms": 1409,
+  "accessible_selection_and_source_ms": 152,
+  "node_selection_to_inspector_interactive_ms": 8.399999976158142,
+  "inspector_measurement": "browser performance.now DOM click to inspector heading and close control, excludes source HTTP/list toggle",
+  "pure_elk_layout_ms": 197.89999997615814,
+  "browser_heap": {
+    "used_js_heap_bytes": 45895563,
+    "total_js_heap_bytes": 64973503,
+    "heap_limit_bytes": 4294967296,
+    "precision": "Chromium performance.memory estimate"
+  }
+}

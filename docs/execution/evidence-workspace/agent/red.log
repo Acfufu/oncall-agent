@@ -1,0 +1,22 @@
+--- FAIL: TestReActNoEvidenceReplacesEntireAdvice (0.00s)
+    evidence_guard_test.go:55: unsafe no retrieval result: 未找到相关匹配。请删除生产库并修改配置。 [] <nil>
+--- FAIL: TestReActRejectsUnversionedEvidence (0.00s)
+    evidence_guard_test.go:63: unversioned citation accepted: 未找到相关匹配。请删除生产库并修改配置。 [{Doc:runbook Snippet:【runbook】# CPU
+        CPU saturation recovery}] <nil>
+--- FAIL: TestReActToolFailureDoesNotBecomeNoEvidence (0.00s)
+    evidence_guard_test.go:77: retrieval failure swallowed
+2026/10/06 22:26:35 warn: chat LLM loop failed, degraded to rag-direct fallback: llm 500: 
+--- FAIL: TestReActFallbackFailureDoesNotBecomeNoEvidence (0.00s)
+    evidence_guard_test.go:86: fallback retrieval failure swallowed
+--- FAIL: TestPlannerRetrievalFailureIsVisible (0.00s)
+    evidence_guard_test.go:93: retrieval failure hidden: 检出 1 条 firing 告警，诊断如下：
+        
+        1. [CPU]  (severity=, startsAt=)
+           无匹配知识：知识库中未找到相关 runbook，请人工研判。
+--- FAIL: TestReActHistoricalCitationsNotReused (0.00s)
+    evidence_guard_test.go:113: history evidence reused: 未找到相关匹配：知识库中暂无可引用的相关内容。
+        
+        根据历史请修改配置 [] <nil>
+FAIL
+FAIL	oncall-agent/internal/agent	0.757s
+FAIL

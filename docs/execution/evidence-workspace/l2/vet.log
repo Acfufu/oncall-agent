@@ -1,0 +1,2 @@
+COMMAND: go vet ./internal/handler ./internal/workspace
+EXIT: 0

@@ -56,38 +56,22 @@ func normalize(v []float32) []float32 {
 	return v
 }
 
-// R05：降级状态机——死 Qdrant 上建库/首写触发 memOnly 闩锁（离线入口语义，
-// F04 可观测），闩锁后读写走内存镜像、删除如实清内存不碰 HTTP、单实例内
-// 不回切（重启进程恢复）。
-func TestFallbackLatchStateMachine(t *testing.T) {
-	dead := NewVector("http://127.0.0.1:1", "col-state") // 死端口，传输错误
+// ADR-0011 replaces implicit fallback with explicit persistent failures.
+func TestPersistentFailureNeverLatchesMemory(t *testing.T) {
+	dead := NewVector("http://127.0.0.1:1", "col-state")
+	if err := dead.EnsureCollection(3); err == nil {
+		t.Fatal("collection creation failure must propagate")
+	}
+	if err := dead.Upsert(Point{ID: "p1", Embedding: []float32{1, 0, 0}}); err == nil {
+		t.Fatal("write failure must propagate")
+	}
+	if _, err := dead.Search([]float32{1, 0, 0}, 5); err == nil {
+		t.Fatal("search failure must propagate")
+	}
 	if dead.IsMemOnly() {
-		t.Fatal("fresh store must not start memonly")
+		t.Fatal("persistent failures must not switch storage mode")
 	}
-	// 建库失败同样闩锁且如实返 nil（离线入口）。
-	if err := dead.EnsureCollection(3); err != nil {
-		t.Fatalf("ensure against dead qdrant degrades with nil: %v", err)
-	}
-	if !dead.IsMemOnly() {
-		t.Fatal("ensure failure must latch memonly")
-	}
-	if err := dead.Upsert(Point{ID: "p1", Doc: "d1", Content: "c1", Embedding: normalize([]float32{1, 0, 0})}); err != nil {
-		t.Fatalf("degraded write goes to memory mirror: %v", err)
-	}
-	// 闩锁后读己之写。
-	hits, err := dead.Search(normalize([]float32{1, 0, 0}), 5)
-	if err != nil || len(hits) != 1 || hits[0].Point.ID != "p1" {
-		t.Fatalf("memonly read-your-writes broken: hits=%d err=%v", len(hits), err)
-	}
-	// 闩锁后删除：内存镜像同步清、如实返回、不再碰 HTTP。
-	if err := dead.DeleteByDoc("d1"); err != nil {
-		t.Fatalf("memonly delete must not error: %v", err)
-	}
-	if hits, _ := dead.Search(normalize([]float32{1, 0, 0}), 5); len(hits) != 0 {
-		t.Fatalf("memonly delete left residue: %d hits", len(hits))
-	}
-	// 单实例内不回切。
-	if !dead.IsMemOnly() {
-		t.Fatal("latch must be one-way within instance")
+	if len(dead.mem) != 0 {
+		t.Fatal("failed persistent write populated memory")
 	}
 }

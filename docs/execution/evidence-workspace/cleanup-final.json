@@ -1,0 +1,22 @@
+{
+  "recorded_at": "2026-10-06T16:24:18.353119+00:00",
+  "go_browser_profile": {
+    "port": 18820,
+    "quit": "authenticated POST /test/quit → stopping true",
+    "after_ping": "000; connection refused/no listener",
+    "result": "TestWorkspaceBrowserServer PASS601.31s; logs/browser-server-review-refresh-l1.log",
+    "temporary_sql": "preserved owned /tmp/oncall-evidence-browser-test-k2n7ij8y/isolated-browser-facts.sqlite"
+  },
+  "containers": "l2/owner-manifest.json and container-smoke.json exact-owner removed",
+  "user_docker_daemon": "left running",
+  "user_config_and_handoff": "unchanged",
+  "frontend": {
+    "vite_session": 39323,
+    "confirmed_owned_pids": [
+      73314,
+      73766
+    ],
+    "stop": "session Ctrl-C exit130, both PIDs absent",
+    "playwright_live": "verification sessions ended; no persistent process"
+  }
+}

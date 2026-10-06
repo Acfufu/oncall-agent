@@ -1,0 +1,16 @@
+=== RUN   TestWorkspaceL2
+asynq: pid=44006 2026/10/06 15:10:03.976877 INFO: Starting processing
+asynq: pid=44006 2026/10/06 15:10:03.976918 INFO: Starting processing
+    workspace_l2_test.go:179: 0 no such table: runs
+asynq: pid=44006 2026/10/06 15:10:05.335341 INFO: Starting graceful shutdown
+asynq: pid=44006 2026/10/06 15:10:06.350350 INFO: Waiting for all workers to finish...
+asynq: pid=44006 2026/10/06 15:10:06.350387 INFO: All workers have finished
+asynq: pid=44006 2026/10/06 15:10:06.352895 INFO: Exiting
+asynq: pid=44006 2026/10/06 15:10:06.352908 INFO: Starting graceful shutdown
+asynq: pid=44006 2026/10/06 15:10:06.414395 INFO: Waiting for all workers to finish...
+asynq: pid=44006 2026/10/06 15:10:06.414432 INFO: All workers have finished
+asynq: pid=44006 2026/10/06 15:10:06.417115 INFO: Exiting
+--- FAIL: TestWorkspaceL2 (2.46s)
+FAIL
+FAIL	oncall-agent/internal/handler	3.504s
+FAIL

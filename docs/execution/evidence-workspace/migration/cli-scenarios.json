@@ -1,0 +1,144 @@
+{
+  "status": "PASS",
+  "level": "L1 isolated temporary fixture + fake HTTP + actual CLI binary",
+  "fixture_dir": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e",
+  "source_sha256_before_after": "3acd411e19159da24cd8fbd2dc301a8344699a9b1977c071961facbf7dd148ca",
+  "config_sha256_before_after": "4c017c24becab543f63a0b5668ffdaf8313f38868604dc372a997eb702b02502",
+  "qdrant_methods": [
+    {
+      "method": "GET",
+      "path": "/collections/owned-cli-fixture"
+    },
+    {
+      "method": "GET",
+      "path": "/collections/owned-cli-fixture"
+    },
+    {
+      "method": "GET",
+      "path": "/collections/owned-cli-fixture"
+    }
+  ],
+  "invocations": [
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "inventory"
+      ],
+      "ONCALL_CONFIG": null,
+      "exit": 1,
+      "stderr": "workspacectl: --config or ONCALL_CONFIG required; no business configuration is loaded by default\n"
+    },
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "dry-run"
+      ],
+      "ONCALL_CONFIG": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/config.json",
+      "exit": 0,
+      "stdout": "{\n  \"legacy\": {\n    \"state\": \"fresh\",\n    \"report_count\": 1,\n    \"sha256\": \"3acd411e19159da24cd8fbd2dc301a8344699a9b1977c071961facbf7dd148ca\"\n  },\n  \"sqlite\": {\n    \"state\": \"not_found\",\n    \"schema_version\": null,\n    \"document_count\": null,\n    \"run_count\": null\n  },\n  \"qdrant\": {\n    \"state\": \"fresh\",\n    \"dimension\": 64,\n    \"point_count\": 0\n  },\n  \"notes\": [\n    \"旧引用仅保留历史原文；缺少原 Markdown 时无法恢复合格文档版本，请提供原文件后经版本接口重新索引。\",\n    \"本命令不写业务记录、不重建索引、不删除 Qdrant 集合。\"\n  ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "import-legacy"
+      ],
+      "ONCALL_CONFIG": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/config.json",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "workspacectl: legacy import requires --apply; use dry-run first\n"
+    },
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "import-legacy",
+        "--apply"
+      ],
+      "ONCALL_CONFIG": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/config.json",
+      "exit": 0,
+      "stdout": "{\n  \"imported\": 1,\n  \"duplicates\": 0,\n  \"source_sha256\": \"3acd411e19159da24cd8fbd2dc301a8344699a9b1977c071961facbf7dd148ca\",\n  \"legacy_incomplete\": true\n}\n",
+      "stderr": ""
+    },
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "import-legacy",
+        "--apply"
+      ],
+      "ONCALL_CONFIG": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/config.json",
+      "exit": 0,
+      "stdout": "{\n  \"imported\": 0,\n  \"duplicates\": 1,\n  \"source_sha256\": \"3acd411e19159da24cd8fbd2dc301a8344699a9b1977c071961facbf7dd148ca\",\n  \"legacy_incomplete\": true\n}\n",
+      "stderr": ""
+    },
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "inventory"
+      ],
+      "ONCALL_CONFIG": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/config.json",
+      "exit": 0,
+      "stdout": "{\n  \"legacy\": {\n    \"state\": \"fresh\",\n    \"report_count\": 1,\n    \"sha256\": \"3acd411e19159da24cd8fbd2dc301a8344699a9b1977c071961facbf7dd148ca\"\n  },\n  \"sqlite\": {\n    \"state\": \"fresh\",\n    \"schema_version\": 1,\n    \"document_count\": 0,\n    \"run_count\": 1\n  },\n  \"qdrant\": {\n    \"state\": \"fresh\",\n    \"dimension\": 64,\n    \"point_count\": 0\n  },\n  \"notes\": [\n    \"旧引用仅保留历史原文；缺少原 Markdown 时无法恢复合格文档版本，请提供原文件后经版本接口重新索引。\",\n    \"本命令不写业务记录、不重建索引、不删除 Qdrant 集合。\"\n  ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "backup",
+        "--output",
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/prior.sqlite"
+      ],
+      "ONCALL_CONFIG": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/config.json",
+      "exit": 0,
+      "stdout": "{\n  \"restore\": \"Stop the service and explicitly choose the backup as the SQLite path; keep the previous database for rollback.\",\n  \"source_unchanged\": true,\n  \"status\": \"backed_up\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "backup",
+        "--output",
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/prior.sqlite"
+      ],
+      "ONCALL_CONFIG": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/config.json",
+      "exit": 1,
+      "stdout": "",
+      "stderr": "workspacectl: backup already exists\n"
+    },
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "import-legacy",
+        "--apply",
+        "--legacy",
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/later.json"
+      ],
+      "ONCALL_CONFIG": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/config.json",
+      "exit": 0,
+      "stdout": "{\n  \"imported\": 1,\n  \"duplicates\": 0,\n  \"source_sha256\": \"68731bf519ecd439a0f7c519885fc1600bc2784b09dc488409039e478f7195cb\",\n  \"legacy_incomplete\": true\n}\n",
+      "stderr": ""
+    },
+    {
+      "invocation": [
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/workspacectl",
+        "inventory",
+        "--sqlite",
+        "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/prior.sqlite"
+      ],
+      "ONCALL_CONFIG": "/Users/acfufu/Codehub/oncall-agent/.omo/evidence/migration/owned-cli-28o274_e/config.json",
+      "exit": 0,
+      "stdout": "{\n  \"legacy\": {\n    \"state\": \"fresh\",\n    \"report_count\": 1,\n    \"sha256\": \"3acd411e19159da24cd8fbd2dc301a8344699a9b1977c071961facbf7dd148ca\"\n  },\n  \"sqlite\": {\n    \"state\": \"fresh\",\n    \"schema_version\": 1,\n    \"document_count\": 0,\n    \"run_count\": 1\n  },\n  \"qdrant\": {\n    \"state\": \"fresh\",\n    \"dimension\": 64,\n    \"point_count\": 0\n  },\n  \"notes\": [\n    \"旧引用仅保留历史原文；缺少原 Markdown 时无法恢复合格文档版本，请提供原文件后经版本接口重新索引。\",\n    \"本命令不写业务记录、不重建索引、不删除 Qdrant 集合。\"\n  ]\n}\n",
+      "stderr": ""
+    }
+  ],
+  "checks": [
+    "no-default-config",
+    "no-write-without-apply",
+    "dry-run-no-db-create",
+    "duplicate-import",
+    "inventory-source-unchanged",
+    "backup-no-overwrite",
+    "backup-selection-rollback",
+    "original-ID-score-null-raw-alerts-preserved",
+    "no-invented-events-outbox-docversions"
+  ]
+}

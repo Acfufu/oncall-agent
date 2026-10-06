@@ -54,12 +54,26 @@ type notifyPayload struct {
 
 // Client 入队端。
 type Client struct {
-	c *asynq.Client
+	c         *asynq.Client
+	namespace string
+	redisOpt  asynq.RedisClientOpt
 }
 
 // NewClient 连接 Redis（地址缺省由 config.Queue.RedisAddr 兜底 localhost:6379）。
 func NewClient(redisAddr string) *Client {
-	return &Client{c: asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})}
+	return NewWorkspaceClient(redisAddr, "", 0)
+}
+
+func NewWorkspaceClient(addr, namespace string, db int) *Client {
+	opt := asynq.RedisClientOpt{Addr: addr, DB: db, DialTimeout: 2 * time.Second, ReadTimeout: 2 * time.Second, WriteTimeout: 2 * time.Second}
+	return &Client{c: asynq.NewClient(opt), namespace: namespace, redisOpt: opt}
+}
+func (c *Client) Ping() error { return c.c.Ping() }
+func (c *Client) queue(name string) string {
+	if c.namespace == "" {
+		return name
+	}
+	return c.namespace + ":" + name
 }
 
 // Close 释放连接。
@@ -77,12 +91,19 @@ func (c *Client) EnqueueAlertDiagnosis(reportID string, alerts []tool.Alert) err
 	}
 	task := asynq.NewTask(TypeAlertDiagnosis, payload)
 	_, err = c.c.Enqueue(task,
-		asynq.Queue(queueName),
-		asynq.TaskID(taskID(payload)),
+		asynq.Queue(c.queue(queueName)),
+		asynq.TaskID(c.diagnosisID(reportID, payload)),
 		asynq.MaxRetry(3),
 		asynq.Timeout(taskTimeout),
 	)
 	return err
+}
+
+func (c *Client) diagnosisID(id string, payload []byte) string {
+	if c.namespace != "" {
+		return c.namespace + ":" + id
+	}
+	return taskID(payload)
 }
 
 // taskID 只哈希 alerts 数组 JSON——report_id 不参与：AM 重投换 report_id 仍
@@ -110,12 +131,19 @@ func (c *Client) EnqueueNotification(reportID string, reportJSON []byte) error {
 	}
 	task := asynq.NewTask(TypeNotification, payload)
 	_, err = c.c.Enqueue(task,
-		asynq.Queue(notifyQueue),
-		asynq.TaskID("notify:"+reportID),
+		asynq.Queue(c.queue(notifyQueue)),
+		asynq.TaskID(c.notificationID(reportID)),
 		asynq.MaxRetry(3),
 		asynq.Timeout(notifyTimeout),
 	)
 	return err
+}
+
+func (c *Client) notificationID(id string) string {
+	if c.namespace != "" {
+		return c.namespace + ":notify:" + id
+	}
+	return "notify:" + id
 }
 
 // Handler worker 侧回调：执行诊断后置管线并回填报告环状态；投递终态通知。
@@ -127,39 +155,46 @@ type Handler interface {
 // Server 消费端。启动/停止用 Start/Stop/Shutdown 组合——asynq 的 Run() 自装
 // 信号处理器，与 main 的 signal.NotifyContext 冲突，禁用。
 type Server struct {
-	srv *asynq.Server
-	h   Handler
+	srv       *asynq.Server
+	notifySrv *asynq.Server
+	h         Handler
 }
 
 // NewServer 建消费端：并发 2、双队列（诊断/通知，通知快投递不与慢诊断互堵）、
 // 失败任务退避重试（重试上限入队时定）。通知任务用 5s<<n 的显式指数退避
 // （ADR-0008，验收窗口内可观测重投）；诊断任务沿用 asynq 默认退避不动
 // （ADR-0006 语义不变）。
-func NewServer(redisAddr string, h Handler) *Server {
-	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: redisAddr},
-		asynq.Config{
-			Concurrency: 2,
-			Queues:      map[string]int{queueName: 10, notifyQueue: 5},
-			RetryDelayFunc: func(n int, err error, t *asynq.Task) time.Duration {
-				if t.Type() == TypeNotification {
-					return 5 * time.Second << n
-				}
-				return asynq.DefaultRetryDelayFunc(n, err, t)
-			},
-		},
-	)
-	return &Server{srv: srv, h: h}
+func NewServer(redisAddr string, h Handler) *Server { return NewWorkspaceServer(redisAddr, "", 0, h) }
+func NewWorkspaceServer(redisAddr, namespace string, db int, h Handler) *Server {
+	name := func(q string) string {
+		if namespace == "" {
+			return q
+		}
+		return namespace + ":" + q
+	}
+	opt := asynq.RedisClientOpt{Addr: redisAddr, DB: db, DialTimeout: 2 * time.Second, ReadTimeout: 2 * time.Second, WriteTimeout: 2 * time.Second}
+	diagnosis := asynq.NewServer(opt, asynq.Config{Concurrency: 2, Queues: map[string]int{name(queueName): 1}})
+	notification := asynq.NewServer(opt, asynq.Config{Concurrency: 1, Queues: map[string]int{name(notifyQueue): 1}, RetryDelayFunc: func(n int, _ error, _ *asynq.Task) time.Duration { return 5 * time.Second << n }})
+	return &Server{srv: diagnosis, notifySrv: notification, h: h}
 }
 
 // Start 阻塞前先在 goroutine 调本方法的调用方自行把握：内部即刻开始拉取。
-func (s *Server) Start() error { return s.srv.Start(s.mux()) }
+func (s *Server) Start() error {
+	if err := s.srv.Start(s.mux()); err != nil {
+		return err
+	}
+	if err := s.notifySrv.Start(s.mux()); err != nil {
+		s.srv.Shutdown()
+		return err
+	}
+	return nil
+}
 
 // Stop 停止拉取新任务，在途任务继续跑完。
-func (s *Server) Stop() { s.srv.Stop() }
+func (s *Server) Stop() { s.srv.Stop(); s.notifySrv.Stop() }
 
 // Shutdown 等待在途任务收尾并落盘状态（进程退出前必须调）。
-func (s *Server) Shutdown() { s.srv.Shutdown() }
+func (s *Server) Shutdown() { s.srv.Shutdown(); s.notifySrv.Shutdown() }
 
 func (s *Server) mux() *asynq.ServeMux {
 	mux := asynq.NewServeMux()

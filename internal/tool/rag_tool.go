@@ -3,12 +3,15 @@ package tool
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/trace"
 )
+
+var ErrSourceUnavailable = errors.New("retrieval source unavailable")
 
 // RAGDeps 为 rag_search 依赖，由调用方注入（不改 rag 结构）。
 type RAGDeps struct {
@@ -42,7 +45,7 @@ func (d *RAGDeps) RagSearchWithContext(ctx context.Context, argsJSON string) (ou
 		topK = 5
 	}
 	if d == nil || d.RAG == nil {
-		return "[]", nil, nil
+		return "", nil, ErrSourceUnavailable
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -62,9 +65,9 @@ func (d *RAGDeps) RagSearchWithContext(ctx context.Context, argsJSON string) (ou
 		}
 		s.End()
 	}()
-	hits, err = d.RAG.Search(args.Query, topK)
+	hits, err = d.RAG.SearchWithContext(ctx, args.Query, topK)
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.Join(ErrSourceUnavailable, err)
 	}
 	if len(hits) == 0 {
 		return "[]", nil, nil

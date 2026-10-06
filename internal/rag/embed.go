@@ -1,5 +1,5 @@
 // Package rag 占位 embedding：接口 Embed(text) -> []float32，
-// Ollama 调用为实装骨架（标准库 http），失败时回退确定性 Hash 向量，保证可跑。
+// Remote failures are propagated; HashEmbedder is an explicit test profile.
 package rag
 
 import (
@@ -7,14 +7,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash/fnv"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-
-	"oncall-agent/internal/observability"
 )
 
 // Dim 为占位向量维度，store.EnsureCollection 用同一值。
@@ -43,35 +42,42 @@ func NewOllamaEmbedder(baseURL, model string) *OllamaEmbedder {
 	return &OllamaEmbedder{BaseURL: strings.TrimRight(baseURL, "/"), Model: model, Client: &http.Client{Timeout: 10 * time.Second}}
 }
 
-// Embed 优先调 Ollama，失败回退 HashEmbed（保证离线可跑）；降级计数可观测
-// （F04——稠密召回静默失效的信号面）。
+// Embed calls the remote provider without synthetic fallback.
 func (o *OllamaEmbedder) Embed(text string) ([]float32, error) {
-	vec, err := o.embedRemote(text)
-	if err == nil && len(vec) > 0 {
-		return vec, nil
-	}
-	observability.AddEmbedFallback(context.Background())
-	return HashEmbed(text), nil
+	return o.EmbedContext(context.Background(), text)
 }
-
+func (o *OllamaEmbedder) EmbedContext(ctx context.Context, text string) ([]float32, error) {
+	return o.embedRemoteContext(ctx, text)
+}
 func (o *OllamaEmbedder) embedRemote(text string) ([]float32, error) {
+	return o.embedRemoteContext(context.Background(), text)
+}
+func (o *OllamaEmbedder) embedRemoteContext(ctx context.Context, text string) ([]float32, error) {
 	body, _ := json.Marshal(map[string]any{"model": o.Model, "prompt": text})
 	client := o.Client
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
-	resp, err := client.Post(o.BaseURL+"/api/embeddings", "application/json", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.BaseURL+"/api/embeddings", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("embedding HTTP %d", resp.StatusCode)
+	}
 	var out struct {
 		Embedding []float32 `json:"embedding"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
 	}
-	return out.Embedding, nil
+	return validateEmbedding(out.Embedding)
 }
 
 // OpenAIEmbedder 调 OpenAI 兼容 /v1/embeddings（LM Studio 等），body 为 {model, input}。
@@ -89,26 +95,35 @@ func NewOpenAIEmbedder(baseURL, model string) *OpenAIEmbedder {
 	return &OpenAIEmbedder{BaseURL: strings.TrimRight(baseURL, "/"), Model: model, Client: &http.Client{Timeout: 15 * time.Second}}
 }
 
-// Embed 优先调远端，失败回退 HashEmbed（保证离线可跑）。
+// Embed calls the remote provider without synthetic fallback.
 func (o *OpenAIEmbedder) Embed(text string) ([]float32, error) {
-	vec, err := o.embedRemote(text)
-	if err == nil && len(vec) > 0 {
-		return vec, nil
-	}
-	return HashEmbed(text), nil
+	return o.EmbedContext(context.Background(), text)
 }
-
+func (o *OpenAIEmbedder) EmbedContext(ctx context.Context, text string) ([]float32, error) {
+	return o.embedRemoteContext(ctx, text)
+}
 func (o *OpenAIEmbedder) embedRemote(text string) ([]float32, error) {
+	return o.embedRemoteContext(context.Background(), text)
+}
+func (o *OpenAIEmbedder) embedRemoteContext(ctx context.Context, text string) ([]float32, error) {
 	body, _ := json.Marshal(map[string]any{"model": o.Model, "input": text})
 	client := o.Client
 	if client == nil {
 		client = &http.Client{Timeout: 15 * time.Second}
 	}
-	resp, err := client.Post(o.BaseURL+"/embeddings", "application/json", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.BaseURL+"/embeddings", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("embedding HTTP %d", resp.StatusCode)
+	}
 	var out struct {
 		Data []struct {
 			Embedding []float32 `json:"embedding"`
@@ -120,7 +135,7 @@ func (o *OpenAIEmbedder) embedRemote(text string) ([]float32, error) {
 	if len(out.Data) == 0 {
 		return nil, errors.New("empty embedding data")
 	}
-	return out.Data[0].Embedding, nil
+	return validateEmbedding(out.Data[0].Embedding)
 }
 
 // SelectEmbedder 按端口选协议：1234 走 OpenAI 兼容（LM Studio），其余走 Ollama。
@@ -167,4 +182,33 @@ func HashEmbed(text string) []float32 {
 		vec[i] = float32(float64(vec[i]) / n)
 	}
 	return vec
+}
+
+func validateEmbedding(v []float32) ([]float32, error) {
+	if len(v) == 0 {
+		return nil, errors.New("empty embedding")
+	}
+	for _, x := range v {
+		if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) {
+			return nil, errors.New("invalid embedding")
+		}
+	}
+	return v, nil
+}
+
+type ContextEmbedder interface {
+	EmbedContext(context.Context, string) ([]float32, error)
+}
+
+func EmbedContext(ctx context.Context, e Embedder, text string) ([]float32, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if ce, ok := e.(ContextEmbedder); ok {
+		return ce.EmbedContext(ctx, text)
+	}
+	if e == nil {
+		return nil, errors.New("embedding not configured")
+	}
+	return e.Embed(text)
 }

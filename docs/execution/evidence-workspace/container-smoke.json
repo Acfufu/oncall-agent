@@ -1,0 +1,81 @@
+{
+  "owner": "oncall-smoke-562e783913be4879a01c11b3b49ed731",
+  "image": "test_oncall_workspace:20261006",
+  "checks": [
+    {
+      "path": "/",
+      "method": "GET",
+      "status": 200,
+      "body": "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Oncall Evidence Workspace</title>  <script type=\"module\" crossorigin src=\"/assets/index-BcyUGNOw.js\"></script>\n  <link rel=\"stylesheet\" crossorigin href=\"/assets/index-Dj9W1ycT.css\">\n</head><body><div id=\"root\"></div></body></html>\n"
+    },
+    {
+      "path": "/workspace/metrics",
+      "method": "GET",
+      "status": 200,
+      "body": "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Oncall Evidence Workspace</title>  <script type=\"module\" crossorigin src=\"/assets/index-BcyUGNOw.js\"></script>\n  <link rel=\"stylesheet\" crossorigin href=\"/assets/index-Dj9W1ycT.css\">\n</head><body><div id=\"root\"></div></body></html>\n"
+    },
+    {
+      "path": "/metrics",
+      "method": "GET",
+      "status": 401,
+      "body": "{\"code\":\"unauthorized\",\"error\":\"authentication required\",\"request_id\":\"72d0617f5bd796a26d6945dd6371178d74b849aa450006376eef61ed40f4b489\",\"retryable\":false}"
+    },
+    {
+      "path": "/legacy",
+      "method": "GET",
+      "status": 200,
+      "body": "HTML served"
+    },
+    {
+      "path": "/ready",
+      "method": "GET",
+      "status": 503,
+      "body": "{\"ready\":false}"
+    },
+    {
+      "path": "/api/v1/documents",
+      "method": "GET",
+      "status": 401,
+      "body": "{\"code\":\"unauthorized\",\"error\":\"authentication required\",\"request_id\":\"41d0bd0fe50dff028ef9fc3aeb6e2e7e1045a9869468c6bce65a8a25559256d9\",\"retryable\":false}"
+    },
+    {
+      "path": "/mcp",
+      "method": "GET",
+      "status": 401,
+      "body": "{\"code\":\"unauthorized\",\"error\":\"authentication required\",\"request_id\":\"b8309de2db26c532c7550ba531e12e30dfb2520563ad8ea0c4918ff7d15abb87\",\"retryable\":false}"
+    },
+    {
+      "path": "/api/v1/documents",
+      "method": "GET",
+      "status": 200,
+      "body": "{\"data\":[],\"meta\":{\"as_of\":\"2026-10-06T16:22:07.23027038Z\",\"data_state\":\"fresh\",\"has_more\":false,\"mode\":\"live\",\"next_cursor\":null,\"request_id\":\"req_4a2d604f5eeccbf0\",\"revision\":1,\"truncated\":false}}"
+    },
+    {
+      "path": "/api/v1/system/status",
+      "method": "GET",
+      "status": 200,
+      "body": "{\"data\":{\"auto_ingest\":false,\"capabilities\":{\"global_graph\":\"deferred\",\"knowledge\":\"available\",\"metrics\":\"available\",\"topology\":\"not_configured\",\"workspace\":\"available\"},\"chat_history\":\"stateless\",\"config_fingerprint\":\"e205c63aaf9ca281778d91ea18339fa7538f8f3a69d9e0bcf8bf0f82cd99ba15\",\"dependencies\":{\"prometheus\":{\"data_state\":\"unavailable\",\"last_success_at\":null},\"queue\":{\"data_state\":\"unavailable\",\"last_success_at\":null},\"retrieval\":{\"data_state\":\"unavailable\",\"last_checked_at\":\"2026-10-06T16:22:07.06761363Z\",\"last_success_at\":null},\"sqlite\":{\"data_state\":\"fresh\",\"last_success_at\":\"2026-10-06T16:22:07.296101714Z\"}}},\"meta\":{\"as_of\":\"2026-10-06T16:22:07.296114589Z\",\"data_state\":\"fresh\",\"mode\":\"live\",\"next_cursor\":null,\"request_id\":\"req_f46994ab653b2563\",\"revision\":1,\"truncated\":false}}"
+    },
+    {
+      "path": "/upload",
+      "method": "POST",
+      "status": 503,
+      "body": "{\"code\":\"source_unavailable\",\"error\":\"依赖服务未就绪\",\"request_id\":\"req_d30b25c8c752a234\",\"retryable\":true}"
+    }
+  ],
+  "container_id": "55e4437a669f8c4b15c91373d8ed4961a25be992055a344c24c8c431d3835b10",
+  "image_id": "sha256:855a29cbd12fc43db1391f9c28b694195875e6c8ddee661ad1a4f466f8468128",
+  "host_binding": "http://127.0.0.1:56380",
+  "metrics_route": "PASS: /workspace/metrics SPA shell, /metrics authenticated Prometheus text",
+  "login": "PASS: actual Docker loopback session, HttpOnly/SameSite=Strict; cookie value not recorded",
+  "sqlite_mode_uid": "600 10001",
+  "import": {
+    "imported": 1,
+    "duplicates": 0,
+    "source_sha256": "fbea3c7e97be68342db25016f59477f189a7a15fe886ec134c13f26393c0b08e",
+    "legacy_incomplete": true
+  },
+  "restart": "PASS: same SQLite writable layer retains imported ID; failed upload never created document",
+  "result": "PASS",
+  "cleanup": "removed exact matching owner container; no volume used"
+}

@@ -1,251 +1,75 @@
 # oncall-agent
 
-**The on-call agent that answers from runbooks, with citations — or says it found nothing.**
+Evidence Workspace combines Go / Gin, SQLite business facts, Redis / asynq, Qdrant retrieval, Prometheus / OTel and a React / TypeScript UI hosted by the same Go process. M0–M2 are implemented; M3 global exploration remains planned. Tools and alerts stay read-only: no acknowledgement, silence or automatic remediation.
 
-Alert in, cited diagnosis out: a Go service pairing Prometheus alerts with a
-Hybrid-retrieved runbook library, over OpenAI-compatible LLM, Qdrant, and Prometheus.
+[简体中文](README.zh-CN.md) · [Startup, migration, backup and rollback](docs/execution/evidence-workspace/operations.md) · [Verification and limits](docs/execution/evidence-workspace/verification.md) · [API contract](docs/api/workspace.openapi.yaml)
 
-Docs · [Quickstart](#quickstart-10-minutes) · [Routes](#routes) · [Why cited answers](#why-cited-answers)
+## Start
 
-English · [简体中文](./README.zh-CN.md)
+Requires Go 1.25+, a C compiler for SQLite CGO, Node 24 for building, Redis, Qdrant and an embedding service. The template uses Ollama `nomic-embed-text`. Embedding/Qdrant failures are explicit; production never substitutes Hash or memory storage. The workspace and deterministic cited diagnosis do not require an LLM key; chat and judge use the configured OpenAI-compatible model.
 
-> **Note**
-> Every diagnosis carries its sources. No matching runbook means an explicit
-> no-match statement — never an invented procedure.
-
-```bash
-cp config/config_template.json config/config.json  # add your LLM key
+```sh
+# Preserve existing configuration. Inventory and back up before upgrading.
+cp -n config/config_template.json config/config.json
+cp -n .env.example .env
+(cd web/app && npm ci && npm run build)
 docker compose up -d
+# Set two different strong random credentials in your shell; never in frontend/Git.
+# export ONCALL_CONSOLE_TOKEN=...; export ONCALL_WEBHOOK_TOKEN=...
+export ONCALL_LOCALHOST_HTTP=true # loopback HTTP development only; omit for TLS
+export ONCALL_CONFIG="$PWD/config/config.json"
 go run ./cmd/server
 ```
 
-```text
-oncall-agent v0.8.1 listening on 127.0.0.1:8819 (memonly=false with Qdrant up)
+Open [the local workspace](http://127.0.0.1:8819) and enter the console token to create an HttpOnly / SameSite=Strict session. Missing credentials fail closed. `/ping` checks liveness; `/ready` checks facts, queue and retrieval. Production runs Go only, without Node or Vite.
+
+The optional container slice is `docker compose -f docker-compose.yml -f docker-compose.workspace.yml up --build -d`, with both tokens set first. It uses an independent SQLite volume and new collection, publishes the app on host loopback only and authenticates Alertmanager firing/resolved callbacks with the webhook token. Do not run `down -v` or remove old collections.
+
+## Workspace and facts
+
+Seven pages preserve the reference navy theme, shared navigation and individual layouts. Incidents provide a selectable list, evidence graph / accessible list, source inspector and persisted stage timeline. Knowledge supports versions, updates and withdrawal; historical citations retain immutable version/chunk snapshots. M2 adds sourced declared topology and three restricted metric templates, with null gaps and explicitly inferred potential impact.
+
+The metric page is `/workspace/metrics`; `/metrics` remains the monitoring endpoint. Explicit `?mode=demo` carries a persistent demo label and disables management. Live failures never switch to fixtures. Unconfigured evaluation stays empty; global graph exploration is marked deferred.
+
+SQLite persists incidents, runs, events, document versions, citations, outbox and source records. Admission is transactionally idempotent. Resolved observations update lifecycle without creating another diagnosis; a successful diagnosis does not establish recovery. Reports and incident notes cannot become qualified runbooks. Auto-ingestion defaults off. Missing relevant evidence produces a safe result without arbitrary model action suggestions.
+
+## Authentication and interfaces
+
+Business APIs, `/mcp` and `/metrics` require authentication. Console APIs accept console Bearer or a short same-origin session; cookie writes require Origin and CSRF. `/alert` uses a separate webhook Bearer. Plain HTTP credentials are accepted only in explicit loopback development mode.
+
+|Endpoint|Purpose|
+|--|--|
+|`/api/v1/incidents`, `/runs/{id}`, `/incidents/{id}/graph`|Paginated incidents, runs, evidence graph and events|
+|`/api/v1/documents`, `/documents/{id}/versions`|Versioned knowledge with CAS updates|
+|`/api/v1/evidence/{id}`|Readable original sources and immutable citations|
+|`/api/v1/incidents/{id}/topology`, `/metrics`|Environment-scoped topology and restricted server metric templates|
+|`/api/v1/workspace/summary`, `/system/status`|SQL summaries, dependency states and last success times|
+|`POST /alert`|202 admission followed by durable outbox dispatch|
+|`/reports`, `/plan`, `/upload`, `/chat`, `/list`, `/delete`, `/session`, `/reindex`|Authenticated legacy adapters over the same domain facts|
+|`GET/POST /mcp`|Shared StreamableHTTP transport sessions and read-only tools|
+|`GET /metrics`|Prometheus scrape endpoint; console Bearer required, not traced|
+
+For local-owner trusted STDIO use `go run ./cmd/server serve --mcp`. The same read-only allowlist applies. `deploy_events` is enabled only with a configured GitHub repository and reads commits/deployments. Notifications have a separate consumer and durable payload, with at-least-once delivery; recipients deduplicate by report ID. Notification failure does not block diagnosis or imply remediation.
+
+## Configuration and recovery
+
+Use `config/config_template.json`. Never commit `config.json`, `.env` or tokens. Configure the SQLite path, independent Qdrant collection / Redis namespace, embedding identity, UI rollback flags, optional controlled topology / metric templates and notification webhook. A different embedding space requires a new collection; the application never automatically deletes the old one.
+
+`workspacectl inventory` and `dry-run` are read-only. `backup --output` uses consistent SQLite `VACUUM INTO` and refuses overwrite. Explicit `import-legacy --apply` is checksum-idempotent, preserves incomplete source markers and does not requeue historical work. Do not copy only the main file of an active WAL database. Restore after stopping the instance, retain the original database and select a new backup path. `/legacy`, `/v01` and `ui.legacy_default=true` provide UI rollback. See the operations guide for commands.
+
+## Development and verification
+
+```sh
+gofmt -l cmd internal
+go vet ./...
+go test ./... -count=1 -timeout=3m
+go test -race ./... -count=1 -timeout=3m
+go build ./...
+(cd web/app && npm run typecheck && npm run test && npm run test:browser)
+# Optional: creates and cleans only explicitly owned isolated service containers.
+ONCALL_L2=1 scripts/workspace-l2.sh
 ```
 
-## Quickstart (10 minutes)
-
-Prerequisites: Go 1.25+, Docker, git, and one LLM key. Everything else is
-pre-provisioned by compose: Qdrant, Prometheus, the OTel collector, and Jaeger.
-
-```bash
-cp config/config_template.json config/config.json  # fill in api_key, the only required secret
-cp .env.example .env
-docker compose up -d        # Qdrant :6333 + Prometheus :9090 + OTLP :4317 + Jaeger :16686
-go mod tidy && go run ./cmd/server
-```
-
-### Verify it worked
-
-```bash
-curl -s http://localhost:8819/ping
-```
-
-```json
-{"status":"ok"}
-```
-
-Then open `http://localhost:8819` for the console, or ask the API directly:
-
-```bash
-curl -s -X POST http://localhost:8819/chat \
-  -H 'content-type: application/json' \
-  -d '{"message":"CPU usage is over 90%, how do I triage?"}'
-```
-
-The reply contains the answer plus `citations` (`{doc, snippet}`).
-An empty citation list means the library had no match.
-
-### Your next moves
-
-1. **Load the demo library.** `POST /reindex` ingests the seven
-   `aiops-docs-demo/` runbooks (CPU, service-down, OOM, disk, P99, MQ, TLS).
-2. **Run the baseline.** `EVAL_NORERANK=1 go run ./cmd/evalbaseline`
-   replays 32 seeded questions: recall@3 1.0 on 30 answerable items;
-   `EVAL_GEN=1` also verifies generation-layer refusal (2/2 out-of-library
-   probes answer "no relevant match", never invented).
-3. **Watch a diagnosis.** `GET /plan` pulls firing Prometheus alerts and
-   returns a cited report; traces land in Jaeger at `:16686`.
-4. **Push an alert.** The compose stack ships Alertmanager plus a demo
-   always-firing rule (`ContainerOOMKilled`): Prometheus → AM → `POST /alert`
-   → `202 {id, status:"queued"}` on the spot; a Redis-backed worker finishes
-   the diagnosis and the cited report lands in `GET /reports` and the console
-   (entries carry `id`/`status`/`score`). The report is auto-ingested as an
-   incident note (`source=incident`, retrieval down-weighted, same-name
-   overwrite, `knowledge.auto_ingest` to switch off).
-   Eval before regressing: `EVAL_ALERT=1 go run ./cmd/evalbaseline`.
-
-## Routes
-
-| Method | Path | What it does |
-| --- | --- | --- |
-| `GET` | `/ping` | Health check, `{"status":"ok"}` |
-| `POST` | `/chat` | ReAct dialogue over read-only tools, cited reply |
-| `GET` | `/plan` | Plan-Execute: firing alerts → retrieval → cited report |
-| `POST` | `/alert` | Alertmanager webhook: pushed alerts → `202 {id, status:"queued"}`, worker completes the diagnosis (async, ADR-0006) |
-| `GET` | `/reports` | Recent alert-driven diagnoses (persistent ring, last 20, survives restart) |
-| `POST` | `/upload` | Ingest one Markdown runbook |
-| `GET` | `/list` | List ingested titles |
-| `DELETE` | `/delete` | Remove a title from the registry |
-| `POST` | `/reindex` | Reload the demo library |
-| `GET` | `/metrics` | Prometheus scrape endpoint (not traced) |
-| `GET`+`POST` | `/mcp` | MCP server over StreamableHTTP: the three read-only tools (ADR-0007) |
-
-The console is served at `/`; the previous single-page UI stays at `/v01`.
-
-## MCP server (v0.5)
-
-The three read-only tools (`time_now`, `rag_search`, `prometheus_query`) are
-also exposed over MCP (ADR-0007) — allowlist semantics unchanged, diagnostics
-agent not exposed:
-
-- **StreamableHTTP**: point any MCP client at `http://localhost:8819/mcp`.
-- **STDIO** for local clients (Claude Desktop / MCP inspector):
-
-```bash
-go run ./cmd/server serve --mcp        # no LLM key needed — tools only touch Qdrant/Prometheus
-npx @modelcontextprotocol/inspector go run ./cmd/server serve --mcp
-```
-
-```json
-{
-  "mcpServers": {
-    "oncall-agent": {
-      "command": "go",
-      "args": ["run", "./cmd/server", "serve", "--mcp"]
-    }
-  }
-}
-```
-
-## Why cited answers
-
-On-call advice is only useful when you can check it. The contract is fixed
-at the tool layer:
-
-- **Read-only tools, allowlisted.** `time_now`, `rag_search`,
-  `prometheus_query` — anything else is refused by `IsAllowed`.
-- **Hybrid retrieval.** Dense vectors plus in-memory BM25 (CJK bigrams,
-  RRF k=60), fused and title-boosted ×1.5.
-- **Floor-gated honesty.** A similarity floor drops weak hits; below it the
-  service reports no match instead of guessing.
-- **Observed depth.** Gin server spans plus per-tool spans flow through OTLP
-  to Jaeger; request metrics are scraped straight from `/metrics`.
-
-## Architecture
-
-```text
-Prometheus alerts ──▶ /plan ──▶ Hybrid RAG ──▶ cited report
-Alertmanager ───────▶ /alert ──▶ same chain ──▶ cited report + incident note
-Operator question ──▶ /chat (ReAct + 3 read-only tools) ──▶ cited answer
-Runbook .md ──▶ /upload · /reindex ──▶ Qdrant + BM25 mirror
-```
-
-```text
-compose: redis (:6379) · qdrant (:6333) · prometheus (:9090) · alertmanager (:9093) · otel-collector (:4317/:4318) · jaeger (:16686)
-app: :8819 · embedder default: local Ollama nomic-embed-text (:11434) · LLM: OpenAI-compatible api_base + model + key
-```
-
-Layout follows `internal/` layers: `config`, `handler`, `agent`, `queue`,
-`rag`, `store`, `tool`, `observability`, `trace`. Decisions are pinned in
-`docs/adr/0001-0007`; scope per release in `docs/ROADMAP.md`.
-
-## Configuration and operations
-
-Only `openai.api_key` is mandatory. Everything else runs on template defaults:
-
-| Key | Default | Notes |
-| --- | --- | --- |
-| `server` | `127.0.0.1:8819` | App address |
-| `openai.api_base` + `model` + `api_key` | OpenAI-compatible | Any compatible endpoint works |
-| `qdrant` | `127.0.0.1:6334`, collection `oncallagent` | HTTP probed on `:6333`; falls back to memory |
-| `embedder` | `127.0.0.1:11434`, `nomic-embed-text` | Dimension auto-probed at boot |
-| `prometheus.url` | `http://localhost:9090` | Alert + query source |
-| `knowledge` | `auto_ingest: true`, `incident_weight: 0.5` | Incident-note ingestion + retrieval down-weight (ADR-0005) |
-| `queue` | `redis_addr: 127.0.0.1:6379` | Diagnosis queue (Redis hard dependency, ADR-0006) |
-| `notify` | `webhook_url: ""` | Notification write-back; empty = off (ADR-0008) |
-| `reports` | `persist_path: data/reports.json` | `/reports` ring persistence across restarts; empty string = memory-only (ADR-0010) |
-| `deploy` | `github_repo: ""`, `github_token: ""` | Deploy enrichment source; empty repo = `deploy_events` not registered (ADR-0009) |
-
-### Deploy enrichment (v0.7, ADR-0009)
-
-Set `deploy.github_repo` to `owner/name` and a fourth read-only tool
-`deploy_events` joins the whitelist — ReAct prompt, `/chat` tools array, and
-the MCP surface (`/mcp`, `serve --mcp`) all follow the same single source.
-The tool synthesizes a timeline from GitHub commits (native `since`/`until`
-window filter) and deployments (client-side filtered; that endpoint has no
-window params), 10 events each, newest first; args are optional `since` /
-`until` (RFC3339, default last 24h). The repo is pinned by config — the tool
-takes no repo parameter, so it can never become an arbitrary repo probe.
-Alert-driven reports gain an observational `deploy_events` field (flat
-`env/sha/message/time` array) fetched over `[earliest startsAt − 24h,
-startsAt]` — changes precede alerts — and pass through to the notify payload
-additively. It is never part of `citations`: refusal semantics and eval
-assertions are untouched. Failure degrades to an empty array and a log line;
-counters: `deploy_events_calls_total` / `deploy_events_errors_total` /
-`deploy_events_total`. Still read-only — not remediation. Anonymous GitHub
-API allows 60 req/h; set `github_token` for private repos or heavier use.
-
-### Notification write-back (v0.6, ADR-0008)
-
-When a diagnosis settles on `low_score=true` (judge scored below
-`judge.low_threshold`) or `status=failed`, the full report — same JSON shape
-as a `GET /reports` entry — is POSTed to `notify.webhook_url`. Delivery runs
-as a dedicated asynq queue: at-least-once, up to 3 retries with exponential
-backoff (5s/10s/20s). The payload is self-contained, so ring eviction or a
-restart never affects an in-flight notification. Receivers should deduplicate
-by `id` (one report may arrive more than once). A drop after retry
-exhaustion is logged and counted in `notification_failed_total` (successes
-increment `notification_sent_total`); `/reports` entries carry no
-notification state. Notification is outbound only — it is not remediation:
-the service never acknowledges, silences, or resolves alerts.
-
-Never commit `config/config.json` — it is git-ignored. MCP tool routing
-(`modelcontextprotocol/go-sdk`) and the similarity floor are staged behind
-`docs/adr/0004-mcp-otel.md`; the sandbox stays off and alert actions stay
-read-only (no acknowledge, no silence).
-
-## Known limitations
-
-- `/reports` persistence (ADR-0010) writes an atomic tmp+rename snapshot on every ring change but does **not fsync** — a power loss may lose the last entry. Set `reports.persist_path` to `""` for memory-only.
-
-- Retrieval-layer refusal stays 0/2 by design: refusal is asserted at the
-  generation layer (eval shows 2/2 "no relevant match" with `EVAL_GEN=1`);
-  the similarity floor knob remains off by default.
-- Rerank runs on the evaluation path only, not on live `/chat`.
-- **`POST /alert` is async since v0.5 (BREAKING)**: it returns
-  `202 {id, status:"queued"}` and results arrive via `GET /reports`; v0.4
-  clients reading the sync body must migrate. The queue runs on Redis
-  (compose presets it); with the queue unwired `/alert` answers `503`.
-- The `/reports` ring survives restarts via a JSON snapshot
-  (`reports.persist_path`, ADR-0010, reloaded at boot; the snapshot is not
-  fsynced — see above). Queued tasks survive in Redis and are re-delivered
-  after a restart; same-name incident overwrite keeps re-runs idempotent.
-  Ring cap is 20 — a heavy backlog can evict a `queued` entry before its
-  worker finishes. Notification payloads are self-contained, so eviction or
-  a restart never drops an in-flight notification (ADR-0008).
-- Default binding is loopback-only: `server.host` defaults to `127.0.0.1` and
-  compose publishes every port on `127.0.0.1`. Containers reach the app via
-  `host.docker.internal`, which resolves to host loopback on Docker Desktop.
-  On Linux `host-gateway` maps to the bridge gateway, where a loopback-bound
-  app is unreachable from containers — set `server.host` to `0.0.0.0`
-  explicitly and protect it at the network layer.
-- The MCP surface (`/mcp`, `serve --mcp`) is unauthenticated by design — same
-  posture as the rest of the read-only HTTP API; protect it at the network
-  layer.
-
-## Development
-
-```bash
-gofmt -l .            # must be clean
-go vet ./...          # must pass
-go build ./...        # must pass
-EVAL_NORERANK=1 go run ./cmd/evalbaseline   # retrieval baseline
-```
-
-Commits use Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`), one
-atomic change each.
-
-## License
+Do not use the old unisolated evaluation command. `evalbaseline` now requires explicit isolated configuration and ownership. Real model quality was not evaluated in this delivery. Logs, source fingerprints, seven-page / narrow-screen captures and measured performance limits are in the verification record. Fake providers, Hash embeddings and memory vectors exist only in explicit test profiles and do not establish model quality or production throughput.
 
 [Apache-2.0](LICENSE)

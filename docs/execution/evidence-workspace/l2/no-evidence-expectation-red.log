@@ -1,0 +1,19 @@
+=== RUN   TestWorkspaceL2
+asynq: pid=1557 2026/10/06 15:18:04.665570 INFO: Starting processing
+asynq: pid=1557 2026/10/06 15:18:04.665631 INFO: Starting processing
+    workspace_l2_test.go:200: 50 real HTTP webhook replays => one SQL run; real asynq worker succeeded with Qdrant citations run_05334fa0399f36b2a05ea1898ea16f88
+    workspace_l2_test.go:248: SQL reopen RestoreProjection activates V2 only; withdrawal removes search while V1 and original evidence stay readable
+    workspace_l2_test.go:269: real Prometheus range query returned series 1
+    workspace_l2_test.go:278: unsafe no evidence report {run_84c9c2434df29ec99ee7758ff7d87251 [inc_936aa8058161d67d97a79568c23490ee] succeeded enqueued no_evidence disabled <nil> 2026-10-06T15:18:11.429459Z 0x38bf65c93500 0x38bf65c93510 0x38bf65db53b8 1 4 0x38bf65c93520 [] <nil>}
+asynq: pid=1557 2026/10/06 15:18:11.636562 INFO: Starting graceful shutdown
+asynq: pid=1557 2026/10/06 15:18:13.060069 INFO: Waiting for all workers to finish...
+asynq: pid=1557 2026/10/06 15:18:13.060088 INFO: All workers have finished
+asynq: pid=1557 2026/10/06 15:18:13.061802 INFO: Exiting
+asynq: pid=1557 2026/10/06 15:18:13.061810 INFO: Starting graceful shutdown
+asynq: pid=1557 2026/10/06 15:18:13.125716 INFO: Waiting for all workers to finish...
+asynq: pid=1557 2026/10/06 15:18:13.125749 INFO: All workers have finished
+asynq: pid=1557 2026/10/06 15:18:13.127827 INFO: Exiting
+--- FAIL: TestWorkspaceL2 (8.48s)
+FAIL
+FAIL	oncall-agent/internal/handler	9.356s
+FAIL

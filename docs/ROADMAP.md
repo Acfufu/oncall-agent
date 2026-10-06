@@ -237,3 +237,14 @@
 - [x] rerank live——v0.3 已验（rerank_recall@3=30/30 融合无降级），清单残留误挂在愿景，归位
 - [ ] 企业级知识库 (版本/权限/去重)——触发条件：多用户/多团队真实使用；单用户下仅「版本」子项（历史回溯）可独立立项
 - [ ] 沙箱执行 (默认关)——触发条件：出现想让 agent 执行的具体处置动作，且先拷问「处置始终由人执行」红线（语义级变更，另立 ADR）
+
+## Evidence Workspace M0–M2（2026-10-06明确需求立项）
+
+依据 ADR-0011/0012 和 handoff/evidence-workspace/plan/tasks.json。
+
+- [ ] M0 T00–T12：可靠性R01–R15、SQLite事实源、认证、版本/幂等/outbox/证据保护，隔离验证。
+- [ ] M1 T13–T18：七页shell、真实事件图/来源/时间线、文档版本管理、显式演示与旧UI回退。
+- [ ] M2 T19–T23：声明式拓扑、受限Prometheus范围查询、真实摘要趋势、安全/窄屏/迁移回滚验收。
+- M3全局图、Semantica/GraphRAG只保留交接规划，不自动实现。
+
+每项实际状态及证据见 docs/execution/evidence-workspace/task-status.json 与 verification.md；不沿用历史验收为本批验证。

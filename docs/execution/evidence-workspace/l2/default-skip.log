@@ -1,0 +1,7 @@
+COMMAND: go test ./internal/handler -run ^TestWorkspaceL2$ -count=1 -v
+EXIT: 0
+=== RUN   TestWorkspaceL2
+    workspace_l2_test.go:34: requires ONCALL_L2=1 scripts/workspace-l2.sh
+--- SKIP: TestWorkspaceL2 (0.00s)
+PASS
+ok  	oncall-agent/internal/handler	0.793s

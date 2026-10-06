@@ -18,7 +18,15 @@
 <pre id="ans">(回答区)</pre>
 <h2>引用</h2>
 <pre id="refs">(引用区：/chat 回包 citations 原样展示)</pre>
+<section aria-label="旧版控制台认证"><label>Console token（仅本页内存） <input id="legacyToken" type="password" autocomplete="off"></label><p>使用配置的控制台凭据；新版登录状态不授予旧页写入权限。</p></section>
 <script>
+function legacyFetch(path, options) {
+ options = options || {}; options.headers = Object.assign({}, options.headers || {});
+ var token = document.getElementById('legacyToken').value;
+ if (token) options.headers.Authorization = 'Bearer ' + token;
+ return window.fetch(path, options);
+}
+
 var q = document.getElementById('q');
 var err = document.getElementById('err');
 var ans = document.getElementById('ans');
@@ -37,7 +45,7 @@ document.getElementById('ask').onclick = function () {
   showErr('');
   ans.textContent = '请求中…';
   refs.textContent = '';
-  fetch('/chat', {
+  legacyFetch('/chat', {
     method: 'POST',
     headers: {'content-type': 'application/json'},
     body: JSON.stringify({message: q.value})
@@ -54,7 +62,7 @@ document.getElementById('diag').onclick = function () {
   showErr('');
   ans.textContent = '诊断中…';
   refs.textContent = '';
-  fetch('/plan').then(function (r) {
+  legacyFetch('/plan').then(function (r) {
     return r.json().then(function (d) {
       if (!r.ok) { showErr(d.error || ('请求失败: ' + r.status)); ans.textContent = ''; return; }
       if (d.error) { showErr(d.error); ans.textContent = ''; return; }

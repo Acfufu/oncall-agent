@@ -1,0 +1,20 @@
+=== RUN   TestLegacyImportIdempotencyRestartAndSourcePreservation
+--- PASS: TestLegacyImportIdempotencyRestartAndSourcePreservation (0.01s)
+=== RUN   TestLegacyImportTransactionalConflictRollback
+--- PASS: TestLegacyImportTransactionalConflictRollback (0.00s)
+=== RUN   TestInventoryReadOnlyAndAbsentDatabase
+--- PASS: TestInventoryReadOnlyAndAbsentDatabase (0.01s)
+=== RUN   TestLegacyBackupRestoreAndRefusesOverwrite
+--- PASS: TestLegacyBackupRestoreAndRefusesOverwrite (0.01s)
+=== RUN   TestBackupSelectionRollbackRestoresPriorFacts
+--- PASS: TestBackupSelectionRollbackRestoresPriorFacts (0.01s)
+=== RUN   TestInventoryConnectionCannotWriteSource
+--- PASS: TestInventoryConnectionCannotWriteSource (0.00s)
+PASS
+ok  	oncall-agent/internal/workspace	4.630s
+=== RUN   TestCLIRequiresExplicitConfigAndApply
+--- PASS: TestCLIRequiresExplicitConfigAndApply (0.00s)
+=== RUN   TestCLIFixtureDryRunImportBackupAndInventory
+--- PASS: TestCLIFixtureDryRunImportBackupAndInventory (0.02s)
+PASS
+ok  	oncall-agent/cmd/workspacectl	1.586s

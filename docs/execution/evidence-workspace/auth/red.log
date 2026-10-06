@@ -1,0 +1,10 @@
+# oncall-agent/internal/auth [oncall-agent/internal/auth.test]
+internal/auth/auth_test.go:11:15: undefined: Auth
+internal/auth/auth_test.go:13: undefined: New
+internal/auth/auth_test.go:14:44: undefined: New
+internal/auth/auth_test.go:14:63: undefined: WithLocalhostHTTP
+internal/auth/auth_test.go:15:44: undefined: New
+internal/auth/auth_test.go:15:63: undefined: WithLocalhostHTTP
+internal/auth/auth_test.go:15:238: undefined: New
+FAIL	oncall-agent/internal/auth [build failed]
+FAIL

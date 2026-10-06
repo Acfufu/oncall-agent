@@ -1,0 +1,10 @@
+=== RUN   TestCleanupDurableRetryRestartAndHistoricalChunks
+--- PASS: TestCleanupDurableRetryRestartAndHistoricalChunks (0.01s)
+=== RUN   TestCleanupLateDispatchDoesNotDeleteReactivatedVersion
+--- PASS: TestCleanupLateDispatchDoesNotDeleteReactivatedVersion (0.00s)
+=== RUN   TestDocumentRetransmissionRepairsProjectionAndRejectsMetadataBypass
+--- PASS: TestDocumentRetransmissionRepairsProjectionAndRejectsMetadataBypass (0.00s)
+=== RUN   TestVersionActivationHistoryAndTombstone
+--- PASS: TestVersionActivationHistoryAndTombstone (0.01s)
+PASS
+ok  	oncall-agent/internal/workspace	1.706s

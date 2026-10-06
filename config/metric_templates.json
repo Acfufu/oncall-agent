@@ -1,0 +1,8 @@
+{
+  "version": "http-service-v1",
+  "templates": [
+    {"id":"error_rate","unit":"ratio","promql":"sum(rate(http_requests_total{environment={{environment}},service={{service}},status=~\"5..\"}[5m])) / sum(rate(http_requests_total{environment={{environment}},service={{service}}}[5m]))"},
+    {"id":"request_rate","unit":"requests/s","promql":"sum(rate(http_requests_total{environment={{environment}},service={{service}}}[5m]))"},
+    {"id":"latency_p99","unit":"seconds","promql":"histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{environment={{environment}},service={{service}}}[5m])))"}
+  ]
+}

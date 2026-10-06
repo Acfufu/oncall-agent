@@ -55,3 +55,7 @@ make check  # curl /ping
 - 入库→检索链：upload一篇demo md，chat问出引用片段。
 - 评测链：`go run ./cmd/evalbaseline` 出基线分。
 - commit用semantic：`feat:` `fix:` `docs:` `chore:`，原子提交。
+
+## Evidence Workspace 已授权升级（2026-10-06）
+
+ADR-0011/0012批准 M0→M1→M2（handoff/evidence-workspace）；M3 deferred。SQLite事实持久层、版本/证据/运行事件/outbox；React+TS+Vite由Go托管，旧UI /legacy；/api/v1新契约与旧接口适配。新规则覆盖上方历史默认自动沉淀、无认证MCP、JSON唯一报告源与无通知状态约定。禁止生产自动删集合、静默hash/memory降级、未隔离旧eval。认证token从环境变量读取，默认聊天无状态，auto_ingest=false。禁止未经授权提交/推送/部署。执行证据保存在 docs/execution/evidence-workspace，静态与fake/集成/浏览器证据分开记录。

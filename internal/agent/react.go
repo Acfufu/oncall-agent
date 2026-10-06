@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -29,8 +30,12 @@ const MaxSessions = 256
 
 // Citation 为引用片段 {doc,snippet}。
 type Citation struct {
-	Doc     string `json:"doc"`
-	Snippet string `json:"snippet"`
+	Doc       string `json:"doc"`
+	Snippet   string `json:"snippet"`
+	DocID     string `json:"doc_id,omitempty"`
+	VersionID string `json:"version_id,omitempty"`
+	ChunkID   string `json:"chunk_id,omitempty"`
+	Source    string `json:"source,omitempty"`
 }
 
 // ReAct 持有 OpenAI 兼容配置 + 只读工具 + 会话内存（LRU 上限 MaxSessions）。
@@ -119,8 +124,12 @@ func (r *ReAct) Run(ctx context.Context, sessionID, userMsg string) (reply strin
 	cites = []Citation{}
 	seen := map[string]bool{}
 
-	final, lerr := r.loop(ctx, hist, &cites, seen)
+	final, lerr := r.loop(ctx, hist, &cites, seen, userMsg)
 	if lerr != nil {
+		var toolErr *toolFailure
+		if errors.As(lerr, &toolErr) || ctx.Err() != nil {
+			return "", []Citation{}, lerr
+		}
 		// LLM 不可用时降级：直接只读检索 + 模板回复，保证入库→检索链可用。
 		// R03：降级必须可见——warn 带原始 loop 错误（key 失效/限流/超时根因
 		// 不再只能翻 Jaeger）+ chat_fallback_total 计数器。
@@ -129,14 +138,7 @@ func (r *ReAct) Run(ctx context.Context, sessionID, userMsg string) (reply strin
 		return r.fallback(ctx, userMsg)
 	}
 
-	if len(cites) == 0 && !strings.Contains(final, "未找到相关匹配") {
-		// 无引用时强制明示无匹配，不编造。
-		if strings.TrimSpace(final) == "" {
-			final = "未找到相关匹配：知识库中暂无与该问题相关的内容，未查询到相关告警/指标。请补充故障名或告警名后重试。"
-		} else {
-			final = "未找到相关匹配：知识库中暂无可引用的相关内容。\n\n" + final
-		}
-	}
+	final = EvidenceReport(cites)
 
 	r.mu.Lock()
 	nh := append(hist, apiMsg{Role: "assistant", Content: final})
@@ -203,7 +205,7 @@ func (r *ReAct) toolsRepo() string {
 	return r.Tools.Deploy.Repo
 }
 
-func (r *ReAct) loop(ctx context.Context, hist []apiMsg, cites *[]Citation, seen map[string]bool) (string, error) {
+func (r *ReAct) loop(ctx context.Context, hist []apiMsg, cites *[]Citation, seen map[string]bool, originalQuery string) (string, error) {
 	msgs := append([]apiMsg{{Role: "system", Content: systemPromptFor(r.toolsRepo())}}, hist...)
 	for i := 0; i < MaxRounds; i++ {
 		resp, err := r.chat(ctx, msgs)
@@ -217,17 +219,28 @@ func (r *ReAct) loop(ctx context.Context, hist []apiMsg, cites *[]Citation, seen
 		msgs = append(msgs, apiMsg{Role: "assistant", Content: resp.Content, ToolCalls: resp.ToolCalls})
 		for _, tc := range resp.ToolCalls {
 			tctx := StartToolSpan(ctx, tc.Function.Name, tc.Function.Arguments)
+			if err := ctx.Err(); err != nil {
+				EndCallbackSpan(tctx, err, 0, 0)
+				return "", err
+			}
+			if r.Tools == nil || (tc.Function.Name == "rag_search" && (r.Tools.RAG == nil || r.Tools.RAG.RAG == nil)) {
+				err := fmt.Errorf("tool source unavailable: %w", tool.ErrSourceUnavailable)
+				EndCallbackSpan(tctx, err, 0, 0)
+				return "", &toolFailure{err}
+			}
 			out, hits, terr := r.Tools.ExecWithContext(tctx, tc.Function.Name, tc.Function.Arguments)
 			EndCallbackSpan(tctx, terr, 0, 0)
-			err := terr
-			if err != nil {
-				out = "error: " + err.Error()
+			if terr != nil {
+				return "", &toolFailure{fmt.Errorf("%s source unavailable: %w", tc.Function.Name, terr)}
 			}
 			for _, h := range hits {
-				key := h.Doc + "\x00" + trunc(h.Snippet, 200)
+				if !qualifiedQuery(ctx, originalQuery, h) {
+					continue
+				}
+				key := h.DocID + "\x00" + h.VersionID + "\x00" + h.ChunkID
 				if !seen[key] {
 					seen[key] = true
-					*cites = append(*cites, Citation{Doc: h.Doc, Snippet: h.Snippet})
+					*cites = append(*cites, citationFromHit(h))
 				}
 			}
 			msgs = append(msgs, apiMsg{Role: "tool", ToolCallID: tc.ID, Content: trunc(out, 4000)})
@@ -334,22 +347,31 @@ func (r *ReAct) fallback(ctx context.Context, query string) (string, []Citation,
 	ctx = StartChatModelSpan(ctx, "fallback:rag-direct")
 	var ferr error
 	defer func() { EndCallbackSpan(ctx, ferr, 0, 0) }()
-	if r.Tools == nil {
-		return "未找到相关匹配：LLM 不可用且检索未配置。请稍后重试。", []Citation{}, nil
+	if r.Tools == nil || r.Tools.RAG == nil || r.Tools.RAG.RAG == nil {
+		ferr = fmt.Errorf("knowledge source unavailable: %w", tool.ErrSourceUnavailable)
+		return "", []Citation{}, ferr
 	}
-	raw, hits, err := r.Tools.ExecWithContext(ctx, "rag_search", `{"query":`+jsonStr(query)+`,"top_k":3}`)
-	if err != nil || len(hits) == 0 {
-		_ = raw
-		return "未找到相关匹配：知识库中暂无与该问题相关的内容，未查询到相关告警/指标。请补充故障名或告警名后重试。", []Citation{}, nil
+	_, hits, err := r.Tools.ExecWithContext(ctx, "rag_search", `{"query":`+jsonStr(query)+`,"top_k":3}`)
+	if err != nil {
+		ferr = errors.Join(tool.ErrSourceUnavailable, fmt.Errorf("knowledge source unavailable: %w", err))
+		return "", []Citation{}, ferr
 	}
+	eligible := hits[:0]
+	for _, h := range hits {
+		if qualifiedQuery(ctx, query, h) {
+			eligible = append(eligible, h)
+		}
+	}
+	hits = eligible
+	if len(hits) == 0 {
+		return SafeReport, []Citation{}, nil
+	}
+
 	cites := make([]Citation, 0, len(hits))
-	var sb strings.Builder
-	sb.WriteString("根据知识库匹配到以下内容：\n")
-	for i, h := range hits {
-		cites = append(cites, Citation{Doc: h.Doc, Snippet: h.Snippet})
-		fmt.Fprintf(&sb, "\n%d. 【%s】\n%s\n", i+1, h.Doc, trunc(h.Snippet, 500))
+	for _, h := range hits {
+		cites = append(cites, citationFromHit(h))
 	}
-	return sb.String(), cites, nil
+	return EvidenceReport(cites), cites, nil
 }
 
 func jsonStr(s string) string {

@@ -2,12 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -16,6 +22,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"oncall-agent/internal/agent"
+	"oncall-agent/internal/auth"
 	"oncall-agent/internal/config"
 	"oncall-agent/internal/handler"
 	"oncall-agent/internal/mcpserver"
@@ -24,212 +31,256 @@ import (
 	"oncall-agent/internal/rag"
 	"oncall-agent/internal/store"
 	"oncall-agent/internal/tool"
+	"oncall-agent/internal/workspace"
 )
 
+func configPath() string {
+	if p := os.Getenv("ONCALL_CONFIG"); p != "" {
+		return p
+	}
+	return "config/config.json"
+}
 func main() {
-	// serve --mcp（ADR-0007，对标 k8sgpt serve --mcp）：STDIO 模式只暴露
-	// 三只读查询工具，不启 Gin/HTTP/LLM，不需要 api_key。
 	if len(os.Args) > 1 && os.Args[1] == "serve" {
 		fs := flag.NewFlagSet("serve", flag.ExitOnError)
-		mcpMode := fs.Bool("mcp", false, "expose time_now/rag_search/prometheus_query over MCP STDIO")
+		mcpMode := fs.Bool("mcp", false, "read-only MCP STDIO")
 		_ = fs.Parse(os.Args[2:])
 		if !*mcpMode {
-			log.Fatal("serve 需要 --mcp；不带参数直接运行即启 HTTP 服务")
+			log.Fatal("serve requires --mcp")
 		}
 		runMCPStdio()
 		return
 	}
-
-	cfg, err := config.Load("config/config.json")
+	cfg, err := config.LoadMCP(configPath())
 	if err != nil {
-		log.Printf("warn: %v; using defaults (key needed only for /chat, next slice)", err)
-		d := config.Default()
-		cfg = &d
+		log.Fatalf("configuration unavailable: %v (copy config_template.json to a separate config path)", err)
 	}
-
-	// OTel providers: trace via OTLP gRPC -> collector -> Jaeger;
-	// metrics via /metrics scraped directly by Prometheus (ADR 0004).
-	// 先于 store 装配与队列 worker 启动：启动期 EnsureCollection/embedder 探测
-	// 的降级与 demo 预载 span 才可观测，包级计数器亦无并发初始化窗口（F03）。
 	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	if shutdownTracer, err := observability.InitTracer(sigCtx); err != nil {
-		log.Printf("warn: init tracer failed: %v", err)
-	} else {
+	if shutdown, err := observability.InitTracer(sigCtx); err == nil {
 		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := shutdownTracer(ctx); err != nil {
-				log.Printf("warn: tracer shutdown failed: %v", err)
-			}
+			ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
+			defer c()
+			_ = shutdown(ctx)
 		}()
-	}
-	if shutdownMeter, err := observability.InitMetrics(sigCtx); err != nil {
-		log.Printf("warn: init metrics failed: %v", err)
 	} else {
+		log.Printf("tracing unavailable: %v", err)
+	}
+	if shutdown, err := observability.InitMetrics(sigCtx); err == nil {
 		defer func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := shutdownMeter(ctx); err != nil {
-				log.Printf("warn: meter shutdown failed: %v", err)
-			}
+			ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
+			defer c()
+			_ = shutdown(ctx)
 		}()
+	} else {
+		log.Fatalf("metrics initialization: %v", err)
 	}
-
-	// Qdrant HTTP 默认 6333；template 6334 为 gRPC 端口，HTTP 探测失败时 store 自动降级内存。
-	httpPort := cfg.Qdrant.Port
-	if httpPort == 6334 {
-		httpPort = 6333
+	port := cfg.Qdrant.Port
+	if port == 6334 {
+		port = 6333
 	}
-	s := store.NewVectorFromHostPort(cfg.Qdrant.Host, httpPort, cfg.Qdrant.Collection)
-	var emb rag.Embedder = rag.SelectEmbedder(cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model)
-	// 探测真实向量维度；Hash 回退恒为 rag.Dim(64)。探测降级时绝不建/重建
-	// collection（R01）：64 维持久集合是毒丸——embedder 恢复后真实 768 写入全被
-	// Qdrant 400 拒 → memOnly 闩锁到人工删库。跳过建库，首个写入经 fallback 进
-	// 内存模式（离线可跑，store_fallback_total 可见），重启且探测恢复后重建。
-	// 探测带重试（活验补强）：LM Studio 冷启动首次 embeddings 可超时（模型
-	// JIT 加载 >15s），单发探测会假阳性误判降级。
-	dim := rag.Dim
-	probeReal := false
-	for attempt := 1; attempt <= 3; attempt++ {
-		v, err := emb.Embed("dim-probe")
-		if err == nil && len(v) != rag.Dim {
-			dim = len(v)
-			probeReal = true
-			break
+	vectors := store.NewVectorFromHostPort(cfg.Qdrant.Host, port, cfg.Qdrant.Collection)
+	emb := rag.SelectEmbedder(cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model)
+	var sourceOK atomic.Bool
+	r := rag.New(vectors, emb)
+	r.SetEmbeddingSpace("unavailable", 0)
+	db, err := workspace.Open(cfg.Storage.SQLitePath)
+	if err != nil {
+		log.Fatalf("durable storage unavailable: %v", err)
+	}
+	defer db.Close()
+	q := queue.NewWorkspaceClient(cfg.Queue.RedisAddr, cfg.Queue.Namespace, cfg.Queue.RedisDB)
+	defer q.Close()
+	s := &workspace.Service{DB: db, RAG: r, SpaceID: "unavailable", Queue: q, QueueReady: func(ctx context.Context) bool {
+		if ctx.Err() != nil {
+			return false
 		}
-		if attempt < 3 {
-			log.Printf("warn: embedder probe attempt %d/3 failed (err=%v vec=%d); retrying", attempt, err, len(v))
-			time.Sleep(2 * time.Second)
+		return q.Ping() == nil
+	}, SourceReady: func(context.Context) bool { return sourceOK.Load() }, Judge: cfg.OpenAI, JudgeThreshold: cfg.Judge.LowThreshold, WebhookURL: cfg.Notify.WebhookURL}
+	var checkedAt, successAt atomic.Value
+	identity := fmt.Sprintf("%s:%d:%s", cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model)
+	probe := func(parent context.Context) {
+		ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+		defer cancel()
+		err := s.ProbeRetrieval(ctx, vectors, emb, identity)
+		if errors.Is(err, workspace.ErrProbeBusy) {
+			return
+		}
+		now := time.Now().UTC().Format(time.RFC3339Nano)
+		checkedAt.Store(now)
+		sourceOK.Store(err == nil)
+		if err == nil {
+			successAt.Store(now)
+		} else {
+			log.Printf("retrieval probe unavailable; existing collection preserved: %v", err)
 		}
 	}
-	if !probeReal {
-		log.Printf("warn: embedder probe degraded to hash %d-dim after 3 attempts; skip collection ensure (memonly until embedder recovers and restart)", rag.Dim)
-	} else if cur, err := s.VectorSize(); err == nil && cur > 0 && cur != dim {
-		log.Printf("vector size mismatch (collection=%d, embedder=%d); recreating collection", cur, dim)
-		if err := s.RecreateCollection(dim); err != nil {
-			log.Printf("warn: recreate collection failed: %v", err)
+	s.SourceProbeTimes = func() (checked, succeeded *string) {
+		if v := checkedAt.Load(); v != nil {
+			x := v.(string)
+			checked = &x
 		}
-	} else if err := s.EnsureCollection(dim); err != nil {
-		log.Printf("warn: ensure collection failed: %v", err)
+		if v := successAt.Load(); v != nil {
+			x := v.(string)
+			succeeded = &x
+		}
+		return
 	}
-	r := rag.New(s, emb)
-	r.Floor = rag.DefaultFloor
-	// 事件沉淀降权（ADR-0005）：config 可调，缺省 0.5。
-	if cfg.Knowledge.IncidentWeight > 0 {
-		r.IncidentWeight = cfg.Knowledge.IncidentWeight
+	probe(sigCtx)
+	if err = s.RestoreProjection(sigCtx); err != nil {
+		log.Fatalf("knowledge recovery: %v", err)
 	}
-
-	h := handler.New(s, r, "aiops-docs-demo")
-	// 变更富化第四只读（ADR-0009）：repo 空=不注册，白名单缩回三只读。
-	chatDeps := tool.NewDeps(r, cfg.Prometheus.URL).
-		WithDeploy(tool.DeploySource{Repo: cfg.Deploy.GitHubRepo, Token: cfg.Deploy.GitHubToken})
-	handler.SetChatAgent(agent.NewReAct(cfg.OpenAI.APIBase, cfg.OpenAI.APIKey, cfg.OpenAI.Model, chatDeps))
-	h.Planner(tool.NewPromClient(cfg.Prometheus.URL), r)
-	h.SetAutoIngest(cfg.Knowledge.AutoIngest)
-	h.SetJudge(cfg.OpenAI, cfg.Judge.LowThreshold)
-	h.SetDeploy(chatDeps.Deploy)
-	// 报告环持久化（v0.8/ADR-0010）：persist_path 空=关闭；boot 先加载历史再
-	// 预载 demo（快照含沉淀前报告，装载序无关）。目录不可建降级内存模式。
-	if err := h.SetReportsPersist(cfg.Reports.PersistPath); err != nil {
-		log.Printf("warn: reports persistence disabled (%v); /reports is memory-only", err)
-	} else if err := h.LoadReports(); err != nil {
-		log.Printf("warn: reports snapshot load failed: %v", err)
-	}
-	if _, err := h.ReindexLoad(); err != nil {
-		log.Printf("warn: demo preload failed: %v", err)
-	}
-
-	// 诊断队列（ADR-0006）：Redis 硬依赖，同进程收发两端——入队端给 /alert，
-	// 消费端 goroutine 调 Handler.ProcessAlertDiagnosis 走共用链。
-	qClient := queue.NewClient(cfg.Queue.RedisAddr)
-	defer qClient.Close()
-	h.SetQueue(qClient)
-	h.SetNotify(cfg.Notify.WebhookURL, qClient)
-	qServer := queue.NewServer(cfg.Queue.RedisAddr, h)
 	go func() {
-		if err := qServer.Start(); err != nil {
-			log.Printf("warn: diagnosis queue server exited: %v", err)
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-sigCtx.Done():
+				return
+			case <-ticker.C:
+				probe(sigCtx)
+			}
 		}
 	}()
 
-	gin.SetMode(gin.ReleaseMode)
-	e := gin.New()
-	// otelgin chain head: server span per request, context flows to downstream
-	// via c.Request.Context(). /ping and /metrics filtered out.
-	e.Use(otelgin.Middleware(observability.ServiceName, otelgin.WithFilter(func(req *http.Request) bool {
-		return req.URL.Path != "/ping" && req.URL.Path != "/metrics"
-	})))
-	e.Use(gin.Recovery())
-
-	e.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	e.GET("/ping", h.Ping)
-	e.GET("/plan", h.Plan)
-	e.POST("/alert", h.Alert)
-	e.GET("/reports", h.Reports)
-	// /mcp（ADR-0007）：对外 MCP server StreamableHTTP 传输，与 serve --mcp
-	// STDIO 共享同一 server 实例；暴露清单跟随白名单单一事实源（ADR-0009，
-	// repo 配置才带第四只）；鉴权不新设（与 /chat 口径一致，README 已知局限）。
-	mcpSrv := mcpserver.New(r, cfg.Prometheus.URL, cfg.Deploy.GitHubRepo, cfg.Deploy.GitHubToken)
-	e.POST("/mcp", gin.WrapH(mcpserver.StreamableHTTPHandler(mcpSrv)))
-	e.GET("/mcp", gin.WrapH(mcpserver.StreamableHTTPHandler(mcpSrv)))
-	e.POST("/upload", h.Upload)
-	e.POST("/chat", h.Chat)
-	e.GET("/list", h.List)
-	e.DELETE("/delete", h.Delete)
-	e.DELETE("/session", h.SessionClear)
-	e.POST("/reindex", h.Reindex)
-	e.StaticFile("/", "web/console.html")
-	e.StaticFile("/v01", "web/index.html")
-
-	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	log.Printf("oncall-agent %s listening on %s (memonly=%v)", observability.ServiceVersion, addr, s.IsMemOnly())
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: e,
-		// R07：读面超时（slowloris/慢连接防护）。WriteTimeout 有意不设——
-		// 同步 /chat 经 LLM 可达分钟级，写死会杀在途对话；暴露面已收敛回环（F05）。
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       60 * time.Second,
+	if err = s.Recover(sigCtx); err != nil {
+		log.Fatalf("run recovery: %v", err)
 	}
+	// Demo knowledge is not reindexed automatically at boot; importing it is an authenticated operation.
+	h := handler.New(vectors, r, "aiops-docs-demo")
+	h.SetAutoIngest(false)
+	h.Planner(tool.NewPromClient(cfg.Prometheus.URL), r)
+	handler.SetChatAgent(agent.NewReAct(cfg.OpenAI.APIBase, cfg.OpenAI.APIKey, cfg.OpenAI.Model, tool.NewDeps(r, cfg.Prometheus.URL).WithDeploy(tool.DeploySource{Repo: cfg.Deploy.GitHubRepo, Token: cfg.Deploy.GitHubToken})))
+	workers := queue.NewWorkspaceServer(cfg.Queue.RedisAddr, cfg.Queue.Namespace, cfg.Queue.RedisDB, s)
+	if err = workers.Start(); err != nil {
+		log.Printf("queue workers unavailable: %v", err)
+	}
+	defer workers.Shutdown()
+	defer workers.Stop()
 	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-sigCtx.Done():
+				return
+			case <-ticker.C:
+				ctx, c := context.WithTimeout(sigCtx, 10*time.Second)
+				if dispatchErr := s.Dispatch(ctx); dispatchErr != nil && sigCtx.Err() == nil {
+					log.Printf("outbox dispatch unavailable: %v", dispatchErr)
+				}
+				c()
+			}
+		}
+	}()
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+	_ = router.SetTrustedProxies(nil)
+	router.Use(gin.Recovery(), otelgin.Middleware(observability.ServiceName, otelgin.WithFilter(func(req *http.Request) bool { return req.URL.Path != "/ping" && req.URL.Path != "/metrics" })))
+	a := auth.New(os.Getenv(cfg.Auth.ConsoleTokenEnv), os.Getenv(cfg.Auth.WebhookTokenEnv), auth.WithLocalhostHTTP(cfg.Auth.LocalhostHTTP))
+	a.Register(router)
+	router.GET("/ping", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
+	router.GET("/ready", func(c *gin.Context) {
+		status := 200
+		if !s.Ready(c.Request.Context()) || !sourceOK.Load() {
+			status = 503
+		}
+		c.JSON(status, gin.H{"ready": status == 200})
+	})
+	// Protect all business, metrics and MCP paths; static shell contains no business facts.
+	guard := a.Middleware()
+	router.Use(func(c *gin.Context) {
+		p := c.Request.URL.Path
+		if strings.HasPrefix(p, "/api/v1/") || p == "/chat" || p == "/alert" || p == "/reports" || p == "/plan" || p == "/upload" || p == "/list" || p == "/delete" || p == "/session" || p == "/reindex" || p == "/mcp" || p == "/metrics" {
+			guard(c)
+		} else {
+			c.Next()
+		}
+	})
+	api := handler.RegisterWorkspace(router, s, tool.NewPromClient(cfg.Prometheus.URL), *cfg)
+	if err = api.RegisterM2(router, *cfg); err != nil {
+		log.Fatalf("M2 controlled configuration: %v", err)
+	}
+	router.POST("/alert", api.Alert)
+	router.GET("/reports", api.Reports)
+	router.POST("/upload", api.Upload)
+	router.GET("/list", api.List)
+	router.DELETE("/delete", api.Delete)
+	router.POST("/reindex", api.Reindex)
+	router.POST("/chat", h.Chat)
+	router.DELETE("/session", h.SessionClear)
+	router.GET("/plan", api.Plan)
+	mcp := mcpserver.StreamableHTTPHandler(mcpserver.New(r, cfg.Prometheus.URL, cfg.Deploy.GitHubRepo, cfg.Deploy.GitHubToken))
+	router.Any("/mcp", gin.WrapH(mcp))
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	if cfg.UI.LegacyEnabled {
+		router.StaticFile("/legacy", "web/console.html")
+		router.StaticFile("/v01", "web/index.html")
+	}
+	if cfg.UI.LegacyDefault {
+		router.StaticFile("/", "web/console.html")
+	} else {
+		if _, err = os.Stat("web/dist/index.html"); err != nil {
+			log.Fatalf("frontend build missing; run npm ci && npm run build in web/app: %v", err)
+		}
+		router.Static("/assets", "web/dist/assets")
+		router.NoRoute(func(c *gin.Context) {
+			if c.Request.Method != "GET" || strings.HasPrefix(c.Request.URL.Path, "/api/") {
+				c.JSON(404, gin.H{"error": "not found"})
+				return
+			}
+			c.File(filepath.Join("web/dist", "index.html"))
+		})
+	}
+	srv := &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port), Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+	go func() {
+		log.Printf("Evidence Workspace listening on %s", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
 	<-sigCtx.Done()
-	stop()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("warn: server shutdown failed: %v", err)
-	}
-	// 队列退出序列（ADR-0006）：Stop 停拉取（在途继续），Shutdown 落盘在途任务，
-	// Redis 侧未完成任务重投靠事件沉淀同题覆盖幂等。
-	qServer.Stop()
-	qServer.Shutdown()
-	log.Printf("diagnosis queue drained, bye")
+	ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
+	defer c()
+	_ = srv.Shutdown(ctx)
 }
-
-// runMCPStdio serve --mcp：STDIO 传输跑三只读 MCP server。不启 HTTP/队列/LLM；
-// 日志默认走 stderr，不污染 stdout 协议通道。
 func runMCPStdio() {
-	cfg, err := config.LoadMCP("config/config.json")
+	cfg, err := config.LoadMCP(configPath())
 	if err != nil {
-		log.Fatalf("load config (mcp): %v", err)
+		log.Fatal(err)
 	}
-	httpPort := cfg.Qdrant.Port
-	if httpPort == 6334 {
-		httpPort = 6333
+	port := cfg.Qdrant.Port
+	if port == 6334 {
+		port = 6333
 	}
-	s := store.NewVectorFromHostPort(cfg.Qdrant.Host, httpPort, cfg.Qdrant.Collection)
+	vectors := store.NewVectorFromHostPort(cfg.Qdrant.Host, port, cfg.Qdrant.Collection)
 	emb := rag.SelectEmbedder(cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model)
-	r := rag.New(s, emb)
-	mcpSrv := mcpserver.New(r, cfg.Prometheus.URL, cfg.Deploy.GitHubRepo, cfg.Deploy.GitHubToken)
+	r := rag.New(vectors, emb)
+	db, err := workspace.Open(cfg.Storage.SQLitePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	s := workspace.Service{DB: db, RAG: r} // STDIO trusts its local process owner; retrieval still requires a configured validated space.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	log.Printf("oncall-agent MCP server (stdio) starting: tools=%v", tool.AllowedFor(cfg.Deploy.GitHubRepo))
-	if err := mcpserver.RunStdio(mcpSrv, ctx); err != nil {
-		log.Fatalf("mcp server: %v", err)
+	v, err := rag.EmbedContext(ctx, emb, "dimension probe")
+	if err != nil {
+		log.Fatal("embedding unavailable")
+	}
+	sum := sha256.Sum256([]byte(fmt.Sprintf("space-v1:%s:%d:%s:%d", cfg.Embedder.Host, cfg.Embedder.Port, cfg.Embedder.Model, len(v))))
+	s.SpaceID = hex.EncodeToString(sum[:])
+	if err = vectors.EnsureCompatible(ctx, len(v)); err != nil {
+		log.Fatal(err)
+	}
+	if err = vectors.EnsureSpace(ctx, s.SpaceID); err != nil {
+		log.Fatal(err)
+	}
+	r.SetEmbeddingSpace(s.SpaceID, len(v))
+	if err = s.RestoreProjection(ctx); err != nil {
+		log.Fatal(err)
+	}
+	if err = mcpserver.RunStdio(mcpserver.New(r, cfg.Prometheus.URL, cfg.Deploy.GitHubRepo, cfg.Deploy.GitHubToken), ctx); err != nil {
+		log.Fatal(err)
 	}
 }
