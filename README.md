@@ -1,14 +1,10 @@
 # oncall-agent
 
-<p align="center">
-  <a href="README.zh-CN.md">简体中文</a>
-</p>
+<p align="center"><a href="README.zh-CN.md">简体中文</a></p>
 
 <p align="center">
-  <img src="assets/readme/2026-10/oncall-agent-hero-en.gif" alt="Alert to evidence workflow: alert intake, source retrieval, and a cited incident report." width="100%" />
+  <img src="assets/readme/2026-10/oncall-agent-hero-en.svg" width="100%" alt="oncall-agent read-only evidence flow: alert, persisted run events, versioned source snapshot, and cited report." />
 </p>
-
-<p align="center"><sub><a href="assets/readme/2026-10/oncall-agent-hero-en-static.svg">Static frame</a> · <a href="assets/readme/2026-10/oncall-agent-hero-en.svg">SVG source</a></sub></p>
 
 <p align="center">
   <img alt="Go 1.25+" src="https://img.shields.io/badge/Go-1.25%2B-00ADD8?style=flat-square&logo=go&logoColor=white" />
@@ -16,78 +12,66 @@
   <img alt="Apache-2.0 license" src="https://img.shields.io/badge/License-Apache--2.0-58c8a0?style=flat-square" />
 </p>
 
-> A read-only evidence workspace for incident diagnosis. Follow an alert through durable run events and source retrieval to a report with citations responders can inspect.
+> A read-only evidence workspace for incident diagnosis. Follow an alert through persisted run events and source snapshots to a report responders can inspect.
 
-> [!NOTE]
-> M0–M2 are implemented. M3 global exploration is deferred.
+> **Status:** M0–M2 are implemented. M3 global exploration is deferred.
 
-## 🧭 From alert to evidence
+## A run, with its evidence
 
-`POST /alert` admits work, SQLite keeps business facts and the outbox, Redis/asynq runs the background job, and Qdrant retrieves source material. Each run retains its stage events and source snapshots for review.
+<p align="center">
+  <a href="docs/execution/evidence-workspace/m2/frontend/live/live-cited-inspector.png">
+    <img src="docs/execution/evidence-workspace/m2/frontend/live/live-cited-inspector.png" width="100%" alt="The incident workspace showing an evidence graph, a selected source snapshot in the inspector, and the persisted run timeline." />
+  </a>
+</p>
 
-```mermaid
-flowchart LR
-    Alert["Alert"] --> Admission["SQLite<br/>run + outbox"]
-    Admission --> Queue["Redis / asynq"]
-    Queue --> Retrieval["Qdrant<br/>source retrieval"]
-    Retrieval --> Report["Cited report<br/>source snapshots"]
-```
+<p align="center"><sub>Captured during the isolated L1 browser verification flow. Incident names and counts shown are test records, not production metrics or model-quality results. <a href="docs/execution/evidence-workspace/m2/frontend/verification.md">See the verification record.</a></sub></p>
 
-## 🗂️ What you can inspect
+## What stays inspectable
 
-| Area | What is visible | Boundary |
-| --- | --- | --- |
-| Incident runs | Evidence graph, source inspector, diagnosis report, and persisted stage timeline. | A `resolved` event updates lifecycle; it does not create another diagnosis or prove recovery. |
-| Knowledge | Versioned documents, compare-and-swap updates, withdrawal, and immutable citation snapshots. | Auto-ingest is off by default. Reports and incident notes do not become qualified runbooks. |
-| Topology and metrics (M2) | Source-backed topology and three restricted metric templates. | Missing samples stay `null`; impact is labeled inferred, and metrics are supporting observations rather than causal proof. |
+- **Incident runs:** ordered stage events, attempts, the evidence graph, and the resulting report. A `resolved` event updates lifecycle state; it does not launch another diagnosis or prove recovery.
+- **Sources and citations:** versioned documents and immutable source snapshots let responders inspect what a report cited. Automatic ingestion is off by default; reports and incident notes do not become qualified runbooks.
+- **Topology and metrics:** topology edges carry source references; three restricted Prometheus templates provide supporting observations. Missing samples stay `null`, and a metric does not establish cause.
 
-> [!IMPORTANT]
-> Alerts and tools are read-only. The agent does not acknowledge, silence, or remediate alerts. When relevant evidence is missing, it returns a safe no-evidence result.
+> Alerts and agent tools are read-only. The system does not acknowledge, silence, or remediate alerts. When relevant evidence is missing, it returns a no-evidence result.
 
-## 🚀 Quick start
+## How an alert moves
 
-You need Go 1.25+, a C compiler for SQLite CGO, Node 24 to build the UI, Docker Compose services, and a reachable embedding endpoint. The template selects Ollama `nomic-embed-text`; chat and judge additionally use the configured OpenAI-compatible model.
+`POST /alert` records an incident run and outbox entry in SQLite. Redis/asynq runs the background job; Qdrant retrieves source material. The run keeps its stage events and source snapshots so the final cited report can be reviewed later.
+
+## Quick start
+
+You need Go 1.25+, a C compiler for SQLite CGO, Node 24 to build the UI, Docker Compose, a reachable embedding endpoint, and a configured OpenAI-compatible chat model. The config template uses Ollama `nomic-embed-text` for embeddings; set the chat model, API base, and key in `config/config.json` (or provide `OPENAI_API_KEY`).
 
 ```sh
-# Keep an existing config and .env file.
 cp -n config/config_template.json config/config.json
-cp -n .env.example .env
-(cd web/app && npm ci && npm run build)
-docker compose up -d
-
-# Generate two distinct credentials for this local run.
+# Configure openai.model, openai.api_base, openai.api_key, and the embedding endpoint.
+export ONCALL_CONFIG="$(pwd)/config/config.json"
 export ONCALL_CONSOLE_TOKEN="$(openssl rand -hex 32)"
 export ONCALL_WEBHOOK_TOKEN="$(openssl rand -hex 32)"
-export ONCALL_LOCALHOST_HTTP=true # loopback HTTP development only
-export ONCALL_CONFIG="$PWD/config/config.json"
+export ONCALL_LOCALHOST_HTTP=true # loopback HTTP development only; omit when using TLS
+
+docker compose up -d redis qdrant prometheus
+(cd web/app && npm ci && npm run build)
 go run ./cmd/server
 ```
 
-In another terminal, `curl -fsS http://127.0.0.1:8819/ready` checks the facts store, queue, and retrieval dependency. Open [http://127.0.0.1:8819](http://127.0.0.1:8819) and enter `ONCALL_CONSOLE_TOKEN`; the console creates a short same-origin `HttpOnly` / `SameSite=Strict` session. Omit `ONCALL_LOCALHOST_HTTP` when using TLS.
+In another terminal, run `curl -fsS http://127.0.0.1:8819/ready` to check the facts store, queue, and retrieval dependency. Open [http://127.0.0.1:8819](http://127.0.0.1:8819) and enter `ONCALL_CONSOLE_TOKEN`; the console creates a short-lived same-origin session.
 
-## 🔌 Interfaces
+## Interfaces
 
-| Route | Purpose | Access |
-| --- | --- | --- |
-| `POST /alert` | Admit an alert asynchronously and return `202`. | Webhook token |
-| `/api/v1/incidents`, `/runs/{id}`, `/incidents/{id}/graph` | Inspect incidents, run events, and the evidence graph. | Console token or session |
-| `/api/v1/documents`, `/documents/{id}/versions`, `/api/v1/evidence/{id}` | Manage versioned knowledge and inspect cited sources. | Console token or session |
-| `/mcp`, `/metrics` | Read-only MCP tools and Prometheus scrape endpoint. | Authenticated |
+- `POST /alert` accepts an alert for asynchronous diagnosis and returns `202`.
+- `/api/v1` exposes incidents, runs, evidence graphs, versioned documents, and source snapshots.
+- `/mcp` serves authenticated read-only tools; `/metrics` is the authenticated Prometheus scrape endpoint.
+- Legacy `/reports`, `/plan`, `/upload`, and `/chat` routes adapt the same domain facts.
 
-The legacy `/reports`, `/plan`, `/upload`, and `/chat` routes adapt the same domain facts. Production serves the built React app from Go; it does not run Node or Vite.
+Production serves the built React app from Go; it does not run Node or Vite.
 
-## 🧰 Operations and recovery
+## Operations and verification
 
-SQLite is the single-instance business fact store. Use `workspacectl inventory` and `dry-run` before migration; `backup --output` uses `VACUUM INTO` and refuses to overwrite. Stop the server before restoring, keep the original database, and never copy only the main file of an active WAL database. A different embedding space needs a new Qdrant collection; the application does not automatically delete old collections.
+SQLite is a single-instance fact store. Use `workspacectl inventory` and `dry-run` before migration, and `backup --output` before recovery. Follow the [operations guide](docs/execution/evidence-workspace/operations.md); it covers migration, backup, and rollback.
 
-See the [operations guide](docs/execution/evidence-workspace/operations.md) for migration, backup, and rollback steps.
+The [verification record](docs/execution/evidence-workspace/verification.md) separates static checks, explicit fake-provider tests, external-service integration, and browser evidence. Real-model quality (L4), multi-instance operation, and production throughput were not evaluated.
 
-## 🧪 Verification and limits
+## Project documents
 
-The [verification record](docs/execution/evidence-workspace/verification.md) separates static checks, explicit fake-provider tests, external-service integration, and browser evidence. Go tests, race checks, vet, build, web typecheck/tests, browser flows, and the isolated container smoke are recorded there. Real-model quality (L4), multi-instance operation, and production throughput were not evaluated.
-
-## 📚 Project documents
-
-[API contract](docs/api/workspace.openapi.yaml) · [M0–M2 milestones](docs/execution/evidence-workspace/milestones.md) · [Roadmap](docs/ROADMAP.md)
-
-[License: Apache-2.0](LICENSE)
+[API contract](docs/api/workspace.openapi.yaml) · [M0–M2 milestones](docs/execution/evidence-workspace/milestones.md) · [Roadmap](docs/ROADMAP.md) · [Apache-2.0 license](LICENSE)

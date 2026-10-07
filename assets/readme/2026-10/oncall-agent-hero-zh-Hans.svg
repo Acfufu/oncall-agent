@@ -1,45 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc" data-readme-language="zh-Hans">
-<title id="title">oncall-agent 告警诊断流程</title>
-<desc id="desc">oncall-agent 证据工作台将告警串联到证据检索与引用报告。</desc>
-<rect x="0" y="0" width="1200" height="420" fill="#07111c"/>
-<rect x="18" y="18" width="1164" height="384" rx="20" fill="#091521" stroke="#20354c" stroke-width="2"/>
-<svg x="72" y="105" width="48" height="54" viewBox="0 0 32 36" aria-hidden="true"><path d="M16 3L3 28h11M16 3l13 25H18M9 28l7-12" fill="none" stroke="#eff4fc" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/></svg>
-<text x="144" y="132" font-family="system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" fill="#eff4fc">
-  <tspan font-size="42" font-weight="700">oncall-agent</tspan>
-  <tspan x="144" dy="42" font-size="21" font-weight="500" fill="#aebfd3">以证据串起告警、检索与报告</tspan>
-</text>
-<path d="M470 72V348" stroke="#20354c" stroke-width="2"/>
-<g id="flow-cards" font-family="system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">
-  <rect x="510" y="112" width="170" height="190" rx="18" fill="#0b1826" stroke="#20354c" stroke-width="2"/>
-  <rect x="750" y="112" width="170" height="190" rx="18" fill="#0b1826" stroke="#20354c" stroke-width="2"/>
-  <rect x="990" y="112" width="170" height="190" rx="18" fill="#0b1826" stroke="#20354c" stroke-width="2"/>
-  <path d="M684 208H744" fill="none" stroke="#385878" stroke-width="3" stroke-linecap="round"/>
-  <path d="M736 201L746 208L736 215" fill="none" stroke="#60a5fa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M924 208H984" fill="none" stroke="#385878" stroke-width="3" stroke-linecap="round"/>
-  <path d="M976 201L986 208L976 215" fill="none" stroke="#60a5fa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <g fill="none" stroke="#60a5fa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M585 170L605 206H565Z"/>
-    <path d="M585 181V192"/>
-    <circle cx="585" cy="199" r="1.5" fill="#60a5fa" stroke="none"/>
-    <path d="M805 164H842L855 177V218H805Z"/>
-    <path d="M842 164V178H855M814 188H846M814 198H846M814 208H837"/>
-    <path d="M1047 164H1084L1097 177V218H1047Z"/>
-    <path d="M1084 164V178H1097M1057 190H1087M1057 201H1080M1057 211L1063 217L1074 204"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="title desc">
+  <title id="title">oncall-agent 事故证据工作台</title>
+  <desc id="desc">只读事故证据流程：告警、持久化运行事件、版本化来源快照和带引用的报告。</desc>
+  <rect width="1200" height="400" rx="20" fill="#08121e"/>
+  <rect x="1" y="1" width="1198" height="398" rx="19" fill="none" stroke="#263a50" stroke-width="2"/>
+
+  <text x="64" y="64" fill="#77b9ff" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" font-weight="600" letter-spacing="2">事故证据工作台 / 只读</text>
+  <text x="64" y="143" fill="#eef4fb" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="64" font-weight="720" letter-spacing="-2">oncall-agent</text>
+  <text x="64" y="190" fill="#b3c3d5" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" font-size="25" font-weight="450">追踪每次运行、来源快照与引用。</text>
+
+  <path d="M143 278H416M464 278H736M784 278H1056" fill="none" stroke="#38536e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M407 270L417 278L407 286M727 270L737 278L727 286M1047 270L1057 278L1047 286" fill="none" stroke="#77b9ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g id="alert" transform="translate(120 278)">
+    <circle r="25" fill="#211e18" stroke="#f3b34b" stroke-width="2.5"/>
+    <path d="M0 -12L-11 9H11Z" fill="none" stroke="#f3b34b" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M0 -5V1M0 5V5.5" stroke="#f3b34b" stroke-width="2.4" stroke-linecap="round"/>
   </g>
-  <text x="595" y="264" text-anchor="middle" font-size="20" font-weight="700" letter-spacing="1" fill="#eff4fc">告警</text>
-  <text x="835" y="264" text-anchor="middle" font-size="20" font-weight="700" letter-spacing="1" fill="#eff4fc">证据</text>
-  <text x="1075" y="264" text-anchor="middle" font-size="20" font-weight="700" letter-spacing="1" fill="#eff4fc">报告</text>
-</g>
-<g id="phase-alert" fill="none" stroke="#60a5fa" stroke-width="2.5" opacity="0.85">
-  <circle cx="595" cy="194" r="39"/>
-  <circle cx="595" cy="194" r="46" opacity="0.28"/>
-</g>
-<g id="phase-evidence" fill="none" stroke="#60a5fa" stroke-width="2.5" opacity="0.85">
-  <circle cx="835" cy="194" r="39"/>
-  <circle cx="835" cy="194" r="46" opacity="0.28"/>
-</g>
-<g id="phase-report" fill="none" stroke="#60a5fa" stroke-width="2.5" opacity="0.85">
-  <circle cx="1075" cy="194" r="39"/>
-  <circle cx="1075" cy="194" r="46" opacity="0.28"/>
-</g>
+  <g id="run-events" transform="translate(440 278)">
+    <circle r="25" fill="#111e2c" stroke="#5aa9ff" stroke-width="2.5"/>
+    <rect x="-10" y="-12" width="20" height="24" rx="2" fill="none" stroke="#5aa9ff" stroke-width="2"/>
+    <path d="M-5 -5H5M-5 0H5M-5 5H2" stroke="#5aa9ff" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g id="source-snapshot" transform="translate(760 278)">
+    <circle r="25" fill="#102426" stroke="#45c6c8" stroke-width="2.5"/>
+    <path d="M-9 -12H4L10 -6V12H-9Z" fill="none" stroke="#45c6c8" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M4 -12V-6H10M-5 0H5M-5 5H5" fill="none" stroke="#45c6c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="cited-report" transform="translate(1080 278)">
+    <circle r="25" fill="#1c1b2b" stroke="#aaa4ff" stroke-width="2.5"/>
+    <path d="M-9 -12H4L10 -6V12H-9Z" fill="none" stroke="#aaa4ff" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M4 -12V-6H10M-5 0H4M-5 6L-2 9L4 2" fill="none" stroke="#aaa4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, sans-serif" text-anchor="middle">
+    <text x="120" y="333" fill="#eef4fb" font-size="21" font-weight="650">告警</text>
+    <text x="440" y="333" fill="#eef4fb" font-size="21" font-weight="650">运行事件</text>
+    <text x="760" y="333" fill="#eef4fb" font-size="21" font-weight="650">来源快照</text>
+    <text x="1080" y="333" fill="#eef4fb" font-size="21" font-weight="650">带引用的报告</text>
+    <text x="120" y="361" fill="#91a6bd" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" letter-spacing="1">已接收</text>
+    <text x="440" y="361" fill="#91a6bd" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" letter-spacing="1">已持久化</text>
+    <text x="760" y="361" fill="#91a6bd" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" letter-spacing="1">有版本</text>
+    <text x="1080" y="361" fill="#91a6bd" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" letter-spacing="1">可检查</text>
+  </g>
 </svg>
