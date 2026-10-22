@@ -1,0 +1,6 @@
+COMMAND: tsc --noEmit --strict --target ES2022 --lib ES2022 contracts/domain.ts
+Version 5.8.3
+EXIT_CODE: 0
+
+Scope: standalone proposed domain contract, NOT the application build.
+[3J

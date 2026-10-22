@@ -1,0 +1,15 @@
+PASS fixture schema and semantic checks: 01-evidence-ready.json
+PASS fixture schema and semantic checks: 02-no-evidence.json
+PASS fixture schema and semantic checks: 03-source-unavailable.json
+PASS fixture schema and semantic checks: 04-retry-succeeded.json
+PASS fixture schema and semantic checks: 05-resolved.json
+PASS fixture schema and semantic checks: 06-partial-graph.json
+PASS fixture schema and semantic checks: 07-notification-pending.json
+PASS fixture schema and semantic checks: 08-hypothesis-with-sources.json
+PASS task DAG: T00 -> T01 -> T02 -> T06 -> T13 -> T03 -> T05 -> T11 -> T04 -> T07 -> T08 -> T17 -> T09 -> T10 -> T12 -> T14 -> T15 -> T16 -> T18 -> T19 -> T20 -> T21 -> T22 -> T23
+PASS original concept image checksum
+PASS local Markdown links and source IDs
+PASS payload SHA-256 manifest
+
+PASS: 1039 package-only checks; 8 fixtures; 24 tasks.
+This does NOT certify application implementation, application tests, visual fidelity, or model quality.

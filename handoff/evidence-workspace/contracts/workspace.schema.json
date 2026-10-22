@@ -1,0 +1,837 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:oncall-agent:workspace-fixture:1.0",
+  "title": "WorkspaceFixture (extends proposed WorkspaceSnapshot)",
+  "description": "Composite deterministic fixture schema. fixture_id and fixture_phase are fixture-only, not required fields of live REST resources.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ]
+    },
+    "fixture_id": {
+      "type": "string"
+    },
+    "fixture_phase": {
+      "type": "string",
+      "enum": [
+        "M1",
+        "M2"
+      ]
+    },
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "incident": {
+      "$ref": "#/$defs/Incident"
+    },
+    "run": {
+      "$ref": "#/$defs/Run"
+    },
+    "graph": {
+      "$ref": "#/$defs/Graph"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Event"
+      }
+    },
+    "summary": {
+      "$ref": "#/$defs/Summary"
+    }
+  },
+  "required": [
+    "schema_version",
+    "fixture_id",
+    "fixture_phase",
+    "meta",
+    "incident",
+    "run",
+    "graph",
+    "evidence",
+    "events",
+    "summary"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "Error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "additionalProperties": false
+    },
+    "Meta": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string"
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "data_state": {
+          "type": "string",
+          "enum": [
+            "fresh",
+            "stale",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "live",
+            "demo"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "request_id",
+        "as_of",
+        "data_state",
+        "mode",
+        "revision",
+        "next_cursor",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "Incident": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source_namespace": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3",
+            "unknown"
+          ]
+        },
+        "lifecycle_status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "resolved",
+            "unknown"
+          ]
+        },
+        "starts_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolved_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "first_received_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "identity_quality": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "windowed"
+          ]
+        },
+        "latest_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source_namespace",
+        "environment",
+        "service",
+        "name",
+        "severity",
+        "lifecycle_status",
+        "starts_at",
+        "resolved_at",
+        "first_received_at",
+        "last_observed_at",
+        "identity_quality",
+        "latest_run_id"
+      ],
+      "additionalProperties": false
+    },
+    "Run": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "incident_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "dispatch_state": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "enqueued",
+            "none"
+          ]
+        },
+        "evidence_status": {
+          "type": "string",
+          "enum": [
+            "not_evaluated",
+            "has_citations",
+            "no_evidence",
+            "source_unavailable"
+          ]
+        },
+        "notification_status": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "pending",
+            "sent",
+            "failed"
+          ]
+        },
+        "judge_score": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "received_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "report_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "citation_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "incident_ids",
+        "status",
+        "dispatch_state",
+        "evidence_status",
+        "notification_status",
+        "judge_score",
+        "received_at",
+        "started_at",
+        "finished_at",
+        "duration_ms",
+        "current_attempt",
+        "revision",
+        "report_text",
+        "citation_ids",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "Evidence": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "document_chunk",
+            "retrieval",
+            "report",
+            "metric_observation",
+            "alert_observation",
+            "topology",
+            "annotation"
+          ]
+        },
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "demo",
+            "upload",
+            "incident",
+            "prometheus",
+            "manual",
+            "system"
+          ]
+        },
+        "source_ref": {
+          "type": "string"
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chunk_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "snippet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "source_kind",
+        "source_ref",
+        "recorded_at",
+        "observed_at",
+        "document_id",
+        "version_id",
+        "chunk_id",
+        "snippet",
+        "metadata"
+      ],
+      "additionalProperties": false
+    },
+    "Node": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "incident",
+            "alert",
+            "retrieval",
+            "document_chunk",
+            "report",
+            "service",
+            "metric_observation",
+            "hypothesis"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "entity_ref": {
+          "type": "string"
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "verification": {
+          "type": "string",
+          "enum": [
+            "not_applicable",
+            "unverified",
+            "confirmed",
+            "rejected"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "label",
+        "subtitle",
+        "entity_ref",
+        "source_refs",
+        "verification"
+      ],
+      "additionalProperties": false
+    },
+    "Edge": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "relation": {
+          "type": "string",
+          "enum": [
+            "contains",
+            "triggered",
+            "retrieved",
+            "cites",
+            "produced",
+            "observed_on",
+            "depends_on",
+            "suggests",
+            "possibly_supports"
+          ]
+        },
+        "basis": {
+          "type": "string",
+          "enum": [
+            "recorded",
+            "declared",
+            "observed",
+            "inferred"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "verification": {
+          "type": "string",
+          "enum": [
+            "not_applicable",
+            "unverified",
+            "confirmed",
+            "rejected"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target",
+        "relation",
+        "basis",
+        "source_refs",
+        "recorded_at",
+        "verification"
+      ],
+      "additionalProperties": false
+    },
+    "Graph": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "incident_id": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Edge"
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "omitted_counts": {
+          "type": "object",
+          "properties": {
+            "nodes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "edges": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "nodes",
+            "edges"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "incident_id",
+        "run_id",
+        "nodes",
+        "edges",
+        "truncated",
+        "omitted_counts"
+      ],
+      "additionalProperties": false
+    },
+    "Event": {
+      "type": "object",
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "receive",
+            "queue",
+            "retrieval",
+            "report",
+            "judge",
+            "notification"
+          ]
+        },
+        "stage_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "started",
+            "succeeded",
+            "failed",
+            "skipped",
+            "cancelled"
+          ]
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "event_id",
+        "run_id",
+        "attempt",
+        "sequence",
+        "stage",
+        "stage_attempt",
+        "kind",
+        "occurred_at",
+        "duration_ms",
+        "result_ref",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "Summary": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "selected_incident"
+          ]
+        },
+        "active_incidents": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "no_evidence_incidents": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "succeeded_runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cited_succeeded_runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mean_diagnosis_ms": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "scope",
+        "active_incidents",
+        "no_evidence_incidents",
+        "succeeded_runs",
+        "cited_succeeded_runs",
+        "mean_diagnosis_ms"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

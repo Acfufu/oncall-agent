@@ -1,0 +1,11 @@
+CHECK image CRC, SHA-256, dimensions, source and tasks: UI-S01 仪表盘
+CHECK image CRC, SHA-256, dimensions, source and tasks: UI-S02 事件工作台
+CHECK image CRC, SHA-256, dimensions, source and tasks: UI-S03 证据图谱
+CHECK image CRC, SHA-256, dimensions, source and tasks: UI-S04 指标联动
+CHECK image CRC, SHA-256, dimensions, source and tasks: UI-S05 知识库
+CHECK image CRC, SHA-256, dimensions, source and tasks: UI-S06 评测
+CHECK image CRC, SHA-256, dimensions, source and tasks: UI-S07 设置
+
+PASS: seven unique original PNGs, file CRC/SHA-256, dimensions, sources, page guidance, task links and offline gallery.
+PASS: all 41 v1.0 file paths retained; contracts, eight fixtures, audit reproductions and design tokens unchanged.
+Scope: packaged design references only; NOT rendered application fidelity, runtime tests, mobile coverage or feature completion.

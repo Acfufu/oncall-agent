@@ -1,0 +1,116 @@
+{
+  "compiled_on": "2026-10-05",
+  "baseline_commit": "2e97742aae610b52535999a9851683320c349c6e",
+  "source_policy": "Primary sources; repository audit is historical static/reproduction evidence, not runtime certification.",
+  "sources": [
+    {
+      "id": "SRC-01",
+      "url": "https://api.github.com/repos/Acfufu/oncall-agent/branches/main",
+      "verified_head": "2e97742aae610b52535999a9851683320c349c6e",
+      "accessed_on": "2026-10-05"
+    },
+    {
+      "id": "SRC-02",
+      "path": "reference/audit/REVIEW.zh-CN.md",
+      "scope": "historical audit plus attached excerpt reproductions"
+    },
+    {
+      "id": "SRC-03",
+      "path": "design/reference/ui-concept-original.png",
+      "sha256": "2b05934fbe6a9adcb9de9eace7422114e6aa4160972b6b2dfe19e84f23b2e4ea",
+      "width": 1586,
+      "height": 992
+    },
+    {
+      "id": "SRC-04",
+      "url": "https://github.com/semantica-agi/semantica",
+      "accessed_on": "2026-10-05"
+    },
+    {
+      "id": "SRC-05",
+      "url": "https://github.com/semantica-agi/semantica/blob/main/explorer/README.md",
+      "accessed_on": "2026-10-05"
+    },
+    {
+      "id": "SRC-06",
+      "url": "https://github.com/Acfufu/oncall-agent/blob/2e97742aae610b52535999a9851683320c349c6e/AGENTS.md",
+      "accessed_on": "2026-10-05"
+    },
+    {
+      "id": "SRC-07",
+      "url": "https://reactflow.dev/learn/layouting/layouting",
+      "accessed_on": "2026-10-05"
+    },
+    {
+      "id": "SRC-08",
+      "url": "https://github.com/Acfufu/oncall-agent/blob/2e97742aae610b52535999a9851683320c349c6e/internal/agent/planner.go",
+      "additional_paths": [
+        "internal/handler/alert.go",
+        "internal/rag/rag.go",
+        "web/console.html"
+      ],
+      "scope": "repository excerpts read in prior conversation; pinned source paths"
+    },
+    {
+      "id": "SRC-09",
+      "url": "https://prometheus.io/docs/prometheus/latest/querying/api/",
+      "accessed_on": "2026-10-05"
+    },
+    {
+      "path": "design/reference/01-dashboard.png",
+      "sha256": "02eb84053beb71aaf9e619e838856db4d3fac2151f64848935715dfec8a29f7e",
+      "width": 1586,
+      "height": 992,
+      "source_attachment_name": "深色霓虹运维监控仪表盘.png",
+      "id": "SRC-10",
+      "scope": "conversation-generated visual reference only; not production data or approved added capability"
+    },
+    {
+      "path": "design/reference/03-evidence-graph.png",
+      "sha256": "9cafff750d2bc1d76a17df81b05717e66a4908b64c15f5c86f3571fbe4336764",
+      "width": 1586,
+      "height": 992,
+      "source_attachment_name": "霓虹证据图谱故障分析界面.png",
+      "id": "SRC-11",
+      "scope": "conversation-generated visual reference only; not production data or approved added capability"
+    },
+    {
+      "path": "design/reference/04-metrics.png",
+      "sha256": "01a91f48f9f5b6bab8a264e3a1d8a38aae7f0f791fc5e31a2f8febdd0a3642c3",
+      "width": 1586,
+      "height": 992,
+      "source_attachment_name": "oncall_agent_指标联动分析仪表盘.png",
+      "id": "SRC-12",
+      "scope": "conversation-generated visual reference only; not production data or approved added capability"
+    },
+    {
+      "path": "design/reference/05-knowledge-base.png",
+      "sha256": "c88fa974f18084edcb023a06ee9048f2b04926a0f655bf92ad9d7c74c9ef0aa5",
+      "width": 1586,
+      "height": 992,
+      "source_attachment_name": "霓虹深海知识库控制台.png",
+      "id": "SRC-13",
+      "scope": "conversation-generated visual reference only; not production data or approved added capability"
+    },
+    {
+      "path": "design/reference/06-evaluation.png",
+      "sha256": "0f3e70fa89759ab21eaec4da8f2dcbee7db9f10c37b7aa65031dec192e5d0ccb",
+      "width": 1586,
+      "height": 992,
+      "source_attachment_name": "深色霓虹风智能评测控制台.png",
+      "id": "SRC-14",
+      "scope": "conversation-generated visual reference only; not production data or approved added capability"
+    },
+    {
+      "path": "design/reference/07-settings.png",
+      "sha256": "ac1461bdd1e28c4774be58a023a503f7a5d27cc79bec1a75438ff58da0a6793f",
+      "width": 1586,
+      "height": 992,
+      "source_attachment_name": "深色智能值班系统设置面板.png",
+      "id": "SRC-15",
+      "scope": "conversation-generated visual reference only; not production data or approved added capability"
+    }
+  ],
+  "handoff_version": "1.1",
+  "update_scope": "v1.1: packaged six additional conversation images; no new remote repository verification."
+}

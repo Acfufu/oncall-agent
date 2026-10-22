@@ -1,0 +1,476 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "resolved",
+  "fixture_phase": "M1",
+  "meta": {
+    "request_id": "fixture:resolved",
+    "as_of": "2026-10-05T14:29:16.000Z",
+    "data_state": "fresh",
+    "mode": "demo",
+    "revision": 7,
+    "next_cursor": null,
+    "truncated": false
+  },
+  "incident": {
+    "id": "inc_demo_payment_01",
+    "source_namespace": "fixture-alertmanager",
+    "environment": "demo-prod",
+    "service": "payment-service",
+    "name": "支付服务5xx错误率上升",
+    "severity": "P0",
+    "lifecycle_status": "resolved",
+    "starts_at": "2026-10-05T14:28:11.000Z",
+    "resolved_at": "2026-10-05T14:29:11.000Z",
+    "first_received_at": "2026-10-05T14:28:11.000Z",
+    "last_observed_at": "2026-10-05T14:29:11.000Z",
+    "identity_quality": "exact",
+    "latest_run_id": "run_demo_payment_01"
+  },
+  "run": {
+    "id": "run_demo_payment_01",
+    "incident_ids": [
+      "inc_demo_payment_01"
+    ],
+    "status": "succeeded",
+    "dispatch_state": "enqueued",
+    "evidence_status": "has_citations",
+    "notification_status": "disabled",
+    "judge_score": null,
+    "received_at": "2026-10-05T14:28:11.000Z",
+    "started_at": "2026-10-05T14:28:11.320Z",
+    "finished_at": "2026-10-05T14:28:12.200Z",
+    "duration_ms": 880,
+    "current_attempt": 1,
+    "revision": 7,
+    "report_text": "本轮引用演示Runbook的检查范围和证据不足说明。当前尚未核验根因；诊断完成不表示故障恢复。",
+    "citation_ids": [
+      "ev_chunk_01",
+      "ev_chunk_02"
+    ],
+    "error": null
+  },
+  "graph": {
+    "id": "graph_demo_01",
+    "incident_id": "inc_demo_payment_01",
+    "run_id": "run_demo_payment_01",
+    "nodes": [
+      {
+        "id": "n_inc",
+        "type": "incident",
+        "label": "支付服务事件",
+        "subtitle": "来源明确报告恢复；与诊断完成独立",
+        "entity_ref": "ev_alert",
+        "source_refs": [
+          "ev_alert",
+          "ev_resolved"
+        ],
+        "verification": "not_applicable"
+      },
+      {
+        "id": "n_alert",
+        "type": "alert",
+        "label": "5xx 错误率升高",
+        "subtitle": "Payment5xxHigh",
+        "entity_ref": "ev_alert",
+        "source_refs": [
+          "ev_alert"
+        ],
+        "verification": "not_applicable"
+      },
+      {
+        "id": "n_search",
+        "type": "retrieval",
+        "label": "检索记录",
+        "subtitle": "2条本轮合格来源",
+        "entity_ref": "ev_retrieval",
+        "source_refs": [
+          "ev_retrieval"
+        ],
+        "verification": "not_applicable"
+      },
+      {
+        "id": "n_doc1",
+        "type": "document_chunk",
+        "label": "检查范围",
+        "subtitle": "Runbook v3 · chunk 1",
+        "entity_ref": "ev_chunk_01",
+        "source_refs": [
+          "ev_chunk_01"
+        ],
+        "verification": "unverified"
+      },
+      {
+        "id": "n_doc2",
+        "type": "document_chunk",
+        "label": "证据不足",
+        "subtitle": "Runbook v3 · chunk 2",
+        "entity_ref": "ev_chunk_02",
+        "source_refs": [
+          "ev_chunk_02"
+        ],
+        "verification": "unverified"
+      },
+      {
+        "id": "n_report",
+        "type": "report",
+        "label": "初步诊断报告",
+        "subtitle": "任务完成 ≠ 故障恢复",
+        "entity_ref": "ev_report",
+        "source_refs": [
+          "ev_report"
+        ],
+        "verification": "unverified"
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "n_inc",
+        "target": "n_alert",
+        "relation": "contains",
+        "basis": "recorded",
+        "source_refs": [
+          "ev_alert"
+        ],
+        "recorded_at": "2026-10-05T14:28:11.000Z",
+        "verification": "not_applicable"
+      },
+      {
+        "id": "e2",
+        "source": "n_alert",
+        "target": "n_search",
+        "relation": "triggered",
+        "basis": "recorded",
+        "source_refs": [
+          "ev_retrieval"
+        ],
+        "recorded_at": "2026-10-05T14:28:11.320Z",
+        "verification": "not_applicable"
+      },
+      {
+        "id": "e3",
+        "source": "n_search",
+        "target": "n_doc1",
+        "relation": "retrieved",
+        "basis": "recorded",
+        "source_refs": [
+          "ev_retrieval"
+        ],
+        "recorded_at": "2026-10-05T14:28:12.000Z",
+        "verification": "not_applicable"
+      },
+      {
+        "id": "e4",
+        "source": "n_search",
+        "target": "n_doc2",
+        "relation": "retrieved",
+        "basis": "recorded",
+        "source_refs": [
+          "ev_retrieval"
+        ],
+        "recorded_at": "2026-10-05T14:28:12.000Z",
+        "verification": "not_applicable"
+      },
+      {
+        "id": "e5",
+        "source": "n_search",
+        "target": "n_report",
+        "relation": "produced",
+        "basis": "recorded",
+        "source_refs": [
+          "ev_report"
+        ],
+        "recorded_at": "2026-10-05T14:28:12.200Z",
+        "verification": "not_applicable"
+      },
+      {
+        "id": "e6",
+        "source": "n_report",
+        "target": "n_doc1",
+        "relation": "cites",
+        "basis": "recorded",
+        "source_refs": [
+          "ev_report"
+        ],
+        "recorded_at": "2026-10-05T14:28:12.200Z",
+        "verification": "not_applicable"
+      },
+      {
+        "id": "e7",
+        "source": "n_report",
+        "target": "n_doc2",
+        "relation": "cites",
+        "basis": "recorded",
+        "source_refs": [
+          "ev_report"
+        ],
+        "recorded_at": "2026-10-05T14:28:12.200Z",
+        "verification": "not_applicable"
+      }
+    ],
+    "truncated": false,
+    "omitted_counts": {
+      "nodes": 0,
+      "edges": 0
+    }
+  },
+  "evidence": [
+    {
+      "id": "ev_alert",
+      "kind": "alert_observation",
+      "source_kind": "demo",
+      "source_ref": "fixture:ev_alert",
+      "recorded_at": "2026-10-05T14:28:11.000Z",
+      "observed_at": "2026-10-05T14:28:11.000Z",
+      "document_id": null,
+      "version_id": null,
+      "chunk_id": null,
+      "snippet": "支付服务演示告警：5xx 错误率升高。",
+      "metadata": {
+        "synthetic": true,
+        "labels": {
+          "alertname": "Payment5xxHigh",
+          "service": "payment-service",
+          "environment": "demo-prod"
+        },
+        "starts_at": "2026-10-05T14:28:11.000Z"
+      }
+    },
+    {
+      "id": "ev_retrieval",
+      "kind": "retrieval",
+      "source_kind": "system",
+      "source_ref": "fixture:ev_retrieval",
+      "recorded_at": "2026-10-05T14:28:12.000Z",
+      "observed_at": null,
+      "document_id": null,
+      "version_id": null,
+      "chunk_id": null,
+      "snippet": "本次检索召回2个演示文档片段。",
+      "metadata": {
+        "synthetic": true,
+        "query": "Payment5xxHigh 支付服务5xx错误率升高",
+        "retrieval_id": "retrieval_demo_01",
+        "incident_id": "inc_demo_payment_01",
+        "run_id": "run_demo_payment_01",
+        "eligible_chunk_ids": [
+          "chunk_demo_v3_01",
+          "chunk_demo_v3_02"
+        ]
+      }
+    },
+    {
+      "id": "ev_chunk_01",
+      "kind": "document_chunk",
+      "source_kind": "demo",
+      "source_ref": "document:doc_demo_payment@version_demo_v3#chunk_demo_v3_01",
+      "recorded_at": "2026-10-05T13:28:11.000Z",
+      "observed_at": null,
+      "document_id": "doc_demo_payment",
+      "version_id": "version_demo_v3",
+      "chunk_id": "chunk_demo_v3_01",
+      "snippet": "## 检查范围\n先确认错误率、请求量与依赖指标的同一时间范围；仅凭相关性不能判定根因。",
+      "metadata": {
+        "synthetic": true,
+        "title": "支付服务故障排查（演示）",
+        "active_version": true,
+        "review_status": "unverified"
+      }
+    },
+    {
+      "id": "ev_chunk_02",
+      "kind": "document_chunk",
+      "source_kind": "demo",
+      "source_ref": "document:doc_demo_payment@version_demo_v3#chunk_demo_v3_02",
+      "recorded_at": "2026-10-05T13:28:11.000Z",
+      "observed_at": null,
+      "document_id": "doc_demo_payment",
+      "version_id": "version_demo_v3",
+      "chunk_id": "chunk_demo_v3_02",
+      "snippet": "## 证据不足\n没有相关观测时交由人工研判；不得据此直接修改服务配置。",
+      "metadata": {
+        "synthetic": true,
+        "title": "支付服务故障排查（演示）",
+        "active_version": true,
+        "review_status": "unverified"
+      }
+    },
+    {
+      "id": "ev_report",
+      "kind": "report",
+      "source_kind": "system",
+      "source_ref": "fixture:ev_report",
+      "recorded_at": "2026-10-05T14:28:12.200Z",
+      "observed_at": null,
+      "document_id": null,
+      "version_id": null,
+      "chunk_id": null,
+      "snippet": "本报告引用演示Runbook的检查范围与证据不足说明，不确认根因。",
+      "metadata": {
+        "synthetic": true,
+        "run_id": "run_demo_payment_01",
+        "citation_ids": [
+          "ev_chunk_01",
+          "ev_chunk_02"
+        ]
+      }
+    },
+    {
+      "id": "ev_resolved",
+      "kind": "alert_observation",
+      "source_kind": "demo",
+      "source_ref": "fixture:ev_resolved",
+      "recorded_at": "2026-10-05T14:29:11.000Z",
+      "observed_at": "2026-10-05T14:29:11.000Z",
+      "document_id": null,
+      "version_id": null,
+      "chunk_id": null,
+      "snippet": "来源报告该告警已恢复（演示）。",
+      "metadata": {
+        "synthetic": true,
+        "status": "resolved",
+        "ends_at": "2026-10-05T14:29:11.000Z"
+      }
+    }
+  ],
+  "events": [
+    {
+      "event_id": "evt_001",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 1,
+      "stage": "receive",
+      "stage_attempt": 1,
+      "kind": "started",
+      "occurred_at": "2026-10-05T14:28:11.000Z",
+      "duration_ms": null,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_002",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 2,
+      "stage": "receive",
+      "stage_attempt": 1,
+      "kind": "succeeded",
+      "occurred_at": "2026-10-05T14:28:11.120Z",
+      "duration_ms": 120,
+      "result_ref": "ev_alert",
+      "error": null
+    },
+    {
+      "event_id": "evt_003",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 3,
+      "stage": "queue",
+      "stage_attempt": 1,
+      "kind": "started",
+      "occurred_at": "2026-10-05T14:28:11.120Z",
+      "duration_ms": null,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_004",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 4,
+      "stage": "queue",
+      "stage_attempt": 1,
+      "kind": "succeeded",
+      "occurred_at": "2026-10-05T14:28:11.320Z",
+      "duration_ms": 200,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_005",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 5,
+      "stage": "retrieval",
+      "stage_attempt": 1,
+      "kind": "started",
+      "occurred_at": "2026-10-05T14:28:11.320Z",
+      "duration_ms": null,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_006",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 6,
+      "stage": "retrieval",
+      "stage_attempt": 1,
+      "kind": "succeeded",
+      "occurred_at": "2026-10-05T14:28:12.000Z",
+      "duration_ms": 680,
+      "result_ref": "ev_retrieval",
+      "error": null
+    },
+    {
+      "event_id": "evt_007",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 7,
+      "stage": "report",
+      "stage_attempt": 1,
+      "kind": "started",
+      "occurred_at": "2026-10-05T14:28:12.000Z",
+      "duration_ms": null,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_008",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 8,
+      "stage": "report",
+      "stage_attempt": 1,
+      "kind": "succeeded",
+      "occurred_at": "2026-10-05T14:28:12.200Z",
+      "duration_ms": 200,
+      "result_ref": "ev_report",
+      "error": null
+    },
+    {
+      "event_id": "evt_009",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 9,
+      "stage": "judge",
+      "stage_attempt": 1,
+      "kind": "skipped",
+      "occurred_at": "2026-10-05T14:28:12.200Z",
+      "duration_ms": null,
+      "result_ref": null,
+      "error": null
+    },
+    {
+      "event_id": "evt_010",
+      "run_id": "run_demo_payment_01",
+      "attempt": 1,
+      "sequence": 10,
+      "stage": "notification",
+      "stage_attempt": 1,
+      "kind": "skipped",
+      "occurred_at": "2026-10-05T14:28:12.200Z",
+      "duration_ms": null,
+      "result_ref": null,
+      "error": null
+    }
+  ],
+  "summary": {
+    "scope": "selected_incident",
+    "active_incidents": 0,
+    "no_evidence_incidents": 0,
+    "succeeded_runs": 1,
+    "cited_succeeded_runs": 1,
+    "mean_diagnosis_ms": 880
+  }
+}
